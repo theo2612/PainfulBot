@@ -1,5 +1,5 @@
 import os
-import random               #Import the 'random' module to generate random numbers
+import random                               #Import the 'random' module to generate random numbers
 from twitchio.ext import commands
 from dotenv import load_dotenv
 
@@ -57,8 +57,8 @@ class Bot(commands.Bot):
         """
         Responds with a greeting when a user types '~hello' in chat.
         Parameters:
-        - ctx (Context): The context in which the command was invoked, 
-        containing information about the message and channel.
+            - ctx (Context): The context in which the command was invoked, 
+            containing information about the message and channel.
         """
         # Send a greeting message in the chat, mentioning the user who invoked the command
         await ctx.send(f'Hello @{ctx.author.name}!')
@@ -68,11 +68,21 @@ class Bot(commands.Bot):
         """
         Simulates rolling a 20-sided die when a user types '~d20' in chat.
         Parameters:
-        - ctx (Context): The context in which the command was invoked.
+            - ctx (Context): The context in which the command was invoked.
         """
         # Sends a message in chat with the result of a d20 die
         num = random.randint(1,20)  #Generate a random integer between 1 and 20 inclusive
         await ctx.send(f'@{ctx.author.name} you rolled a {num}')    # Sends message to chat with result
+
+    @commands.command(name='coinflip')
+    async def coinflip(self, ctx):
+        """
+        Simulates flipping a coin when a user types '~coinflip' in chat.
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+        """
+        result = random.choice(['Heads', 'Tails'])
+        await ctx.send(f'@{ctx.author.name}, the coin landed on {result}!')
 
 
 # Entry point of the script
