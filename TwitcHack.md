@@ -1,5 +1,11 @@
 ## TwitcHack
 
+- add ~angy function 
+
+- how do I read users in chat?
+- how do I assign
+
+
 - **Points System**
 	- Players earn points/items for successful attacks
 		- Successful attacks with be determined randomly
