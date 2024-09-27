@@ -68,7 +68,7 @@ class Bot(commands.Bot):
 
 
 ###################################################################
-# COMMANDS #
+# ChatBot COMMANDS #
 ###################################################################
 
     @commands.command(name='hello')
@@ -102,6 +102,10 @@ class Bot(commands.Bot):
         """
         result = random.choice(['Heads', 'Tails'])
         await ctx.send(f'@{ctx.author.name}, the coin landed on {result}!')
+
+###################################################################
+# TwitcHack COMMANDS #
+###################################################################
 
     @commands.command(name='start')
     async def start(self, ctx):
@@ -138,13 +142,13 @@ class Bot(commands.Bot):
         
         # Check if the user is registered
         if username not in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing')
+            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
             return
 
         # If no location is provided, display the current location
         if not location:
             current_location = self.player_data[username].get('location', 'home')
-            await ctx.send(f'@{ctx.author.name},you are currently at {current_location.}')
+            await ctx.send(f'@{ctx.author.name}, you are currently at {current_location}.')
             return
 
         # List of valid locations
@@ -153,10 +157,45 @@ class Bot(commands.Bot):
         if location.lower() in valid_locations:
             # Update the player's location
             self.player_data[username]['location'] = location.lower()
-            self.save_player_data()     #Save the updated player data
+            self.save_player_data()  # Save the updated player data
             await ctx.send(f'@{ctx.author.name}, you have moved to {location}!')
         else:
             await ctx.send(f'@{ctx.author.name}, invalid location. Valid locations are: {", ".join(valid_locations)}.')
+
+    @commands.command(name='phish')
+    async def phish(self, ctx):
+        """
+        Performs a phishing attack if the player is at the 'email' location.
+        Parameters:
+        - ctx (Context): The context in which the command was invoked.
+        """
+        username = ctx.author.name.lower()
+
+        # Check if the user is registered
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
+            return
+
+        # Check if the player is at the 'email' location
+        current_location = self.player_data[username].get('location', 'home')
+        if current_location != 'email':
+            await ctx.send(f'@{ctx.author.name}, you need to be at the email location to perform phishing.')
+            return
+
+        # Simulate phishing success or failure
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(20, 60)
+            self.player_data[username]['points'] += points_earned
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, phishing successful! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(10, 30)
+            self.player_data[username]['points'] -= points_lost
+            if self.player_data[username]['points'] < 0:
+                self.player_data[username]['points'] = 0
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.')
 
 
 
@@ -165,5 +204,5 @@ if __name__ == '__main__':
     # Create an instance of your bot
     bot = Bot()
     # Run the bot, which connects it to Twitch
-    ]bot.run()
+    bot.run()
 
