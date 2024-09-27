@@ -1,5 +1,6 @@
 import os
 import random                               #Import the 'random' module to generate random numbers
+import json
 from twitchio.ext import commands
 from dotenv import load_dotenv
 
@@ -27,6 +28,19 @@ class Bot(commands.Bot):
             initial_channels=[CHANNEL]       # The channel(s) the bot should join upon connecting
         )
 
+        # Load player data from a JSON file
+        try:
+            with open('player_data.json', 'r') as f:    # Attempts to open file and load data
+                self.player_data = json.load(f)         # Dictionary to hold all the player data
+        except FileNotFoundError:
+            self.player_data = {}
+
+    def save_player_data(self):
+        """Saves the player data to a JSON file."""
+        with open('player_data.json', 'w') as f:
+            json.dump(self.player_data, f, indent=4)
+
+
     async def event_ready(self):
         """
         Called once when the bot successfully connects to Twitch.
@@ -51,6 +65,11 @@ class Bot(commands.Bot):
 
         # Process commands if any
         await self.handle_commands(message)
+
+
+###################################################################
+# COMMANDS #
+###################################################################
 
     @commands.command(name='hello')
     async def hello(self, ctx):
@@ -84,11 +103,67 @@ class Bot(commands.Bot):
         result = random.choice(['Heads', 'Tails'])
         await ctx.send(f'@{ctx.author.name}, the coin landed on {result}!')
 
+    @commands.command(name='start')
+    async def start(self, ctx):
+        """
+        Registers a new player or informs them if they are already registered.
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+        """
+        username = ctx.author.name.lower()
+
+        # Check if the user is already registered
+        if username in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, you are already registered!')
+        else:
+            # Initialize the player's data
+            self.player_data[username] = {
+                'points': 0,
+                'level': 1,
+                'items': [],
+                'location': 'home'
+            }
+            self.save_player_data()  # Save the updated player data
+            await ctx.send(f'@{ctx.author.name}, you have been registered!')
+
+    @commands.command(name='hack')
+    async def hack(self, ctx, *, location: str = None):
+        """
+        Allows a player to move to a new hacking location.
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+            - location (str): The location to move to.
+        """
+        username = ctx.author.name.lower()
+        
+        # Check if the user is registered
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing')
+            return
+
+        # If no location is provided, display the current location
+        if not location:
+            current_location = self.player_data[username].get('location', 'home')
+            await ctx.send(f'@{ctx.author.name},you are currently at {current_location.}')
+            return
+
+        # List of valid locations
+        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
+        
+        if location.lower() in valid_locations:
+            # Update the player's location
+            self.player_data[username]['location'] = location.lower()
+            self.save_player_data()     #Save the updated player data
+            await ctx.send(f'@{ctx.author.name}, you have moved to {location}!')
+        else:
+            await ctx.send(f'@{ctx.author.name}, invalid location. Valid locations are: {", ".join(valid_locations)}.')
+
+
 
 # Entry point of the script
 if __name__ == '__main__':
     # Create an instance of your bot
     bot = Bot()
     # Run the bot, which connects it to Twitch
-    bot.run()
+    ]bot.run()
 

@@ -1,9 +1,8 @@
 ## TwitcHack
 
-- add ~angy function 
-
-- how do I read users in chat?
-- how do I assign
+- **Player Maintenance**
+    - Registering with ~start
+    - checking stats with ~inv
 
 
 - **Points System**
