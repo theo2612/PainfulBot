@@ -3,6 +3,7 @@ import random                               #Import the 'random' module to gener
 import json
 from twitchio.ext import commands
 from dotenv import load_dotenv
+from playerdata import *
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -14,42 +15,6 @@ CLIENT_SECRET = os.environ['CLIENT_SECRET'] # Your Twitch application's Client S
 TOKEN = os.environ['TOKEN']                 # OAuth token for the bot to authenticate with Twitch
 PREFIX = os.environ.get('PREFIX', '!')      # Command prefix (defaults to '!' if not set)
 CHANNEL = os.environ['CHANNEL']             # The name of the Twitch channel to join
-
-### playerdata.py file start
-class Player:
-    def __init__(self, username, level, health, items, location, points):
-        self.username = username
-        self.level = level
-        self.health = health
-        self.items = items
-        self.location = location
-        self.points = points
-
-    def to_dict(self):
-        """Converts the Player object to a dictionary for JSON serialization."""
-        return {
-            'username': self.username,
-            'level': self.level,
-            'health': self.health,
-            'items': self.items,
-            'location': self.location,
-            'points': self.points
-
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        """Creates a Player object from a dictionary."""
-        return cls(
-            username=data['username'],
-            level=data.get('level', 1),
-            health=data.get('health', 10),
-            items=data.get('items', []),
-            location=data.get('location', 'home'),
-            points=data.get('points', 0)
-
-        )
-### playerdata.py file end
 
 
 # Define a class for your bot, inheriting from twitchio's commands.Bot
@@ -75,7 +40,7 @@ class Bot(commands.Bot):
             with open('player_data.json', 'r') as f:
                 data = json.load(f)
                 for username, player_info in data.items():
-                    self.player_data[username] = Player.from_dict(player_info)
+                    self.player_data[username] = Player.from_dict(username, player_info)
         except FileNotFoundError:
             self.player_data = {}
 
@@ -180,8 +145,16 @@ class Bot(commands.Bot):
         if username in self.player_data:
             await ctx.send(f'@{ctx.author.name}, you are already registered!')
         else:
-            # Initialize the player's data
-            new_player = Player(username=username)
+            # Initialize the player's data with default values
+            new_player = Player(
+                username=username,  # Username from the chat message
+                level=1,            # Default level
+                health=10,          # Default health
+                items=[],           # Default items
+                location="home",    # Default location
+                points=0,           # Default points
+                started=0           # Default started
+            )
             self.player_data[username] = new_player
             self.save_player_data()  # Save the updated player data
             await ctx.send(f'@{ctx.author.name}, you have been registered!')

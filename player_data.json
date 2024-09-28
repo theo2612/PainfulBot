@@ -1,98 +1,155 @@
 {
     "b7h30": {
-        "points": 470,
+        "username": "b7h30",
         "level": 5,
+        "health": 10,
         "items": [],
-        "location": "email"
-    },
-    "xhacktheplanetx": {
-        "points": 1478,
-        "level": 15,
-        "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 621,
+        "started": 0
     },
     "goproslowyo": {
-        "points": 922,
+        "username": "goproslowyo",
         "level": 10,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 922,
+        "started": 0
     },
     "cypherenigma": {
-        "points": 1306,
+        "username": "cypherenigma",
         "level": 14,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 1276,
+        "started": 0
     },
     "pure_cypher": {
-        "points": 427,
+        "username": "pure_cypher",
         "level": 5,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 427,
+        "started": 0
     },
     "el_raginho": {
-        "points": 222,
+        "username": "el_raginho",
         "level": 3,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 222,
+        "started": 0
     },
     "britejess": {
-        "points": 290,
+        "username": "britejess",
         "level": 4,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 290,
+        "started": 0
     },
     "wupinyin": {
-        "points": 81,
+        "username": "wupinyin",
         "level": 2,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 81,
+        "started": 0
     },
     "points_earned": {
-        "points": 21,
+        "username": "points_earned",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 21,
+        "started": 0
     },
     "rnogumby": {
-        "points": 167,
+        "username": "rnogumby",
         "level": 2,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 167,
+        "started": 0
     },
     "tg21": {
-        "points": 1230,
+        "username": "tg21",
         "level": 13,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 1230,
+        "started": 0
     },
     "mdragons7": {
-        "points": 0,
+        "username": "mdragons7",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "home"
+        "location": "home",
+        "points": 0,
+        "started": 0
     },
     "nohusuro": {
-        "points": 57,
+        "username": "nohusuro",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "database"
+        "location": "database",
+        "points": 57,
+        "started": 0
     },
     "xmetrix": {
-        "points": 0,
+        "username": "xmetrix",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 113,
+        "started": 0
     },
     "security_live": {
-        "points": 38,
+        "username": "security_live",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "website"
+        "location": "website",
+        "points": 38,
+        "started": 0
     },
     "supergrml": {
-        "points": 0,
+        "username": "supergrml",
         "level": 1,
+        "health": 10,
         "items": [],
-        "location": "email"
+        "location": "email",
+        "points": 0,
+        "started": 0
+    },
+    "xhacktheplanetx": {
+        "username": "xhacktheplanetx",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 152,
+        "started": 0
+    },
+    "kolkhis": {
+        "username": "kolkhis",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 190,
+        "started": 0
     }
 }
