@@ -3,7 +3,6 @@ import random                               #Import the 'random' module to gener
 import json
 from twitchio.ext import commands
 from dotenv import load_dotenv
-from playerdata import *
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -15,6 +14,43 @@ CLIENT_SECRET = os.environ['CLIENT_SECRET'] # Your Twitch application's Client S
 TOKEN = os.environ['TOKEN']                 # OAuth token for the bot to authenticate with Twitch
 PREFIX = os.environ.get('PREFIX', '!')      # Command prefix (defaults to '!' if not set)
 CHANNEL = os.environ['CHANNEL']             # The name of the Twitch channel to join
+
+### playerdata.py file start
+class Player:
+    def __init__(self, username, level, health, items, location, points):
+        self.username = username
+        self.level = level
+        self.health = health
+        self.items = items
+        self.location = location
+        self.points = points
+
+    def to_dict(self):
+        """Converts the Player object to a dictionary for JSON serialization."""
+        return {
+            'username': self.username,
+            'level': self.level,
+            'health': self.health,
+            'items': self.items,
+            'location': self.location,
+            'points': self.points
+
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """Creates a Player object from a dictionary."""
+        return cls(
+            username=data['username'],
+            level=data.get('level', 1),
+            health=data.get('health', 10),
+            items=data.get('items', []),
+            location=data.get('location', 'home'),
+            points=data.get('points', 0)
+
+        )
+### playerdata.py file end
+
 
 # Define a class for your bot, inheriting from twitchio's commands.Bot
 class Bot(commands.Bot):
@@ -208,9 +244,10 @@ class Bot(commands.Bot):
             await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
             return
 
-        points = self.player_data[username]['points']
-        await ctx.send(f'@{ctx.author.name}, you have {points} points.')
-    
+        # Retrieve the Player object
+        player = self.player_data[username]
+        await ctx.send(f'@{ctx.author.name}, you have {player.points} points.')
+
     @commands.command(name='leaderboard')
     async def leaderboard(self, ctx):
         """
@@ -219,15 +256,18 @@ class Bot(commands.Bot):
             - ctx (Context): The context in which the command was invoked.
         """
         # Sort players by points in descending order
-        sorted_players = sorted(self.player_data.items(), key=lambda x: x[1]['points'], reverse=True)
+        sorted_players = sorted(
+            self.player_data.items(),
+            key=lambda item: item[1].points,
+            reverse=True
+        )
         top_players = sorted_players[:5]  # Get top 5 players
 
         leaderboard_message = 'Leaderboard:\n'
-        for idx, (username, data) in enumerate(top_players, start=1):
-            leaderboard_message += f'{idx}. {username} - {data["points"]} points. // '
+        for idx, (username, player) in enumerate(top_players, start=1):
+            leaderboard_message += f'{idx}. {username} - {player.points} points. // '
 
         await ctx.send(leaderboard_message)
-
 
     @commands.command(name='phish')
     async def phish(self, ctx):
