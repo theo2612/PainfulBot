@@ -3,6 +3,7 @@ import random                               #Import the 'random' module to gener
 import json
 from twitchio.ext import commands
 from dotenv import load_dotenv
+from playerdata import *
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -12,7 +13,7 @@ BOT_NICK = os.environ['BOT_NICK']           # The bot's Twitch username
 CLIENT_ID = os.environ['CLIENT_ID']         # Your Twitch application's Client ID
 CLIENT_SECRET = os.environ['CLIENT_SECRET'] # Your Twitch application's Client Secret
 TOKEN = os.environ['TOKEN']                 # OAuth token for the bot to authenticate with Twitch
-PREFIX = os.environ.get('PREFIX', '~')      # Command prefix (defaults to '!' if not set)
+PREFIX = os.environ.get('PREFIX', '!')      # Command prefix (defaults to '!' if not set)
 CHANNEL = os.environ['CHANNEL']             # The name of the Twitch channel to join
 
 # Define a class for your bot, inheriting from twitchio's commands.Bot
@@ -28,17 +29,40 @@ class Bot(commands.Bot):
             initial_channels=[CHANNEL]       # The channel(s) the bot should join upon connecting
         )
 
-        # Load player data from a JSON file
+        # Load player data from JSON file
+        self.player_data = {}
+        self.load_player_data()
+
+    def load_player_data(self):
+        """Loads player data from the JSON file into Player objects."""
         try:
-            with open('player_data.json', 'r') as f:    # Attempts to open file and load data
-                self.player_data = json.load(f)         # Dictionary to hold all the player data
+            with open('player_data.json', 'r') as f:
+                data = json.load(f)
+                for username, player_info in data.items():
+                    self.player_data[username] = Player.from_dict(player_info)
         except FileNotFoundError:
             self.player_data = {}
 
     def save_player_data(self):
         """Saves the player data to a JSON file."""
+        data = {username: player.to_dict() for username, player in self.player_data.items()}
         with open('player_data.json', 'w') as f:
-            json.dump(self.player_data, f, indent=4)
+            json.dump(data, f, indent=4)
+
+    def check_level_up(self, username):
+        """
+        Checks if a player has enough points to level up.
+        Parameters:
+            - username (str): The player's username.
+        """
+        points = self.player_data[username]['points']
+        level = self.player_data[username]['level']
+        # Simple leveling: 100 points per level
+        if points >= level * 100:
+            self.player_data[username]['level'] += 1
+            self.save_player_data()
+            return True
+        return False
 
 
     async def event_ready(self):
@@ -121,14 +145,21 @@ class Bot(commands.Bot):
             await ctx.send(f'@{ctx.author.name}, you are already registered!')
         else:
             # Initialize the player's data
-            self.player_data[username] = {
-                'points': 0,
-                'level': 1,
-                'items': [],
-                'location': 'home'
-            }
+            new_player = Player(username=username)
+            self.player_data[username] = new_player
             self.save_player_data()  # Save the updated player data
             await ctx.send(f'@{ctx.author.name}, you have been registered!')
+
+    @commands.command(name='help')
+    async def help(self, ctx):
+        """
+        Displays TwitcHack's commands
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+        """
+        await ctx.send(f'@{ctx.author.name}, Commands for TwitcHack are !start, !hack, !hack <location>, !phish, !points, !leaderboard.')
+   
+
 
     @commands.command(name='hack')
     async def hack(self, ctx, *, location: str = None):
@@ -145,22 +176,58 @@ class Bot(commands.Bot):
             await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
             return
 
+        player = self.player_data[username]
+
         # If no location is provided, display the current location
         if not location:
-            current_location = self.player_data[username].get('location', 'home')
-            await ctx.send(f'@{ctx.author.name}, you are currently at {current_location}.')
+            await ctx.send(f'@{ctx.author.name}, you are currently at {player.location}.')
             return
 
         # List of valid locations
         valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
-        
+
         if location.lower() in valid_locations:
             # Update the player's location
-            self.player_data[username]['location'] = location.lower()
+            player.location = location.lower()
             self.save_player_data()  # Save the updated player data
             await ctx.send(f'@{ctx.author.name}, you have moved to {location}!')
         else:
             await ctx.send(f'@{ctx.author.name}, invalid location. Valid locations are: {", ".join(valid_locations)}.')
+
+    @commands.command(name='points')
+    async def points(self, ctx):
+        """
+        Displays the player's current points.
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+        """
+        username = ctx.author.name.lower()
+
+        # Check if the user is registered
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
+            return
+
+        points = self.player_data[username]['points']
+        await ctx.send(f'@{ctx.author.name}, you have {points} points.')
+    
+    @commands.command(name='leaderboard')
+    async def leaderboard(self, ctx):
+        """
+        Displays the top players based on points. 
+        Parameters:
+            - ctx (Context): The context in which the command was invoked.
+        """
+        # Sort players by points in descending order
+        sorted_players = sorted(self.player_data.items(), key=lambda x: x[1]['points'], reverse=True)
+        top_players = sorted_players[:5]  # Get top 5 players
+
+        leaderboard_message = 'Leaderboard:\n'
+        for idx, (username, data) in enumerate(top_players, start=1):
+            leaderboard_message += f'{idx}. {username} - {data["points"]} points. // '
+
+        await ctx.send(leaderboard_message)
+
 
     @commands.command(name='phish')
     async def phish(self, ctx):
@@ -176,9 +243,10 @@ class Bot(commands.Bot):
             await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
             return
 
+        player = self.player_data[username]
+
         # Check if the player is at the 'email' location
-        current_location = self.player_data[username].get('location', 'home')
-        if current_location != 'email':
+        if player.location != 'email':
             await ctx.send(f'@{ctx.author.name}, you need to be at the email location to perform phishing.')
             return
 
@@ -186,14 +254,14 @@ class Bot(commands.Bot):
         success = random.choice([True, False])
         if success:
             points_earned = random.randint(20, 60)
-            self.player_data[username]['points'] += points_earned
+            player.points += points_earned
             self.save_player_data()
             await ctx.send(f'@{ctx.author.name}, phishing successful! You earned {points_earned} points.')
         else:
             points_lost = random.randint(10, 30)
-            self.player_data[username]['points'] -= points_lost
-            if self.player_data[username]['points'] < 0:
-                self.player_data[username]['points'] = 0
+            player.points -= points_lost
+            if player.points < 0:
+                player.points = 0
             self.save_player_data()
             await ctx.send(f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.')
 

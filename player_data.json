@@ -1,11 +1,95 @@
 {
     "b7h30": {
-        "points": 17,
-        "level": 1,
+        "points": 470,
+        "level": 5,
         "items": [],
         "location": "email"
     },
     "xhacktheplanetx": {
+        "points": 1478,
+        "level": 15,
+        "items": [],
+        "location": "email"
+    },
+    "goproslowyo": {
+        "points": 922,
+        "level": 10,
+        "items": [],
+        "location": "email"
+    },
+    "cypherenigma": {
+        "points": 1306,
+        "level": 14,
+        "items": [],
+        "location": "email"
+    },
+    "pure_cypher": {
+        "points": 427,
+        "level": 5,
+        "items": [],
+        "location": "email"
+    },
+    "el_raginho": {
+        "points": 222,
+        "level": 3,
+        "items": [],
+        "location": "email"
+    },
+    "britejess": {
+        "points": 290,
+        "level": 4,
+        "items": [],
+        "location": "email"
+    },
+    "wupinyin": {
+        "points": 81,
+        "level": 2,
+        "items": [],
+        "location": "email"
+    },
+    "points_earned": {
+        "points": 21,
+        "level": 1,
+        "items": [],
+        "location": "email"
+    },
+    "rnogumby": {
+        "points": 167,
+        "level": 2,
+        "items": [],
+        "location": "email"
+    },
+    "tg21": {
+        "points": 1230,
+        "level": 13,
+        "items": [],
+        "location": "email"
+    },
+    "mdragons7": {
+        "points": 0,
+        "level": 1,
+        "items": [],
+        "location": "home"
+    },
+    "nohusuro": {
+        "points": 57,
+        "level": 1,
+        "items": [],
+        "location": "database"
+    },
+    "xmetrix": {
+        "points": 0,
+        "level": 1,
+        "items": [],
+        "location": "email"
+    },
+    "security_live": {
+        "points": 38,
+        "level": 1,
+        "items": [],
+        "location": "website"
+    },
+    "supergrml": {
         "points": 0,
         "level": 1,
         "items": [],
