@@ -5,7 +5,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 621,
+        "points": 1515,
         "started": 0
     },
     "goproslowyo": {
@@ -14,7 +14,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 922,
+        "points": 1372,
         "started": 0
     },
     "cypherenigma": {
@@ -23,7 +23,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 1276,
+        "points": 1890,
         "started": 0
     },
     "pure_cypher": {
@@ -77,7 +77,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 167,
+        "points": 95,
         "started": 0
     },
     "tg21": {
@@ -103,8 +103,8 @@
         "level": 1,
         "health": 10,
         "items": [],
-        "location": "database",
-        "points": 57,
+        "location": "email",
+        "points": 20,
         "started": 0
     },
     "xmetrix": {
@@ -140,7 +140,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 152,
+        "points": 348,
         "started": 0
     },
     "kolkhis": {
@@ -150,6 +150,42 @@
         "items": [],
         "location": "email",
         "points": 190,
+        "started": 0
+    },
+    "utkarshg1": {
+        "username": "utkarshg1",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 59,
+        "started": 0
+    },
+    "fallenlearns": {
+        "username": "fallenlearns",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 54,
+        "started": 0
+    },
+    "gainer552": {
+        "username": "gainer552",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "inblanky": {
+        "username": "inblanky",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
         "started": 0
     }
 }

@@ -56,15 +56,15 @@ class Bot(commands.Bot):
         Parameters:
             - username (str): The player's username.
         """
-        points = self.player_data[username]['points']
-        level = self.player_data[username]['level']
+        player = self.player_data[username]
+        points = player.points
+        level = player.level
         # Simple leveling: 100 points per level
         if points >= level * 100:
-            self.player_data[username]['level'] += 1
+            player.level += 1
             self.save_player_data()
             return True
         return False
-
 
     async def event_ready(self):
         """
@@ -127,6 +127,18 @@ class Bot(commands.Bot):
         """
         result = random.choice(['Heads', 'Tails'])
         await ctx.send(f'@{ctx.author.name}, the coin landed on {result}!')
+
+
+    @commands.command(name='secret')
+    async def hello(self, ctx):
+        """
+        Responds with a chatOS .
+        Parameters:
+            - ctx (Context): The context in which the command was invoked, 
+            containing information about the message and channel.
+        """
+        # Send a greeting message in the chat, mentioning the user who invoked the command
+        await ctx.send(f'The secret is there is no secret. // Consistency over intensity / Progress over Perfection / Fundamentals over fads // Over and over again')
 
 ###################################################################
 # TwitcHack COMMANDS #
