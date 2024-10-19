@@ -1,9 +1,10 @@
-import os
-import random                               #Import the 'random' module to generate random numbers
-import json
-from twitchio.ext import commands
-from dotenv import load_dotenv
-from playerdata import *
+import os                                   # Import the 'OS' module to interact with the operating system, 
+                                            # specifically for environment variables
+import random                               # Import the 'random' module to generate random numbers
+import json                                 # Import 'json' module to work with json data, for storing player data
+from twitchio.ext import commands           # Import the commands module from TwitchIO to help create a TwitchBot
+from dotenv import load_dotenv              # Import the function to load environment variables from a .env file
+from playerdata import *                    # Import all the classes and functions defined in playerdata.py
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -35,49 +36,49 @@ class Bot(commands.Bot):
         self.load_player_data()
 
     def load_player_data(self):
-        """Loads player data from the JSON file into Player objects."""
+        # Loads player data from the JSON file into Player objects.        
         try:
             with open('player_data.json', 'r') as f:
-                data = json.load(f)
+                data = json.load(f)         # Load the JSON data from the file
                 for username, player_info in data.items():
+                    # Convert each player's data from a dictionary to a Player object
                     self.player_data[username] = Player.from_dict(username, player_info)
         except FileNotFoundError:
+            # If the file doesn't exist, initialize an empty player directory
             self.player_data = {}
 
     def save_player_data(self):
-        """Saves the player data to a JSON file."""
+        # Saves the player data to a JSON file.
+        # Convert each Player object to a dictionary for serialization
         data = {username: player.to_dict() for username, player in self.player_data.items()}
         with open('player_data.json', 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(data, f, indent=4)    # Write the JSON data to the file with indentation
 
     def check_level_up(self, username):
-        """
-        Checks if a player has enough points to level up.
-        Parameters:
-            - username (str): The player's username.
-        """
-        player = self.player_data[username]
-        points = player.points
-        level = player.level
+        # Checks if a player has enough points to level up.
+        # Parameters: - username (str): The player's username.
+        # Returns: - bool: True if the player levels up, False otherwise.
+        player = self.player_data[username]         # Retrieve the player's data
+        points = player.points                      # Get the player's current points
+        level = player.level                        # Get the player's current level
         # Simple leveling: 100 points per level
         if points >= level * 100:
-            player.level += 1
-            self.save_player_data()
+            player.level += 1                       # Increment the player level
+            self.save_player_data()                 # Save the updated player data
             return True
         return False
 
     async def event_ready(self):
-        """
-        Called once when the bot successfully connects to Twitch.
-        Useful for initialization tasks and confirming the bot is online.
-        """
+        # Called once when the bot successfully connects to Twitch.
+        # Useful for initialization tasks and confirming the bot is online.
         print(f'Logged in as | {self.nick}')    # Output the bot's username
         print(f'User id is | {self.user_id}')   # Output the bot's user ID
+        # Send a message to the chat indicating that the bot is online
+        await self.connected_channels[0].send(f"{self.nick} is now online")
 
     async def event_message(self, message):
-        """
-        Called whenever a message is received in chat.
-        """
+        # Called whenever a message is received in chat.
+        # Parameters: - message (Message): The message object containing information about the received message.
         # Ignore messages sent by the bot itself
         if message.echo:
             return
@@ -87,6 +88,10 @@ class Bot(commands.Bot):
             print(f'{message.author.name}: {message.content}')
         else:
             print(f'Unknown author: {message.content}')
+
+        # Handle basic keyword detection
+        if "neovim" in message.content.lower():
+            await message.channel.send(f'You are better than that @{message.author.name}!')
 
         # Process commands if any
         await self.handle_commands(message)
@@ -98,45 +103,39 @@ class Bot(commands.Bot):
 
     @commands.command(name='hello')
     async def hello(self, ctx):
-        """
-        Responds with a greeting when a user types '~hello' in chat.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked, 
-            containing information about the message and channel.
-        """
+        # Responds with a greeting when a user types '!hello' in chat.
+        # Parameters: - ctx (Context): The context in which the command was invoked, 
+        #    containing information about the message and channel.
+        
         # Send a greeting message in the chat, mentioning the user who invoked the command
         await ctx.send(f'Hello @{ctx.author.name}!')
 
     @commands.command(name='d20')
     async def dice(self, ctx):
-        """
-        Simulates rolling a 20-sided die when a user types '~d20' in chat.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
+        # Simulates rolling a 20-sided die when a user types '!d20' in chat.
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+    
         # Sends a message in chat with the result of a d20 die
         num = random.randint(1,20)  #Generate a random integer between 1 and 20 inclusive
         await ctx.send(f'@{ctx.author.name} you rolled a {num}')    # Sends message to chat with result
 
     @commands.command(name='coinflip')
     async def coinflip(self, ctx):
-        """
-        Simulates flipping a coin when a user types '~coinflip' in chat.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
+        # Simulates flipping a coin when a user types '!coinflip' in chat.
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
+        # Randomly choose between 'Heads' and 'Tails'
         result = random.choice(['Heads', 'Tails'])
+        # Send the result of the coin flip to chat
         await ctx.send(f'@{ctx.author.name}, the coin landed on {result}!')
 
 
     @commands.command(name='secret')
-    async def hello(self, ctx):
-        """
-        Responds with a chatOS .
-        Parameters:
-            - ctx (Context): The context in which the command was invoked, 
-            containing information about the message and channel.
-        """
+    async def secret(self, ctx):
+        # Responds with a chatOS .
+        # Parameters: - ctx (Context): The context in which the command was invoked, 
+        #    containing information about the message and channel.
+
         # Send a greeting message in the chat, mentioning the user who invoked the command
         await ctx.send(f'The secret is there is no secret. // Consistency over intensity / Progress over Perfection / Fundamentals over fads // Over and over again')
 
@@ -146,11 +145,9 @@ class Bot(commands.Bot):
 
     @commands.command(name='start')
     async def start(self, ctx):
-        """
-        Registers a new player or informs them if they are already registered.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
+        # Registers a new player or informs them if they are already registered.
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
         username = ctx.author.name.lower()
 
         # Check if the user is already registered
@@ -167,37 +164,34 @@ class Bot(commands.Bot):
                 points=0,           # Default points
                 started=0           # Default started
             )
+            # Add the new player to the player data dictionary
             self.player_data[username] = new_player
-            self.save_player_data()  # Save the updated player data
+            self.save_player_data()  # Save the updated player data to the JSON file
             await ctx.send(f'@{ctx.author.name}, you have been registered!')
 
     @commands.command(name='help')
     async def help(self, ctx):
-        """
-        Displays TwitcHack's commands
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
+        # Displays TwitcHack's commands
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
+        # Send a list of available commands to the user
         await ctx.send(f'@{ctx.author.name}, Commands for TwitcHack are !start, !hack, !hack <location>, !phish, !points, !leaderboard.')
    
 
-
     @commands.command(name='hack')
     async def hack(self, ctx, *, location: str = None):
-        """
-        Allows a player to move to a new hacking location.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-            - location (str): The location to move to.
-        """
-        username = ctx.author.name.lower()
+        # Allows a player to move to a new hacking location.
+        # Parameters:   - ctx (Context): The context in which the command was invoked.
+        #               - location (str): The location to move to.
+        
+        username = ctx.author.name.lower()              # Convert the username to lowercase for consistency
         
         # Check if the user is registered
         if username not in self.player_data:
             await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
             return
 
-        player = self.player_data[username]
+        player = self.player_data[username]             # Retrieve player data
 
         # If no location is provided, display the current location
         if not location:
@@ -207,22 +201,22 @@ class Bot(commands.Bot):
         # List of valid locations
         valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
 
+        # Check if the provided location is valid
         if location.lower() in valid_locations:
             # Update the player's location
             player.location = location.lower()
-            self.save_player_data()  # Save the updated player data
+            self.save_player_data()  # Save the updated player data to the JSON file
             await ctx.send(f'@{ctx.author.name}, you have moved to {location}!')
         else:
+            # Inform the user of invalid location and list valid options
             await ctx.send(f'@{ctx.author.name}, invalid location. Valid locations are: {", ".join(valid_locations)}.')
 
     @commands.command(name='points')
     async def points(self, ctx):
-        """
-        Displays the player's current points.
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
-        username = ctx.author.name.lower()
+        # Displays the player's current points.
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
+        username = ctx.author.name.lower()      # Convert the username to lowercase for consistency
 
         # Check if the user is registered
         if username not in self.player_data:
@@ -231,44 +225,43 @@ class Bot(commands.Bot):
 
         # Retrieve the Player object
         player = self.player_data[username]
+        # Send the player's current points to the chat
         await ctx.send(f'@{ctx.author.name}, you have {player.points} points.')
 
     @commands.command(name='leaderboard')
     async def leaderboard(self, ctx):
-        """
-        Displays the top players based on points. 
-        Parameters:
-            - ctx (Context): The context in which the command was invoked.
-        """
+        # Displays the top players based on points. 
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
         # Sort players by points in descending order
         sorted_players = sorted(
             self.player_data.items(),
-            key=lambda item: item[1].points,
+            key=lambda item: item[1].points,   # Sort by the points attribute of each Player object 
             reverse=True
         )
         top_players = sorted_players[:5]  # Get top 5 players
 
+        # Construct the leaderboard message
         leaderboard_message = 'Leaderboard:\n'
         for idx, (username, player) in enumerate(top_players, start=1):
             leaderboard_message += f'{idx}. {username} - {player.points} points. // '
 
+        # Send the leaderboard message to chat
         await ctx.send(leaderboard_message)
 
     @commands.command(name='phish')
     async def phish(self, ctx):
-        """
-        Performs a phishing attack if the player is at the 'email' location.
-        Parameters:
-        - ctx (Context): The context in which the command was invoked.
-        """
-        username = ctx.author.name.lower()
+        # Performs a phishing attack if the player is at the 'email' location.
+        # Parameters: - ctx (Context): The context in which the command was invoked.
+        
+        username = ctx.author.name.lower()      # Convert the username to lowercase for consistency
 
         # Check if the user is registered
         if username not in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
-        player = self.player_data[username]
+        player = self.player_data[username]     # Retrieve the player's data
 
         # Check if the player is at the 'email' location
         if player.location != 'email':
@@ -278,16 +271,17 @@ class Bot(commands.Bot):
         # Simulate phishing success or failure
         success = random.choice([True, False])
         if success:
-            points_earned = random.randint(20, 60)
-            player.points += points_earned
-            self.save_player_data()
+            points_earned = random.randint(20, 60)      # Random points earned for successful phishing
+            player.points += points_earned              # Add the points to the player's to
+            self.save_player_data()                     # Save the updated player data to the JSON file
             await ctx.send(f'@{ctx.author.name}, phishing successful! You earned {points_earned} points.')
         else:
-            points_lost = random.randint(10, 30)
-            player.points -= points_lost
+            points_lost = random.randint(10, 30)        # Random points lost for failed phishing
+            player.points -= points_lost                # Subtract the points from the player's total
+            player.points -= points_lost  
             if player.points < 0:
-                player.points = 0
-            self.save_player_data()
+                player.points = 0                       # Ensure points do not go below zero
+            self.save_player_data()                     # Save the updated player data to the JSON file
             await ctx.send(f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.')
 
 
