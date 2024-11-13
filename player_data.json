@@ -1,11 +1,11 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 17,
+        "level": 16,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 1740,
+        "points": 1699,
         "started": 0
     },
     "goproslowyo": {
@@ -14,7 +14,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 3557,
+        "points": 3413,
         "started": 0
     },
     "cypherenigma": {
@@ -41,7 +41,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 145,
+        "points": 71,
         "started": 0
     },
     "britejess": {
@@ -104,7 +104,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 55,
+        "points": 0,
         "started": 0
     },
     "xmetrix": {
@@ -113,7 +113,7 @@
         "health": 10,
         "items": [],
         "location": "/etc/shadow",
-        "points": 218,
+        "points": 0,
         "started": 0
     },
     "security_live": {
@@ -239,7 +239,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 143,
+        "points": 82,
         "started": 0
     },
     "pinakgamer9": {
@@ -257,7 +257,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 0,
+        "points": 85,
         "started": 0
     },
     "omnifidus": {
@@ -271,11 +271,11 @@
     },
     "pebl3": {
         "username": "pebl3",
-        "level": 1,
+        "level": 35,
         "health": 10,
         "items": [],
-        "location": "email",
-        "points": 0,
+        "location": "/etc/shadow",
+        "points": 3426,
         "started": 0
     },
     "krunkmastercash": {
@@ -283,8 +283,17 @@
         "level": 1,
         "health": 10,
         "items": [],
-        "location": "home",
-        "points": 0,
+        "location": "email",
+        "points": 55,
+        "started": 0
+    },
+    "neospring": {
+        "username": "neospring",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 22,
         "started": 0
     }
 }

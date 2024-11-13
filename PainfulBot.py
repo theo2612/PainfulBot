@@ -185,7 +185,7 @@ class Bot(commands.Bot):
         # Parameters: - ctx (Context): The context in which the command was invoked.
         
         # Send a list of available commands to the user
-        await ctx.send(f'@{ctx.author.name}, Commands for TwitcHack are !start, !hack, !hack <location>, !phish, !points, !leaderboard.')
+        await ctx.send(f'@{ctx.author.name}, Commands for TwitcHack are !start, !help, !hack, !hack email, !phish, !spoof, !dump, !hack /etc/shadow, !crack, !stealth, !bruteforce, !points, !status, !leaderboard.')
    
 
     @commands.command(name='hack')
@@ -198,7 +198,7 @@ class Bot(commands.Bot):
         
         # Check if the user is registered
         if username not in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
         player = self.player_data[username]             # Retrieve player data
@@ -209,7 +209,9 @@ class Bot(commands.Bot):
             return
 
         # List of valid locations
-        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
+        valid_locations = ['email', '/etc/shadow']
+        # valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
+
 
         # Check if the provided location is valid
         if location.lower() in valid_locations:
@@ -230,7 +232,7 @@ class Bot(commands.Bot):
 
         # Check if the user is registered
         if username not in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, please register using ~start before playing.')
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
         # Retrieve the Player object
