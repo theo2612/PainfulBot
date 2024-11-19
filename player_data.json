@@ -1,11 +1,11 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 16,
-        "health": 10,
+        "level": 19,
+        "health": 1000,
         "items": [],
         "location": "email",
-        "points": 1699,
+        "points": 1927,
         "started": 0
     },
     "goproslowyo": {
@@ -23,7 +23,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 2559,
+        "points": 2476,
         "started": 0
     },
     "pure_cypher": {
@@ -73,7 +73,7 @@
     },
     "rnogumby": {
         "username": "rnogumby",
-        "level": 2,
+        "level": 1,
         "health": 10,
         "items": [],
         "location": "email",
@@ -86,7 +86,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 1156,
+        "points": 1086,
         "started": 0
     },
     "mdragons7": {
@@ -167,7 +167,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 111,
+        "points": 126,
         "started": 0
     },
     "gainer552": {
@@ -239,7 +239,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 82,
+        "points": 0,
         "started": 0
     },
     "pinakgamer9": {
@@ -284,7 +284,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 55,
+        "points": 0,
         "started": 0
     },
     "neospring": {
@@ -294,6 +294,24 @@
         "items": [],
         "location": "email",
         "points": 22,
+        "started": 0
+    },
+    "rudyshoes": {
+        "username": "rudyshoes",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "zzaaddaa__saber": {
+        "username": "zzaaddaa__saber",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
         "started": 0
     }
 }
