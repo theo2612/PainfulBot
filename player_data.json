@@ -5,25 +5,25 @@
         "health": 1000,
         "items": [],
         "location": "email",
-        "points": 1927,
+        "points": 1876,
         "started": 0
     },
     "goproslowyo": {
         "username": "goproslowyo",
-        "level": 37,
+        "level": 36,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 3413,
+        "points": 3447,
         "started": 0
     },
     "cypherenigma": {
         "username": "cypherenigma",
-        "level": 14,
+        "level": 15,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 2476,
+        "points": 2404,
         "started": 0
     },
     "pure_cypher": {
@@ -32,7 +32,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 433,
+        "points": 410,
         "started": 0
     },
     "el_raginho": {
@@ -41,7 +41,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 71,
+        "points": 0,
         "started": 0
     },
     "britejess": {
@@ -50,16 +50,16 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 150,
+        "points": 95,
         "started": 0
     },
     "wupinyin": {
         "username": "wupinyin",
-        "level": 2,
+        "level": 1,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 0,
+        "points": 26,
         "started": 0
     },
     "points_earned": {
@@ -112,7 +112,7 @@
         "level": 1,
         "health": 10,
         "items": [],
-        "location": "/etc/shadow",
+        "location": "email",
         "points": 0,
         "started": 0
     },
@@ -149,7 +149,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 108,
+        "points": 36,
         "started": 0
     },
     "utkarshg1": {
@@ -163,11 +163,11 @@
     },
     "fallenlearns": {
         "username": "fallenlearns",
-        "level": 1,
+        "level": 2,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 126,
+        "points": 247,
         "started": 0
     },
     "gainer552": {
@@ -221,7 +221,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 71,
+        "points": 0,
         "started": 0
     },
     "posfolife2": {
@@ -257,7 +257,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 85,
+        "points": 0,
         "started": 0
     },
     "omnifidus": {
@@ -293,7 +293,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 22,
+        "points": 0,
         "started": 0
     },
     "rudyshoes": {
@@ -307,6 +307,69 @@
     },
     "zzaaddaa__saber": {
         "username": "zzaaddaa__saber",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "vitoalighieri": {
+        "username": "vitoalighieri",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "haxnettech": {
+        "username": "haxnettech",
+        "level": 2,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 174,
+        "started": 0
+    },
+    "x3rox3": {
+        "username": "x3rox3",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 0,
+        "started": 0
+    },
+    "dropshotpat": {
+        "username": "dropshotpat",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "msec": {
+        "username": "msec",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 23,
+        "started": 0
+    },
+    "alsjourney": {
+        "username": "alsjourney",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 44,
+        "started": 0
+    },
+    "xguildedthorn": {
+        "username": "xguildedthorn",
         "level": 1,
         "health": 10,
         "items": [],

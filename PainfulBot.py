@@ -55,26 +55,15 @@ class Bot(commands.Bot):
             json.dump(data, f, indent=4)    # Write the JSON data to the file with indentation
 
     def check_level_up(self, username):
-        # Checks if a player has enough points to level up or down.
-        # Parameters: - username (str): The player's username.
-        # Returns: - bool: True if the player levels up or down, False otherwise.
-        player = self.player_data[username]         # Retrieve the player's data
-        points = player.points                      # Get the player's current points
-        level = player.level                        # Get the player's current level
-        # Simple leveling: 100 points per level
-
-        # Check for level up
-        if points >= (level + 1) * 100:
-            player.level += 1                       # Increment the player level
-            self.save_player_data()                 # Save the updated player data
+        # Checks and adjusts player level based on their points
+        player = self.player_data[username]
+        current_level = player.level
+        new_level = max(1, player.points // 100)  # Floor division, minimum level 1
+        
+        if new_level != current_level:
+            player.level = new_level
+            self.save_player_data()
             return True
-
-        # Check for level down
-        elif points < level * 100 and level > 1:
-            player.level -= 1                       # Decrement the player level
-            self.save_player_data()                 # Save the updated player data
-            return True
-
         return False
 
 
