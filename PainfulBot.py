@@ -111,12 +111,34 @@ class Bot(commands.Bot):
 
     @commands.command(name='d20')
     async def dice(self, ctx):
-        # Simulates rolling a 20-sided die when a user types '!d20' in chat.
-        # Parameters: - ctx (Context): The context in which the command was invoked.
-    
-        # Sends a message in chat with the result of a d20 die
-        num = random.randint(1,20)  #Generate a random integer between 1 and 20 inclusive
-        await ctx.send(f'@{ctx.author.name} you rolled a {num}')    # Sends message to chat with result
+        # Legacy command kept for backward compatibility
+        num = random.randint(1,20)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}')
+
+    @commands.command(name='d4')
+    async def d4(self, ctx):
+        num = random.randint(1,4)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}')
+
+    @commands.command(name='d6')
+    async def d6(self, ctx):
+        num = random.randint(1,6)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}')
+
+    @commands.command(name='d8')
+    async def d8(self, ctx):
+        num = random.randint(1,8)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}')
+
+    @commands.command(name='d10')
+    async def d10(self, ctx):
+        num = random.randint(1,10)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}')
+
+    @commands.command(name='d12')
+    async def d12(self, ctx):
+        num = random.randint(1,12)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}') 
 
     @commands.command(name='coinflip')
     async def coinflip(self, ctx):
