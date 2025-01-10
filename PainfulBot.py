@@ -253,6 +253,23 @@ class Bot(commands.Bot):
         # Send the player's current points to the chat
         await ctx.send(f'@{ctx.author.name}, you have {player.points} points.')
 
+    @commands.command(name='ownerpoints')
+    async def ownerpoints(self, ctx, amount: int):
+        username = ctx.author.name.lower()
+        if not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, this command is only for the channel owner.')
+            return
+        
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start first.')
+            return
+
+        player = self.player_data[username]
+        player.points += amount
+        self.check_level_up(username)
+        self.save_player_data()
+        await ctx.send(f'@{ctx.author.name}, added {amount} points. Your new total is {player.points} points.')
+
     @commands.command(name='leaderboard')
     async def leaderboard(self, ctx):
         # Displays the top players based on points. 
