@@ -66,6 +66,8 @@ class Bot(commands.Bot):
             return True
         return False
 
+    def is_channel_owner(self, username):
+        return username.lower() == CHANNEL_OWNER.lower()
 
     async def event_ready(self):
         # Called once when the bot successfully connects to Twitch.
@@ -220,7 +222,7 @@ class Bot(commands.Bot):
             return
 
         # List of valid locations
-        valid_locations = ['email', '/etc/shadow']
+        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
         # valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
 
 
@@ -380,12 +382,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]  # Retrieve the player's data
 
         # Check if the player is at the 'email' location
-        if player.location != 'email':
+        if player.location != 'email' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the email location to perform phishing.')
             return
 
         # Check if the player meets the required level
-        if player.level < 0:
+        if player.level < 0 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 0 to perform phishing.')
             return
 
@@ -420,12 +422,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]  # Retrieve the player's data
 
         # Check if the player is at the 'email' location
-        if player.location != 'email':
+        if player.location != 'email' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the email location to send a spoofed email.')
             return
 
         # Check if the player meets the required level
-        if player.level < 5:
+        if player.level < 5 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 5 to send a spoofed email.')
             return
 
@@ -461,12 +463,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]  # Retrieve the player's data
 
         # Check if the player is at the 'email' location
-        if player.location != 'email':
+        if player.location != 'email' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the email location to dump emails.')
             return
 
         # Check if the player meets the required level
-        if player.level < 10:
+        if player.level < 10 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 10 to dump emails.')
             return
 
@@ -506,12 +508,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]     # Retrieve the player's data
 
         # Check if the player is at the '/etc/shadow' location
-        if player.location != '/etc/shadow':
+        if player.location != '/etc/shadow' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the /etc/shadow location to crack hashes.')
             return
 
         # Check if the player meets the required level
-        if player.level < 15:
+        if player.level < 15 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 15 to crack hashes.')
             return
 
@@ -547,12 +549,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]  # Retrieve the player's data
 
         # Check if the player is at the '/etc/shadow' location
-        if player.location != '/etc/shadow':
+        if player.location != '/etc/shadow' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the /etc/shadow location to hide your tracks.')
             return
 
         # Check if the player meets the required level
-        if player.level < 20:
+        if player.level < 20 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 20 to hide your tracks.')
             return
 
@@ -588,12 +590,12 @@ class Bot(commands.Bot):
         player = self.player_data[username]  # Retrieve the player's data
 
         # Check if the player is at the '/etc/shadow' location
-        if player.location != '/etc/shadow':
+        if player.location != '/etc/shadow' and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at the /etc/shadow location to perform a brute force attack.')
             return
 
         # Check if the player meets the required level
-        if player.level < 25:
+        if player.level < 25 and not self.is_channel_owner(username):
             await ctx.send(f'@{ctx.author.name}, you need to be at least level 25 to perform a brute force attack.')
             return
 
@@ -615,8 +617,460 @@ class Bot(commands.Bot):
             self.save_player_data()  # Save the updated player data to the JSON file
             await ctx.send(f'@{ctx.author.name}, brute force attack failed! You lost {points_lost} points.')
 
+    ###################################################################
+    # WEBSITE ATTACKS #
+    ###################################################################
 
+    @commands.command(name='burp')
+    async def burp(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
 
+        player = self.player_data[username]
+        if player.location != 'website' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the website location to scan.')
+            return
+
+        if player.level < 30 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 30 to use Burp Suite.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(80, 120)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, vulnerability scan successful! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(20, 45)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, scan failed! You lost {points_lost} points.')
+
+    @commands.command(name='sqliw')
+    async def sqliw(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'website' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the website location for SQL injection.')
+            return
+
+        if player.level < 35 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 35 for SQL injection.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(90, 130)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, SQL injection successful! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(25, 50)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, SQL injection failed! You lost {points_lost} points.')
+
+    @commands.command(name='xss')
+    async def xss(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'website' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the website location for XSS attacks.')
+            return
+
+        if player.level < 40 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 40 for XSS attacks.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(100, 140)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, XSS attack successful! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(30, 55)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, XSS attack failed! You lost {points_lost} points.')
+
+    ###################################################################
+    # DATABASE ATTACKS #
+    ###################################################################
+
+    @commands.command(name='dumpdb')
+    async def dumpdb(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'database' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the database location to dump data.')
+            return
+
+        if player.level < 45 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 45 to dump database.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(110, 150)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, database dump successful! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(35, 60)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, database dump failed! You lost {points_lost} points.')
+
+    @commands.command(name='sqlidb')
+    async def sqlidb(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'database' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the database location for SQL injection.')
+            return
+
+        if player.level < 50 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 50 to attempt database SQL injection.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(120, 160)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, database SQL injection successful! You gained unauthorized access. You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(40, 65)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, database SQL injection failed! Your query was blocked. You lost {points_lost} points.')
+
+    @commands.command(name='admin')
+    async def admin(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'database' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the database location for privilege escalation.')
+            return
+
+        if player.level < 55 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 55 to attempt privilege escalation.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(130, 170)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, privilege escalation successful! You now have admin access. You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(45, 70)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, privilege escalation failed! Your attempt was logged and blocked. You lost {points_lost} points.')
+
+    ###################################################################
+    # SERVER ATTACKS #
+    ###################################################################
+
+    @commands.command(name='revshell')
+    async def revshell(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'server' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the server location to establish a reverse shell.')
+            return
+
+        if player.level < 60 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 60 to attempt a reverse shell.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(140, 180)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, reverse shell established! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(50, 75)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, reverse shell attempt failed! You lost {points_lost} points.')
+
+    @commands.command(name='root')
+    async def root(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'server' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the server location for privilege escalation.')
+            return
+
+        if player.level < 65 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 65 to attempt root escalation.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(150, 190)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, root access achieved! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(55, 80)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, privilege escalation failed! You lost {points_lost} points.')
+
+    @commands.command(name='ransom')
+    async def ransom(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'server' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the server location to deploy ransomware.')
+            return
+
+        if player.level < 70 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 70 to attempt ransomware deployment.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(160, 200)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, ransomware deployed successfully! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(60, 85)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, ransomware deployment failed! You lost {points_lost} points.')
+
+    ###################################################################
+    # NETWORK ATTACKS #
+    ###################################################################
+
+    @commands.command(name='sniff')
+    async def sniff(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'network' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the network location to sniff traffic.')
+            return
+
+        if player.level < 75 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 75 to attempt network sniffing.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(170, 210)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, network sniffing successful! Captured sensitive data! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(65, 90)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, network sniffing failed! You lost {points_lost} points.')
+
+    @commands.command(name='mitm')
+    async def mitm(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'network' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the network location for MITM attacks.')
+            return
+
+        if player.level < 80 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 80 to attempt MITM attack.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(180, 220)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, MITM attack successful! Intercepted traffic! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(70, 95)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, MITM attack failed! You lost {points_lost} points.')
+
+    @commands.command(name='ddos')
+    async def ddos(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'network' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the network location to launch DDoS attacks.')
+            return
+
+        if player.level < 85 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 85 to attempt DDoS attack.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(190, 230)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, DDoS attack successful! Services disrupted! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(75, 100)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, DDoS attack failed! You lost {points_lost} points.')
+
+    ###################################################################
+    # EVILCORP ATTACKS #
+    ###################################################################
+
+    @commands.command(name='drop')
+    async def drop(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'evilcorp' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the EvilCorp location for a USB drop attack.')
+            return
+
+        if player.level < 90 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 90 to attempt a USB drop attack.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(200, 240)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, USB drop attack successful! Target connected the device! You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(80, 105)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, USB drop attack failed! No one took the bait. You lost {points_lost} points.')
+
+    @commands.command(name='tailgate')
+    async def tailgate(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'evilcorp' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the EvilCorp location to attempt tailgating.')
+            return
+
+        if player.level < 95 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 95 to attempt tailgating.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(210, 250)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, tailgating successful! You slipped in unnoticed. You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(85, 110)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, tailgating failed! Security caught you. You lost {points_lost} points.')
+
+    @commands.command(name='socialengineer')
+    async def socialengineer(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            return
+
+        player = self.player_data[username]
+        if player.location != 'evilcorp' and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at the EvilCorp location for social engineering.')
+            return
+
+        if player.level < 100 and not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, you need to be at least level 100 to attempt social engineering.')
+            return
+
+        success = random.choice([True, False])
+        if success:
+            points_earned = random.randint(220, 260)
+            player.points += points_earned
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, social engineering successful! You obtained sensitive information. You earned {points_earned} points.')
+        else:
+            points_lost = random.randint(90, 115)
+            player.points = max(0, player.points - points_lost)
+            self.save_player_data()
+            await ctx.send(f'@{ctx.author.name}, social engineering failed! Your cover was blown. You lost {points_lost} points.')
 
 # Entry point of the script
 if __name__ == '__main__':
