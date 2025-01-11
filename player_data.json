@@ -1,14 +1,14 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 18,
+        "level": 119,
         "health": 1000,
         "items": [
             "Wireshark",
             "VX Underground HDD"
         ],
         "location": "network",
-        "points": 1840,
+        "points": 11972,
         "started": 0
     },
     "goproslowyo": {
@@ -22,11 +22,13 @@
     },
     "cypherenigma": {
         "username": "cypherenigma",
-        "level": 15,
+        "level": 23,
         "health": 10,
-        "items": [],
+        "items": [
+            "EvilGinx"
+        ],
         "location": "email",
-        "points": 2404,
+        "points": 2374,
         "started": 0
     },
     "pure_cypher": {
@@ -55,7 +57,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 95,
+        "points": 29,
         "started": 0
     },
     "wupinyin": {
@@ -91,7 +93,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 1086,
+        "points": 1031,
         "started": 0
     },
     "mdragons7": {
@@ -105,11 +107,13 @@
     },
     "nohusuro": {
         "username": "nohusuro",
-        "level": 1,
+        "level": 11,
         "health": 10,
-        "items": [],
-        "location": "email",
-        "points": 0,
+        "items": [
+            "Metasploit"
+        ],
+        "location": "server",
+        "points": 69,
         "started": 0
     },
     "xmetrix": {
@@ -156,7 +160,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 36,
+        "points": 0,
         "started": 0
     },
     "utkarshg1": {
@@ -174,7 +178,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 247,
+        "points": 229,
         "started": 0
     },
     "gainer552": {
@@ -278,11 +282,11 @@
     },
     "pebl3": {
         "username": "pebl3",
-        "level": 35,
+        "level": 48,
         "health": 10,
         "items": [],
         "location": "/etc/shadow",
-        "points": 3426,
+        "points": 4853,
         "started": 0
     },
     "krunkmastercash": {
@@ -377,6 +381,24 @@
     },
     "xguildedthorn": {
         "username": "xguildedthorn",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "impendingoblivion": {
+        "username": "impendingoblivion",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 79,
+        "started": 0
+    },
+    "cyb3rterran": {
+        "username": "cyb3rterran",
         "level": 1,
         "health": 10,
         "items": [],

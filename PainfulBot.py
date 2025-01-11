@@ -39,6 +39,7 @@ class Bot(commands.Bot):
         self.load_player_data()
         self.last_battle_time = datetime.min
         self.ongoing_battle = None
+        self.dropped_items = []  # Add this line to initialize dropped_items list
 
     def load_player_data(self):
         # Loads player data from the JSON file into Player objects.        
@@ -117,8 +118,9 @@ class Bot(commands.Bot):
         
         await self.connected_channels[0].send(message)
         
-        # Store the dropped item temporarily
-        self.dropped_item = {'name': item.name, 'location': location}
+        # Add the dropped item to the list
+        self.dropped_items.append({'name': item.name, 'location': location})
+        print(f"Debug: Item dropped - {item.name} at {location}")  # Add debug print
 
     @commands.command(name='grab')
     async def grab(self, ctx, *, item_name: str):
