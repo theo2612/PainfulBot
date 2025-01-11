@@ -403,8 +403,8 @@ class Bot(commands.Bot):
         player = self.player_data[username]
 
         status_message = (
-            f"@{ctx.author.name}, here is your current status:\n"
-            f"Level: {player.level}\n"
+            f"@{ctx.author.name}, here is your current status: \n"
+            f"Level: {player.level} \n"
             f"Health: {player.health}\n"
             f"Points: {player.points}\n"
             f"Location: {player.location}\n"

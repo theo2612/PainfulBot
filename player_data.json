@@ -1,11 +1,13 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 17,
+        "level": 18,
         "health": 1000,
-        "items": [],
-        "location": "evilcorp",
-        "points": 1789,
+        "items": [
+            "Wireshark"
+        ],
+        "location": "network",
+        "points": 1840,
         "started": 0
     },
     "goproslowyo": {
