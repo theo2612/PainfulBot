@@ -172,38 +172,67 @@ class Bot(commands.Bot):
 
     @commands.command(name='start')
     async def start(self, ctx):
-        # Registers a new player or informs them if they are already registered.
-        # Parameters: - ctx (Context): The context in which the command was invoked.
-        
         username = ctx.author.name.lower()
 
-        # Check if the user is already registered
         if username in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, you are already registered!')
-        else:
-            # Initialize the player's data with default values
-            new_player = Player(
-                username=username,  # Username from the chat message
-                level=1,            # Default level
-                health=10,          # Default health
-                items=[],           # Default items
-                location="home",    # Default location
-                points=0,           # Default points
-                started=0           # Default started
-            )
-            # Add the new player to the player data dictionary
-            self.player_data[username] = new_player
-            self.save_player_data()  # Save the updated player data to the JSON file
-            await ctx.send(f'@{ctx.author.name}, you have been registered!')
+            await ctx.send(f'@{ctx.author.name}, you are already registered! Use !help to see available commands, or !status to check your stats.')
+            return
+
+        new_player = Player(
+            username=username,  # Username from the chat message
+            level=1,            # Default level
+            health=10,          # Default health
+            items=[],           # Default items
+            location="home",    # Default location
+            points=0,           # Default points
+            started=0           # Default started
+        )
+        self.player_data[username] = new_player
+        self.save_player_data()
+        
+        welcome_msg = (
+            f"Welcome to TwitcHack, @{ctx.author.name}! You're now registered as a level 1 hacker. 🖥️\n"
+            f"1. Use !hack <location> to move (email, website, server, etc)\n"
+            f"2. Each location has unique attacks you can perform\n"
+            f"3. Level up by earning points from successful hacks\n"
+            f"4. Join boss battles with !bossbattle when available\n"
+            f"Use !help for more commands!"
+        )
+        await ctx.send(welcome_msg)
 
     @commands.command(name='help')
     async def help(self, ctx):
-        # Displays TwitcHack's commands
-        # Parameters: - ctx (Context): The context in which the command was invoked.
+        help_msg = (
+            f"@{ctx.author.name}, TwitcHack Commands:\n"
+            f"🎮 Basic: !start (register), !status (check stats), !points, !leaderboard\n"
+            f"🌍 Movement: !hack <location> - Available locations: email, website, /etc/shadow, database, server, network, evilcorp\n"
+            f"⚔️ Boss Battles: !bossbattle (start/join a team raid against the boss)\n"
+            f"Type !attacks to see available attacks for your current location!"
+        )
+        await ctx.send(help_msg)
+
+    @commands.command(name='attacks')
+    async def attacks(self, ctx):
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, please use !start to register first!')
+            return
+
+        player = self.player_data[username]
+        location = player.location
         
-        # Send a list of available commands to the user
-        await ctx.send(f'@{ctx.author.name}, Commands for TwitcHack are !start, !help, !hack, !hack email, !phish, !spoof, !dump, !hack /etc/shadow, !crack, !stealth, !bruteforce, !points, !status, !leaderboard.')
-   
+        attacks = {
+            'email': "📧 Email attacks: !phish (lvl 0), !spoof (lvl 5), !dump (lvl 10)",
+            '/etc/shadow': "🔑 Password attacks: !crack (lvl 15), !stealth (lvl 20), !bruteforce (lvl 25)",
+            'website': "🌐 Web attacks: !burp (lvl 30), !sqliw (lvl 35), !xss (lvl 40)",
+            'database': "💽 DB attacks: !dumpdb (lvl 45), !sqlidb (lvl 50), !admin (lvl 55)",
+            'server': "🖥️ Server attacks: !revshell (lvl 60), !root (lvl 65), !ransom (lvl 70)",
+            'network': "🌐 Network attacks: !sniff (lvl 75), !mitm (lvl 80), !ddos (lvl 85)",
+            'evilcorp': "😈 EvilCorp attacks: !drop (lvl 90), !tailgate (lvl 95), !socialengineer (lvl 100)",
+            'home': "🏠 You're at home! Use !hack <location> to move somewhere and start hacking!"
+        }
+        
+        await ctx.send(f"@{ctx.author.name}, {attacks.get(location, 'Invalid location! Use !hack to move.')}")
 
     @commands.command(name='hack')
     async def hack(self, ctx, *, location: str = None):
@@ -222,7 +251,7 @@ class Bot(commands.Bot):
 
         # If no location is provided, display the current location
         if not location:
-            await ctx.send(f'@{ctx.author.name}, you are currently at {player.location}.')
+            await ctx.send(f"@{ctx.author.name}, you are currently at {player.location}. Use !hack <location> to move to: {', '.join(valid_locations)}")
             return
 
         # List of valid locations
@@ -1093,6 +1122,10 @@ class Bot(commands.Bot):
             self.save_player_data()
             await ctx.send(f'@{ctx.author.name}, social engineering failed! Your cover was blown. You lost {points_lost} points.')
 
+    ###################################################################
+    # BOSS BATTLE #
+    ###################################################################
+
     @commands.command(name='bossbattle')
     async def bossbattle(self, ctx):
         username = ctx.author.name.lower()
@@ -1117,7 +1150,13 @@ class Bot(commands.Bot):
         )
         self.last_battle_time = datetime.now()
         
-        await ctx.send(f"⚔️ BOSS BATTLE INITIATED! ⚔️\nType !joinbattle in the next 30 seconds to join the raid against the mighty b7h30 (HP: {boss_player.health})!")
+        await ctx.send(
+            f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
+            f"💀 Boss: 1337haxxor Theo (HP: {boss_player.health})\n"
+            f"👥 Type !joinbattle in the next 30 seconds to join the raid team! (max 5 members)\n"
+            f"💪 Smaller teams get bigger rewards if they win!\n"
+            f"⚔️ Each survivor gets points and +5 permanent max HP!"
+        )
         
         # Start join timer
         await asyncio.sleep(30)
