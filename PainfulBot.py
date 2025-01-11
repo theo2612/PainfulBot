@@ -1097,112 +1097,159 @@ class Bot(commands.Bot):
     async def bossbattle(self, ctx):
         username = ctx.author.name.lower()
         
-        # Check if there's an ongoing battle or if it's too soon for another
-        if self.ongoing_battle or datetime.now() - self.last_battle_time < timedelta(hours=1):
-            await ctx.send("A boss battle is already in progress or it's too soon for another!")
+        if self.ongoing_battle:
+            await ctx.send("A boss battle is already in progress!")
             return
 
-        # Channel owner can always initiate, viewers need to be level 10+
-        if username != CHANNEL_OWNER.lower():
-            if username not in self.player_data or self.player_data[username].level < 10:
-                await ctx.send(f"@{ctx.author.name}, you need to be at least level 10 to initiate a boss battle!")
-                return
+        if datetime.now() - self.last_battle_time < timedelta(hours=1):
+            await ctx.send("Please wait 1 hour between boss battles!")
+            return
 
-        # Initialize the battle with player's current health
-        boss_player = self.player_data.get(CHANNEL_OWNER.lower())
-        challenger_player = self.player_data.get(username)
-        
-        if not boss_player or not challenger_player:
-            await ctx.send("Error: Boss or challenger not registered.")
+        # Use b7h30's actual stats from player_data
+        boss_player = self.player_data.get('b7h30')
+        if not boss_player:
+            await ctx.send("Error: Boss not registered.")
             return
 
         self.ongoing_battle = BossBattle(
-            boss_name=CHANNEL_OWNER,
-            challenger_name=username,
-            boss_health=boss_player.health,
-            challenger_health=challenger_player.health
+            boss_name='b7h30',
+            boss_health=boss_player.health  # This will use the 1000 HP from player_data.json
         )
         self.last_battle_time = datetime.now()
+        
+        await ctx.send(f"⚔️ BOSS BATTLE INITIATED! ⚔️\nType !joinbattle in the next 30 seconds to join the raid against the mighty b7h30 (HP: {boss_player.health})!")
+        
+        # Start join timer
+        await asyncio.sleep(30)
+        self.ongoing_battle.join_phase = False
+        
+        if not self.ongoing_battle.challenger_team:
+            await ctx.send("No challengers joined! Battle cancelled.")
+            self.ongoing_battle = None
+            return
 
-        await ctx.send(f"Boss battle initiated! {CHANNEL_OWNER} vs {ctx.author.name}!")
-        await self.run_battle(ctx)
+        await ctx.send("Join phase ended! Battle beginning...")
+        await self.run_team_battle(ctx)
 
-    async def run_battle(self, ctx):
+    @commands.command(name='joinbattle')
+    async def joinbattle(self, ctx):
+        username = ctx.author.name.lower()
+        
+        if not self.ongoing_battle or not self.ongoing_battle.join_phase:
+            await ctx.send("No battle to join right now!")
+            return
+            
+        if username == CHANNEL_OWNER.lower():
+            await ctx.send("The boss cannot join the challenger team!")
+            return
+
+        if len(self.ongoing_battle.challenger_team) >= 5:
+            await ctx.send("The team is full!")
+            return
+
+        if username not in self.player_data:
+            await ctx.send(f"@{ctx.author.name}, please register first with !start")
+            return
+
+        player = self.player_data[username]
+        self.ongoing_battle.challenger_team[username] = player.health
+        await ctx.send(f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)")
+
+    async def run_team_battle(self, ctx):
         battle = self.ongoing_battle
         turn = 0
-        max_turns = 10  # Limit the battle to 10 turns
+        max_turns = 15  # Extended for team battles
 
-        while battle.boss_health > 0 and battle.challenger_health > 0 and turn < max_turns:
+        while battle.boss_health > 0 and battle.challenger_team and turn < max_turns:
             turn += 1
-            await ctx.send(f"Turn {turn}")
+            await ctx.send(f"⚔️ Turn {turn} ⚔️")
 
-            # Boss attack
-            damage = random.randint(5, 20)
-            battle.challenger_health = max(0, battle.challenger_health - damage)
+            # Boss AOE attack
+            damage = random.randint(10, 30)
+            dead_players = []
+            
             boss_action = random.choice([
-                f"{battle.boss_name} launches a DDoS attack!",
-                f"{battle.boss_name} attempts to crack the challenger's firewall!",
-                f"{battle.boss_name} deploys a sophisticated phishing scheme!",
-                f"{battle.boss_name} types maniacally on a rgb keyboard set to blue!"
-                
+                "launches a massive DDoS attack!",
+                "deploys ransomware across the network!",
+                "executes a supply chain attack!",
+                "activates the corporate defenses!",
+                "sets rgb keyboard to red!",
+                "sends 'AngyTheo' emote!"
             ])
-            await ctx.send(f"{boss_action} {battle.challenger_name} takes {damage} damage!")
+            
+            await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
+            
+            for player_name, health in battle.challenger_team.items():
+                new_health = max(0, health - damage)
+                battle.challenger_team[player_name] = new_health
+                if new_health <= 0:
+                    dead_players.append(player_name)
+                    await ctx.send(f"☠️ @{player_name} has fallen!")
+                else:
+                    await ctx.send(f"@{player_name} takes {damage} damage! ({new_health} HP remaining)")
 
-            if battle.challenger_health <= 0:
+            # Remove defeated players
+            for player in dead_players:
+                del battle.challenger_team[player]
+
+            if not battle.challenger_team:
                 break
 
-            # Challenger attack
-            damage = random.randint(5, 20)
-            battle.boss_health = max(0, battle.boss_health - damage)
-            challenger_action = random.choice([
-                f"{battle.challenger_name} executes a SQL injection!",
-                f"{battle.challenger_name} attempts to exploit a zero-day vulnerability!",
-                f"{battle.challenger_name} launches a brute force attack!",
-                f"{battle.challenger_name} distracts Theo by talking trash about the Cleveland Browns!"
-            ])
-            await ctx.send(f"{challenger_action} {battle.boss_name} takes {damage} damage!")
+            # Team attack phase
+            await ctx.send("🗡️ Team attack phase:")
+            total_damage = 0
+            for player_name in battle.challenger_team:
+                player_damage = random.randint(5, 15)
+                total_damage += player_damage
+                battle.team_damage += player_damage
+                
+                attack_action = random.choice([
+                    "executes a SQL injection",
+                    "deploys a zero-day exploit",
+                    "launches a social engineering attack",
+                    "attempts a buffer overflow",
+                    "distracts Theo by disparaging the Cleveland Browns"
+                ])
+                
+                await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
 
-            # Display current health
-            await ctx.send(f"Boss HP: {battle.boss_health} | Challenger HP: {battle.challenger_health}")
+            battle.boss_health = max(0, battle.boss_health - total_damage)
+            await ctx.send(f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}")
+            await asyncio.sleep(2)
 
-            await asyncio.sleep(2)  # Add a delay between turns
-
-        # Determine the winner and update player data
-        boss_player = self.player_data[CHANNEL_OWNER.lower()]
-        challenger_player = self.player_data[battle.challenger_name]
-
+        # Battle resolution
         if battle.boss_health <= 0:
-            await ctx.send(f"{battle.challenger_name} has defeated the boss!")
-            self.reward_challenger(battle.challenger_name)
-            challenger_player.health = battle.challenger_health
-        elif battle.challenger_health <= 0:
-            await ctx.send(f"{battle.boss_name} has defeated the challenger!")
-            challenger_player.health = 10  # Reset challenger's health to minimum
+            await self.reward_team(ctx)
         else:
-            await ctx.send("The battle has ended in a draw!")
-
-        # Update boss health
-        boss_player.health = battle.boss_health
-
-        self.save_player_data()  # Save the updated player data
+            await ctx.send(f"{battle.boss_name} has defeated the challenger team!")
+            
         self.ongoing_battle = None
+        self.save_player_data()
 
-    def reward_challenger(self, username):
-        if username in self.player_data:
+    async def reward_team(self, ctx):
+        battle = self.ongoing_battle
+        base_reward = 200
+        team_size_bonus = (5 - len(battle.challenger_team)) * 50  # Smaller teams get bigger bonus
+        damage_bonus = battle.team_damage // 50
+
+        for username in battle.challenger_team:
             player = self.player_data[username]
-            points_earned = random.randint(100, 200)
+            points_earned = base_reward + team_size_bonus + damage_bonus
             player.points += points_earned
-            player.health += 10  # Increase health capacity
+            player.health += 5  # Small permanent health boost for surviving
             self.check_level_up(username)
-            self.save_player_data()
-            await ctx.send(f"@{username} has earned {points_earned} points and increased their health capacity!")
+            await ctx.send(f"@{username} earned {points_earned} points and +5 max HP!")
+
+        await ctx.send(f"The team has defeated {battle.boss_name}! Congratulations!")
 
 class BossBattle:
-    def __init__(self, boss_name, challenger_name, boss_health, challenger_health):
+    def __init__(self, boss_name, boss_health):
         self.boss_name = boss_name
-        self.challenger_name = challenger_name
         self.boss_health = boss_health
-        self.challenger_health = challenger_health
+        self.challenger_team = {}  # Dict of {username: health}
+        self.join_phase = True
+        self.join_timer = 30  # Seconds
+        self.team_damage = 0  # Track total team damage for rewards
 
 # Entry point of the script
 if __name__ == '__main__':
