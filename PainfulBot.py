@@ -5,6 +5,8 @@ import json                                 # Import 'json' module to work with 
 from twitchio.ext import commands           # Import the commands module from TwitchIO to help create a TwitchBot
 from dotenv import load_dotenv              # Import the function to load environment variables from a .env file
 from playerdata import *                    # Import all the classes and functions defined in playerdata.py
+import asyncio
+from datetime import datetime, timedelta
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -34,6 +36,8 @@ class Bot(commands.Bot):
         # Load player data from JSON file
         self.player_data = {}
         self.load_player_data()
+        self.last_battle_time = datetime.min
+        self.ongoing_battle = None
 
     def load_player_data(self):
         # Loads player data from the JSON file into Player objects.        
@@ -1088,6 +1092,117 @@ class Bot(commands.Bot):
             player.points = max(0, player.points - points_lost)
             self.save_player_data()
             await ctx.send(f'@{ctx.author.name}, social engineering failed! Your cover was blown. You lost {points_lost} points.')
+
+    @commands.command(name='bossbattle')
+    async def bossbattle(self, ctx):
+        username = ctx.author.name.lower()
+        
+        # Check if there's an ongoing battle or if it's too soon for another
+        if self.ongoing_battle or datetime.now() - self.last_battle_time < timedelta(hours=1):
+            await ctx.send("A boss battle is already in progress or it's too soon for another!")
+            return
+
+        # Channel owner can always initiate, viewers need to be level 10+
+        if username != CHANNEL_OWNER.lower():
+            if username not in self.player_data or self.player_data[username].level < 10:
+                await ctx.send(f"@{ctx.author.name}, you need to be at least level 10 to initiate a boss battle!")
+                return
+
+        # Initialize the battle with player's current health
+        boss_player = self.player_data.get(CHANNEL_OWNER.lower())
+        challenger_player = self.player_data.get(username)
+        
+        if not boss_player or not challenger_player:
+            await ctx.send("Error: Boss or challenger not registered.")
+            return
+
+        self.ongoing_battle = BossBattle(
+            boss_name=CHANNEL_OWNER,
+            challenger_name=username,
+            boss_health=boss_player.health,
+            challenger_health=challenger_player.health
+        )
+        self.last_battle_time = datetime.now()
+
+        await ctx.send(f"Boss battle initiated! {CHANNEL_OWNER} vs {ctx.author.name}!")
+        await self.run_battle(ctx)
+
+    async def run_battle(self, ctx):
+        battle = self.ongoing_battle
+        turn = 0
+        max_turns = 10  # Limit the battle to 10 turns
+
+        while battle.boss_health > 0 and battle.challenger_health > 0 and turn < max_turns:
+            turn += 1
+            await ctx.send(f"Turn {turn}")
+
+            # Boss attack
+            damage = random.randint(5, 20)
+            battle.challenger_health = max(0, battle.challenger_health - damage)
+            boss_action = random.choice([
+                f"{battle.boss_name} launches a DDoS attack!",
+                f"{battle.boss_name} attempts to crack the challenger's firewall!",
+                f"{battle.boss_name} deploys a sophisticated phishing scheme!",
+                f"{battle.boss_name} types maniacally on a rgb keyboard set to blue!"
+                
+            ])
+            await ctx.send(f"{boss_action} {battle.challenger_name} takes {damage} damage!")
+
+            if battle.challenger_health <= 0:
+                break
+
+            # Challenger attack
+            damage = random.randint(5, 20)
+            battle.boss_health = max(0, battle.boss_health - damage)
+            challenger_action = random.choice([
+                f"{battle.challenger_name} executes a SQL injection!",
+                f"{battle.challenger_name} attempts to exploit a zero-day vulnerability!",
+                f"{battle.challenger_name} launches a brute force attack!",
+                f"{battle.challenger_name} distracts Theo by talking trash about the Cleveland Browns!"
+            ])
+            await ctx.send(f"{challenger_action} {battle.boss_name} takes {damage} damage!")
+
+            # Display current health
+            await ctx.send(f"Boss HP: {battle.boss_health} | Challenger HP: {battle.challenger_health}")
+
+            await asyncio.sleep(2)  # Add a delay between turns
+
+        # Determine the winner and update player data
+        boss_player = self.player_data[CHANNEL_OWNER.lower()]
+        challenger_player = self.player_data[battle.challenger_name]
+
+        if battle.boss_health <= 0:
+            await ctx.send(f"{battle.challenger_name} has defeated the boss!")
+            self.reward_challenger(battle.challenger_name)
+            challenger_player.health = battle.challenger_health
+        elif battle.challenger_health <= 0:
+            await ctx.send(f"{battle.boss_name} has defeated the challenger!")
+            challenger_player.health = 10  # Reset challenger's health to minimum
+        else:
+            await ctx.send("The battle has ended in a draw!")
+
+        # Update boss health
+        boss_player.health = battle.boss_health
+
+        self.save_player_data()  # Save the updated player data
+        self.ongoing_battle = None
+
+    def reward_challenger(self, username):
+        if username in self.player_data:
+            player = self.player_data[username]
+            points_earned = random.randint(100, 200)
+            player.points += points_earned
+            player.health += 10  # Increase health capacity
+            self.check_level_up(username)
+            self.save_player_data()
+            await ctx.send(f"@{username} has earned {points_earned} points and increased their health capacity!")
+
+class BossBattle:
+    def __init__(self, boss_name, challenger_name, boss_health, challenger_health):
+        self.boss_name = boss_name
+        self.challenger_name = challenger_name
+        self.boss_health = boss_health
+        self.challenger_health = challenger_health
 
 # Entry point of the script
 if __name__ == '__main__':
