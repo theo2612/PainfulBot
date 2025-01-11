@@ -5,7 +5,7 @@ class Player:
         self.username = username
         self.level = level
         self.health = health
-        self.items = items
+        self.items = items if items else []
         self.location = location
         self.points = points
         self.started = started
@@ -26,7 +26,7 @@ class Player:
     @classmethod
     def from_dict(cls, username, data):
         """Creates a Player object from a dictionary."""
-        return cls(
+        player = cls(
             username=username,
             level=data.get('level', 1),
             health=data.get('health', 10),
@@ -34,5 +34,6 @@ class Player:
             location=data.get('location', 'home'),
             points=data.get('points', 0),
             started=data.get('started', 0)
-
         )
+        player.items = data.get('items', [])
+        return player

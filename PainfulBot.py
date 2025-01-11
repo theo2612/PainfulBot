@@ -7,6 +7,7 @@ from dotenv import load_dotenv              # Import the function to load enviro
 from playerdata import *                    # Import all the classes and functions defined in playerdata.py
 import asyncio
 from datetime import datetime, timedelta
+from items import ITEMS, Item
 
 # Load environment variables from the .env file into the program's environment
 load_dotenv()
@@ -101,6 +102,72 @@ class Bot(commands.Bot):
         # Process commands if any
         await self.handle_commands(message)
 
+    async def event_follow(self, user):
+        await self.random_item_drop("follow", user.name)
+
+    async def event_subscription(self, subscription):
+        await self.random_item_drop("subscription", subscription.user.name)
+
+    async def random_item_drop(self, event_type, username):
+        item = random.choice(list(ITEMS.values()))
+        location = random.choice(['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp'])
+        
+        message = f"🎉 {username} just {event_type}ed! A wild {item.name} appeared at {location}!"
+        message += f" Type '!grab {item.name}' to claim it!"
+        
+        await self.connected_channels[0].send(message)
+        
+        # Store the dropped item temporarily
+        self.dropped_item = {'name': item.name, 'location': location}
+
+    @commands.command(name='grab')
+    async def grab(self, ctx, *, item_name: str):
+        if not hasattr(self, 'dropped_items') or not self.dropped_items:
+            await ctx.send("There are no items to grab right now!")
+            return
+
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f"@{ctx.author.name}, please register first with !start")
+            return
+
+        player = self.player_data[username]
+        
+        for i, dropped_item in enumerate(self.dropped_items):
+            if dropped_item['name'].lower() == item_name.lower():
+                if item_name not in player.items:
+                    player.items.append(item_name)
+                    await ctx.send(f"@{ctx.author.name} grabbed the {item_name}!")
+                    del self.dropped_items[i]
+                    self.save_player_data()
+                else:
+                    await ctx.send(f"@{ctx.author.name}, you already have this item!")
+                return
+
+        await ctx.send(f"@{ctx.author.name}, that item is not available to grab.")
+
+    @commands.command(name='droprandom')
+    async def droprandom(self, ctx):
+        if not self.is_channel_owner(ctx.author.name.lower()):
+            await ctx.send(f"@{ctx.author.name}, this command is only for the channel owner.")
+            return
+
+        num_drops = random.randint(1, 5)  # Random number of items to drop (1 to 5)
+        locations = ['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp']
+
+        for _ in range(num_drops):
+            item = random.choice(list(ITEMS.values()))
+            location = random.choice(locations)
+            
+            message = f"🎁 A wild {item.name} appeared at {location}! Type '!grab {item.name}' to claim it!"
+            await ctx.send(message)
+            
+            # Store the dropped item temporarily
+            if not hasattr(self, 'dropped_items'):
+                self.dropped_items = []
+            self.dropped_items.append({'name': item.name, 'location': location})
+
+        await ctx.send(f"@{ctx.author.name} has dropped {num_drops} random items across various locations!")
 
 ###################################################################
 # ChatBot COMMANDS #
@@ -327,29 +394,23 @@ class Bot(commands.Bot):
 
     @commands.command(name='status')
     async def status(self, ctx):
-        # Displays the player's current status including level, health, points, and location.
-        # Parameters: - ctx (Context): The context in which the command was invoked.
-    
-        username = ctx.author.name.lower()  # Convert the username to lowercase for consistency
+        username = ctx.author.name.lower()
 
-        # Check if the user is registered
         if username not in self.player_data:
             await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
-        player = self.player_data[username]  # Retrieve the player's data
+        player = self.player_data[username]
 
-        # Construct the player's status message
         status_message = (
-            f"-@{ctx.author.name}, here is your current status: \n"
-            f"-Level: {player.level} \n"
-            f"-Health: {player.health} \n"
-            f"-Points: {player.points} \n"
-            f"-Location: {player.location} \n"
-            f"-Items: {', '.join(player.items) if player.items else 'None'}"
+            f"@{ctx.author.name}, here is your current status:\n"
+            f"Level: {player.level}\n"
+            f"Health: {player.health}\n"
+            f"Points: {player.points}\n"
+            f"Location: {player.location}\n"
+            f"Items: {', '.join(player.items) if player.items else 'None'}"
         )
 
-        # Send the player's status to the chat
         await ctx.send(status_message)
 
     @commands.command(name='virus')
