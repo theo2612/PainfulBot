@@ -116,16 +116,20 @@ class Bot(commands.Bot):
         message += f" Type '!grab {item.name}' to claim it!"
         
         await self.connected_channels[0].send(message)
+    
+        # Initialize dropped_items as a list if not already done
+        if not hasattr(self, 'dropped_items'):
+            self.dropped_items = []
         
-        # Store the dropped item temporarily
-        self.dropped_item = {'name': item.name, 'location': location}
+        self.dropped_items.append({'name': item.name, 'location': location})
 
     @commands.command(name='grab')
     async def grab(self, ctx, *, item_name: str):
-        if not hasattr(self, 'dropped_items') or not self.dropped_items:
+
+        if not self.dropped_items:
             await ctx.send("There are no items to grab right now!")
             return
-
+        
         username = ctx.author.name.lower()
         if username not in self.player_data:
             await ctx.send(f"@{ctx.author.name}, please register first with !start")
@@ -1190,7 +1194,7 @@ class Bot(commands.Bot):
     @commands.command(name='bossbattle')
     async def bossbattle(self, ctx):
         username = ctx.author.name.lower()
-        
+
         if self.ongoing_battle:
             await ctx.send("A boss battle is already in progress!")
             return
@@ -1199,7 +1203,6 @@ class Bot(commands.Bot):
             await ctx.send("Please wait 1 hour between boss battles!")
             return
 
-        # Use b7h30's actual stats from player_data
         boss_player = self.player_data.get('b7h30')
         if not boss_player:
             await ctx.send("Error: Boss not registered.")
@@ -1207,10 +1210,10 @@ class Bot(commands.Bot):
 
         self.ongoing_battle = BossBattle(
             boss_name='b7h30',
-            boss_health=boss_player.health  # This will use the 1000 HP from player_data.json
+            boss_health=boss_player.health
         )
         self.last_battle_time = datetime.now()
-        
+
         await ctx.send(
             f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
             f"💀 Boss: 1337haxxor Theo (HP: {boss_player.health})\n"
@@ -1218,14 +1221,13 @@ class Bot(commands.Bot):
             f"💪 Smaller teams get bigger rewards if they win!\n"
             f"⚔️ Each survivor gets points and +5 permanent max HP!"
         )
-        
-        # Start join timer
+
         await asyncio.sleep(30)
         self.ongoing_battle.join_phase = False
-        
+
         if not self.ongoing_battle.challenger_team:
             await ctx.send("No challengers joined! Battle cancelled.")
-            self.ongoing_battle = None
+            self.ongoing_battle = None  # Reset ongoing battle if no challengers
             return
 
         await ctx.send("Join phase ended! Battle beginning...")
@@ -1267,7 +1269,7 @@ class Bot(commands.Bot):
             # Boss AOE attack
             damage = random.randint(10, 30)
             dead_players = []
-            
+
             boss_action = random.choice([
                 "launches a massive DDoS attack!",
                 "deploys ransomware across the network!",
@@ -1276,9 +1278,9 @@ class Bot(commands.Bot):
                 "sets rgb keyboard to red!",
                 "sends 'AngyTheo' emote!"
             ])
-            
+
             await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
-            
+
             for player_name, health in battle.challenger_team.items():
                 new_health = max(0, health - damage)
                 battle.challenger_team[player_name] = new_health
@@ -1302,7 +1304,7 @@ class Bot(commands.Bot):
                 player_damage = random.randint(5, 15)
                 total_damage += player_damage
                 battle.team_damage += player_damage
-                
+
                 attack_action = random.choice([
                     "executes a SQL injection",
                     "deploys a zero-day exploit",
@@ -1310,7 +1312,7 @@ class Bot(commands.Bot):
                     "attempts a buffer overflow",
                     "distracts Theo by disparaging the Cleveland Browns"
                 ])
-                
+
                 await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
 
             battle.boss_health = max(0, battle.boss_health - total_damage)
@@ -1322,7 +1324,8 @@ class Bot(commands.Bot):
             await self.reward_team(ctx)
         else:
             await ctx.send(f"{battle.boss_name} has defeated the challenger team!")
-            
+
+        # Reset ongoing battle
         self.ongoing_battle = None
         self.save_player_data()
 
@@ -1357,4 +1360,3 @@ if __name__ == '__main__':
     bot = Bot()
     # Run the bot, which connects it to Twitch
     bot.run()
-
