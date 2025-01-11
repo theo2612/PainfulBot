@@ -258,11 +258,11 @@ class Bot(commands.Bot):
         self.save_player_data()
         
         welcome_msg = (
-            f"Welcome to TwitcHack, @{ctx.author.name}! You're now registered as a level 1 hacker. 🖥️\n"
-            f"1. Use !hack <location> to move (email, website, server, etc)\n"
-            f"2. Each location has unique attacks you can perform\n"
-            f"3. Level up by earning points from successful hacks\n"
-            f"4. Join boss battles with !bossbattle when available\n"
+            f"Welcome to TwitcHack, @{ctx.author.name}! You're now registered as a level 1 hacker. 🖥️ | \n"
+            f"1. Use !hack <location> to move (email, website, server, etc) | \n"
+            f"2. Each location has unique attacks you can perform | \n"
+            f"3. Level up by earning points from successful hacks | \n"
+            f"4. Join boss battles with !bossbattle when available | \n"
             f"Use !help for more commands!"
         )
         await ctx.send(welcome_msg)
@@ -270,10 +270,10 @@ class Bot(commands.Bot):
     @commands.command(name='help')
     async def help(self, ctx):
         help_msg = (
-            f"@{ctx.author.name}, TwitcHack Commands:\n"
-            f"🎮 Basic: !start (register), !status (check stats), !points, !leaderboard\n"
-            f"🌍 Movement: !hack <location> - Available locations: email, website, /etc/shadow, database, server, network, evilcorp\n"
-            f"⚔️ Boss Battles: !bossbattle (start/join a team raid against the boss)\n"
+            f"@{ctx.author.name}, TwitcHack Commands: \n"
+            f"🎮 Basic: !start (register), !status (check stats), !points, !leaderboard | \n"
+            f"🌍 Movement: !hack <location> - Available locations: email, website, /etc/shadow, database, server, network, evilcorp | \n"
+            f"⚔️ Boss Battles: !bossbattle (start/join a team raid against the boss) | \n"
             f"Type !attacks to see available attacks for your current location!"
         )
         await ctx.send(help_msg)
@@ -403,11 +403,11 @@ class Bot(commands.Bot):
         player = self.player_data[username]
 
         status_message = (
-            f"@{ctx.author.name}, here is your current status: \n"
-            f"Level: {player.level} \n"
-            f"Health: {player.health}\n"
-            f"Points: {player.points}\n"
-            f"Location: {player.location}\n"
+            f"@{ctx.author.name}, here is your current status: "
+            f"Level: {player.level} | \n"
+            f"Health: {player.health} | \n"
+            f"Points: {player.points} | \n"
+            f"Location: {player.location} | \n"
             f"Items: {', '.join(player.items) if player.items else 'None'}"
         )
 
