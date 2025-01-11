@@ -1196,40 +1196,140 @@ class Bot(commands.Bot):
             return
 
         if datetime.now() - self.last_battle_time < timedelta(hours=1):
-            await ctx.send("Please wait 1 hour between boss battles!")
+            time_left = timedelta(hours=1) - (datetime.now() - self.last_battle_time)
+            await ctx.send(f"Please wait {int(time_left.total_seconds() / 60)} minutes between boss battles!")
             return
 
-        # Use b7h30's actual stats from player_data
         boss_player = self.player_data.get('b7h30')
         if not boss_player:
             await ctx.send("Error: Boss not registered.")
             return
 
-        self.ongoing_battle = BossBattle(
-            boss_name='b7h30',
-            boss_health=boss_player.health  # This will use the 1000 HP from player_data.json
-        )
-        self.last_battle_time = datetime.now()
-        
-        await ctx.send(
-            f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
-            f"💀 Boss: 1337haxxor Theo (HP: {boss_player.health})\n"
-            f"👥 Type !joinbattle in the next 30 seconds to join the raid team! (max 5 members)\n"
-            f"💪 Smaller teams get bigger rewards if they win!\n"
-            f"⚔️ Each survivor gets points and +5 permanent max HP!"
-        )
-        
-        # Start join timer
-        await asyncio.sleep(30)
-        self.ongoing_battle.join_phase = False
-        
-        if not self.ongoing_battle.challenger_team:
-            await ctx.send("No challengers joined! Battle cancelled.")
-            self.ongoing_battle = None
-            return
+        try:
+            self.ongoing_battle = BossBattle(
+                boss_name='b7h30',
+                boss_health=boss_player.health
+            )
+            self.last_battle_time = datetime.now()
+            
+            await ctx.send(
+                f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
+                f"💀 Boss: 1337haxxor Theo (HP: {boss_player.health})\n"
+                f"👥 Type !joinbattle in the next 30 seconds to join the raid team! (max 5 members)\n"
+                f"💪 Smaller teams get bigger rewards if they win!\n"
+                f"⚔️ Each survivor gets points and +5 permanent max HP!"
+            )
+            
+            # Wait for joins
+            await asyncio.sleep(30)
+            
+            if not self.ongoing_battle:
+                await ctx.send("Battle was cancelled.")
+                return
+                
+            self.ongoing_battle.join_phase = False
+            
+            if not self.ongoing_battle.challenger_team:
+                await ctx.send("No challengers joined! Battle cancelled.")
+                self.ongoing_battle = None
+                return
 
-        await ctx.send("Join phase ended! Battle beginning...")
-        await self.run_team_battle(ctx)
+            team_members = ", ".join(self.ongoing_battle.challenger_team.keys())
+            await ctx.send(f"Join phase ended! Battle beginning with team: {team_members}")
+            
+            # Run the battle
+            await self.run_team_battle(ctx)
+            
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+            self.ongoing_battle = None
+
+    async def run_team_battle(self, ctx):
+        try:
+            battle = self.ongoing_battle
+            if not battle:
+                await ctx.send("No active battle found!")
+                return
+                
+            turn = 0
+            max_turns = 15
+
+            while battle.boss_health > 0 and battle.challenger_team and turn < max_turns:
+                turn += 1
+                await ctx.send(f"⚔️ Turn {turn} ⚔️")
+                await asyncio.sleep(1)  # Small delay between messages
+
+                # Boss attack phase
+                damage = random.randint(10, 30)
+                boss_action = random.choice([
+                    "launches a massive DDoS attack!",
+                    "deploys ransomware across the network!",
+                    "executes a supply chain attack!",
+                    "activates the corporate defenses!",
+                    "sets rgb keyboard to red!",
+                    "sends 'AngyTheo' emote!"
+                ])
+                
+                await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
+                await asyncio.sleep(1)
+
+                # Process damage to each player
+                dead_players = []
+                for player_name, health in battle.challenger_team.items():
+                    new_health = max(0, health - damage)
+                    battle.challenger_team[player_name] = new_health
+                    
+                    if new_health <= 0:
+                        dead_players.append(player_name)
+                        await ctx.send(f"☠️ @{player_name} has fallen!")
+                    else:
+                        await ctx.send(f"@{player_name} takes {damage} damage! ({new_health} HP remaining)")
+                    await asyncio.sleep(0.5)
+
+                # Remove defeated players
+                for player in dead_players:
+                    del battle.challenger_team[player]
+
+                if not battle.challenger_team:
+                    await ctx.send("All challengers have been defeated!")
+                    break
+
+                await ctx.send("🗡️ Team attack phase:")
+                await asyncio.sleep(1)
+
+                # Team attack phase
+                total_damage = 0
+                for player_name in battle.challenger_team:
+                    player_damage = random.randint(5, 15)
+                    total_damage += player_damage
+                    battle.team_damage += player_damage
+                    
+                    attack_action = random.choice([
+                        "executes a SQL injection",
+                        "deploys a zero-day exploit",
+                        "launches a social engineering attack",
+                        "attempts a buffer overflow",
+                        "distracts Theo by disparaging the Cleveland Browns"
+                    ])
+                    
+                    await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
+                    await asyncio.sleep(0.5)
+
+                battle.boss_health = max(0, battle.boss_health - total_damage)
+                await ctx.send(f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}")
+                await asyncio.sleep(2)
+
+            # Battle resolution
+            if battle.boss_health <= 0:
+                await self.reward_team(ctx)
+            else:
+                await ctx.send(f"{battle.boss_name} has defeated the challenger team!")
+            
+        except Exception as e:
+            await ctx.send(f"An error occurred during battle: {str(e)}")
+        finally:
+            self.ongoing_battle = None
+            self.save_player_data()
 
     @commands.command(name='joinbattle')
     async def joinbattle(self, ctx):
@@ -1254,77 +1354,6 @@ class Bot(commands.Bot):
         player = self.player_data[username]
         self.ongoing_battle.challenger_team[username] = player.health
         await ctx.send(f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)")
-
-    async def run_team_battle(self, ctx):
-        battle = self.ongoing_battle
-        turn = 0
-        max_turns = 15  # Extended for team battles
-
-        while battle.boss_health > 0 and battle.challenger_team and turn < max_turns:
-            turn += 1
-            await ctx.send(f"⚔️ Turn {turn} ⚔️")
-
-            # Boss AOE attack
-            damage = random.randint(10, 30)
-            dead_players = []
-            
-            boss_action = random.choice([
-                "launches a massive DDoS attack!",
-                "deploys ransomware across the network!",
-                "executes a supply chain attack!",
-                "activates the corporate defenses!",
-                "sets rgb keyboard to red!",
-                "sends 'AngyTheo' emote!"
-            ])
-            
-            await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
-            
-            for player_name, health in battle.challenger_team.items():
-                new_health = max(0, health - damage)
-                battle.challenger_team[player_name] = new_health
-                if new_health <= 0:
-                    dead_players.append(player_name)
-                    await ctx.send(f"☠️ @{player_name} has fallen!")
-                else:
-                    await ctx.send(f"@{player_name} takes {damage} damage! ({new_health} HP remaining)")
-
-            # Remove defeated players
-            for player in dead_players:
-                del battle.challenger_team[player]
-
-            if not battle.challenger_team:
-                break
-
-            # Team attack phase
-            await ctx.send("🗡️ Team attack phase:")
-            total_damage = 0
-            for player_name in battle.challenger_team:
-                player_damage = random.randint(5, 15)
-                total_damage += player_damage
-                battle.team_damage += player_damage
-                
-                attack_action = random.choice([
-                    "executes a SQL injection",
-                    "deploys a zero-day exploit",
-                    "launches a social engineering attack",
-                    "attempts a buffer overflow",
-                    "distracts Theo by disparaging the Cleveland Browns"
-                ])
-                
-                await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
-
-            battle.boss_health = max(0, battle.boss_health - total_damage)
-            await ctx.send(f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}")
-            await asyncio.sleep(2)
-
-        # Battle resolution
-        if battle.boss_health <= 0:
-            await self.reward_team(ctx)
-        else:
-            await ctx.send(f"{battle.boss_name} has defeated the challenger team!")
-            
-        self.ongoing_battle = None
-        self.save_player_data()
 
     async def reward_team(self, ctx):
         battle = self.ongoing_battle
