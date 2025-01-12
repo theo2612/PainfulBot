@@ -1,21 +1,23 @@
 ## TwitcHack
+- **To Do**
+	- more documentation to the code
+	- add !items functionality that lists items and where they help
+	- need boss battle result sent to chat erroring out before finishing battle and sending dialog
+	- !virus wiping out level.
+	- levels should not decrease once achieved 
+	- dropping items on a follow or sub
+	- leveling working?
+	- output of hack messages to whisipers
+
 
 - **Player Maintenance**
-    - Registering with ~start
-    - checking stats with ~inv
+
 
 - **Boss / party system into this game**
 	- where the streamer is the boss with set hit points 
 	- viewers attack and also have hit points 
-	- Chat rolling ~d20 to land an attack
-	- it chat rolls fail, they take damage. 
-	- if chat rolls succeed, you take damage
-	- When I roll then a random viewer is selected for damage
-	- ticker that heals both chat and the streamer over time
-	- chat rolls
-		- over 12 
-		- 19+ rolls land a critical blow
-		- hp scale 
+	- randomly generated # to land an attack
+
 
 
 - **Points System**

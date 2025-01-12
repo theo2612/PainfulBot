@@ -1,14 +1,14 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 119,
+        "level": 19,
         "health": 1000,
         "items": [
             "Wireshark",
             "VX Underground HDD"
         ],
         "location": "network",
-        "points": 11972,
+        "points": 1972,
         "started": 0
     },
     "goproslowyo": {
@@ -107,13 +107,13 @@
     },
     "nohusuro": {
         "username": "nohusuro",
-        "level": 11,
+        "level": 73,
         "health": 10,
         "items": [
             "Metasploit"
         ],
         "location": "server",
-        "points": 69,
+        "points": 7380,
         "started": 0
     },
     "xmetrix": {
@@ -145,13 +145,13 @@
     },
     "xhacktheplanetx": {
         "username": "xhacktheplanetx",
-        "level": 1,
+        "level": 132,
         "health": 10,
         "items": [
             "O.MG Cable"
         ],
-        "location": "email",
-        "points": 95,
+        "location": "evilcorp",
+        "points": 13261,
         "started": 0
     },
     "kolkhis": {
@@ -178,7 +178,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 229,
+        "points": 224,
         "started": 0
     },
     "gainer552": {
@@ -201,11 +201,11 @@
     },
     "djzerozero2": {
         "username": "djzerozero2",
-        "level": 1,
+        "level": 2,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 0,
+        "points": 242,
         "started": 0
     },
     "ydouwantjustasking": {
@@ -282,11 +282,11 @@
     },
     "pebl3": {
         "username": "pebl3",
-        "level": 48,
+        "level": 135,
         "health": 10,
         "items": [],
-        "location": "/etc/shadow",
-        "points": 4853,
+        "location": "evilcorp",
+        "points": 13595,
         "started": 0
     },
     "krunkmastercash": {
@@ -404,6 +404,35 @@
         "items": [],
         "location": "home",
         "points": 0,
+        "started": 0
+    },
+    "mynewbrain": {
+        "username": "mynewbrain",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 198,
+        "started": 0
+    },
+    "pickle290780": {
+        "username": "pickle290780",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 0,
+        "started": 0
+    },
+    "fluisekuchikopi": {
+        "username": "fluisekuchikopi",
+        "level": 1,
+        "health": 10,
+        "items": [
+            "EvilGinx"
+        ],
+        "location": "email",
+        "points": 141,
         "started": 0
     }
 }
