@@ -27,11 +27,18 @@ class Bot(commands.Bot):
     def __init__(self):
         # Initialize the bot with required parameters
         super().__init__(
-            token=TOKEN,                     # Authentication token for Twitch IRC
-            client_id=CLIENT_ID,             # Client ID of your Twitch application
-            nick=BOT_NICK,                   # The bot's username on Twitch
-            prefix=PREFIX,                   # Command prefix for your bot (e.g., '!' for '!command')
-            initial_channels=[CHANNEL]       # The channel(s) the bot should join upon connecting
+            token=TOKEN,
+            client_id=CLIENT_ID,
+            nick=BOT_NICK,
+            prefix=PREFIX,
+            initial_channels=[CHANNEL],
+            scopes=[
+                'chat:read',
+                'chat:edit',
+                'channel:moderate',
+                'whispers:read',
+                'whispers:edit'
+            ]
         )
 
         # Load player data from JSON file

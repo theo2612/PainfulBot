@@ -7,8 +7,8 @@
             "Wireshark",
             "VX Underground HDD"
         ],
-        "location": "network",
-        "points": 1972,
+        "location": "email",
+        "points": 1998,
         "started": 0
     },
     "goproslowyo": {
@@ -174,11 +174,11 @@
     },
     "fallenlearns": {
         "username": "fallenlearns",
-        "level": 2,
+        "level": 3,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 224,
+        "points": 313,
         "started": 0
     },
     "gainer552": {
@@ -433,6 +433,24 @@
         ],
         "location": "email",
         "points": 141,
+        "started": 0
+    },
+    "taniwha3": {
+        "username": "taniwha3",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "database",
+        "points": 0,
+        "started": 0
+    },
+    "jamesfte": {
+        "username": "jamesfte",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 0,
         "started": 0
     }
 }
