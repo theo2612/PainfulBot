@@ -1215,42 +1215,42 @@ class Bot(commands.Bot):
 
     @commands.command(name='bossbattle')
     async def bossbattle(self, ctx):
-        username = ctx.author.name.lower()
-        
-        if self.ongoing_battle:
-            await ctx.send("A boss battle is already in progress!")
-            return
-
-        if datetime.now() - self.last_battle_time < timedelta(hours=1):
-            time_left = timedelta(hours=1) - (datetime.now() - self.last_battle_time)
-            await ctx.send(f"Please wait {int(time_left.total_seconds() / 60)} minutes between boss battles!")
-            return
-
-        boss_player = self.player_data.get('b7h30')
-        if not boss_player:
-            await ctx.send("Error: Boss not registered.")
-            return
-
         try:
+            username = ctx.author.name.lower()
+            
+            if self.ongoing_battle:
+                await ctx.send("A boss battle is already in progress!")
+                return
+
+            current_time = datetime.now()
+            if current_time - self.last_battle_time < timedelta(hours=1):
+                time_left = timedelta(hours=1) - (current_time - self.last_battle_time)
+                minutes_left = int(time_left.total_seconds() / 60)
+                await ctx.send(f"Please wait {minutes_left} minutes before starting another boss battle!")
+                return
+
+            boss_player = self.player_data.get('b7h30')
+            if not boss_player:
+                await ctx.send("Error: Boss not registered.")
+                return
+
             self.ongoing_battle = BossBattle(
                 boss_name='b7h30',
-                boss_health=boss_player.health
+                boss_health=min(boss_player.health, 1000)  # Cap boss health
             )
-            self.last_battle_time = datetime.now()
+            self.last_battle_time = current_time
             
             await ctx.send(
                 f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
-                f"💀 Boss: 1337haxxor Theo (HP: {boss_player.health})\n"
-                f"👥 Type !joinbattle in the next 30 seconds to join the raid team! (max 5 members)\n"
-                f"💪 Smaller teams get bigger rewards if they win!\n"
-                f"⚔️ Each survivor gets points and +5 permanent max HP!"
+                f"💀 Boss: 1337haxxor Theo (HP: {self.ongoing_battle.boss_health})\n"
+                f"👥 Type !joinbattle in the next 30 seconds to join the raid team!\n"
+                f"💪 Max 5 members | Smaller teams get bigger rewards!\n"
+                f"⚔️ Survivors get points and +5 permanent max HP!"
             )
             
-            # Wait for joins
             await asyncio.sleep(30)
             
             if not self.ongoing_battle:
-                await ctx.send("Battle was cancelled.")
                 return
                 
             self.ongoing_battle.join_phase = False
@@ -1263,11 +1263,11 @@ class Bot(commands.Bot):
             team_members = ", ".join(self.ongoing_battle.challenger_team.keys())
             await ctx.send(f"Join phase ended! Battle beginning with team: {team_members}")
             
-            # Run the battle
             await self.run_team_battle(ctx)
             
         except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
+            print(f"Error in bossbattle: {str(e)}")
+            await ctx.send("An error occurred while starting the boss battle.")
             self.ongoing_battle = None
 
     async def run_team_battle(self, ctx):
@@ -1382,20 +1382,35 @@ class Bot(commands.Bot):
         await ctx.send(f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)")
 
     async def reward_team(self, ctx):
-        battle = self.ongoing_battle
-        base_reward = 200
-        team_size_bonus = (5 - len(battle.challenger_team)) * 50  # Smaller teams get bigger bonus
-        damage_bonus = battle.team_damage // 50
+        try:
+            battle = self.ongoing_battle
+            if not battle:
+                return
+                
+            # Calculate rewards with caps
+            base_reward = 200
+            team_size_bonus = min((5 - len(battle.challenger_team)) * 50, 200)  # Cap at 200
+            damage_bonus = min(battle.team_damage // 50, 100)  # Cap at 100
+            
+            total_reward = base_reward + team_size_bonus + damage_bonus
+            
+            for username in battle.challenger_team:
+                if username not in self.player_data:
+                    continue
+                    
+                player = self.player_data[username]
+                player.points += total_reward
+                player.health = min(player.health + 5, 1000)  # Cap health at 1000
+                self.check_level_up(username)
+                await self.whisper_result(ctx, f"@{username} earned {total_reward} points and +5 max HP!")
 
-        for username in battle.challenger_team:
-            player = self.player_data[username]
-            points_earned = base_reward + team_size_bonus + damage_bonus
-            player.points += points_earned
-            player.health += 5  # Small permanent health boost for surviving
-            self.check_level_up(username)
-            await ctx.send(f"@{username} earned {points_earned} points and +5 max HP!")
-
-        await ctx.send(f"The team has defeated {battle.boss_name}! Congratulations!")
+            await ctx.send(f"The team has defeated {battle.boss_name}! Each survivor earned {total_reward} points!")
+            
+        except Exception as e:
+            print(f"Error in reward_team: {str(e)}")
+            await ctx.send("An error occurred while distributing rewards.")
+        finally:
+            self.save_player_data()
 
 class BossBattle:
     def __init__(self, boss_name, boss_health):

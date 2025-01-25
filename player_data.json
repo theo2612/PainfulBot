@@ -1,14 +1,14 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 19,
+        "level": 21,
         "health": 1000,
         "items": [
             "Wireshark",
             "VX Underground HDD"
         ],
         "location": "email",
-        "points": 1998,
+        "points": 2184,
         "started": 0
     },
     "goproslowyo": {
@@ -17,18 +17,18 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 3447,
+        "points": 3267,
         "started": 0
     },
     "cypherenigma": {
         "username": "cypherenigma",
-        "level": 23,
+        "level": 24,
         "health": 10,
         "items": [
             "EvilGinx"
         ],
         "location": "email",
-        "points": 2374,
+        "points": 2414,
         "started": 0
     },
     "pure_cypher": {
@@ -66,7 +66,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 26,
+        "points": 0,
         "started": 0
     },
     "points_earned": {
@@ -113,7 +113,7 @@
             "Metasploit"
         ],
         "location": "server",
-        "points": 7380,
+        "points": 7328,
         "started": 0
     },
     "xmetrix": {
@@ -145,13 +145,13 @@
     },
     "xhacktheplanetx": {
         "username": "xhacktheplanetx",
-        "level": 132,
+        "level": 137,
         "health": 10,
         "items": [
             "O.MG Cable"
         ],
         "location": "evilcorp",
-        "points": 13261,
+        "points": 13741,
         "started": 0
     },
     "kolkhis": {
@@ -178,7 +178,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 313,
+        "points": 301,
         "started": 0
     },
     "gainer552": {
@@ -205,7 +205,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 242,
+        "points": 143,
         "started": 0
     },
     "ydouwantjustasking": {
@@ -282,11 +282,11 @@
     },
     "pebl3": {
         "username": "pebl3",
-        "level": 135,
+        "level": 137,
         "health": 10,
         "items": [],
         "location": "evilcorp",
-        "points": 13595,
+        "points": 13759,
         "started": 0
     },
     "krunkmastercash": {
@@ -340,7 +340,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 174,
+        "points": 94,
         "started": 0
     },
     "x3rox3": {
@@ -367,7 +367,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 23,
+        "points": 0,
         "started": 0
     },
     "alsjourney": {
@@ -376,7 +376,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 44,
+        "points": 0,
         "started": 0
     },
     "xguildedthorn": {
@@ -412,7 +412,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 198,
+        "points": 139,
         "started": 0
     },
     "pickle290780": {
@@ -432,7 +432,7 @@
             "EvilGinx"
         ],
         "location": "email",
-        "points": 141,
+        "points": 0,
         "started": 0
     },
     "taniwha3": {
@@ -451,6 +451,24 @@
         "items": [],
         "location": "email",
         "points": 0,
+        "started": 0
+    },
+    "g33zmanifest": {
+        "username": "g33zmanifest",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "server",
+        "points": 0,
+        "started": 0
+    },
+    "ag3nt_57_": {
+        "username": "ag3nt_57_",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 23,
         "started": 0
     }
 }
