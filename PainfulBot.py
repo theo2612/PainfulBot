@@ -49,21 +49,36 @@ class Bot(commands.Bot):
         self.dropped_items = []  # Add this line to initialize dropped_items list
         self.last_public_message = {}  # Add this to track last public message per command
 
+    def log_to_file(self, message):
+        """Helper method to log messages to file"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open('bot.log', 'a') as f:
+            f.write(f"[{timestamp}] {message}\n")
+
     async def whisper_result(self, ctx, message):
-        """Helper method to handle result messaging with rate limiting for public messages"""
+        """Helper method to handle result messaging with debug logging"""
+        command = ctx.command.name if ctx.command else 'unknown'
+        current_time = datetime.now()
+        
+        self.log_to_file(f"Attempting to send result for command '{command}' to {ctx.author.name}")
+        
         try:
-            # Always try to whisper the result to the user
+            self.log_to_file("Trying whisper...")
             await ctx.author.send(message)
+            self.log_to_file(f"Successfully sent whisper to {ctx.author.name}")
+            return
         except Exception as e:
-            # If whisper fails, fallback to public message
-            current_time = datetime.now()
-            command = ctx.command.name if ctx.command else 'unknown'
+            self.log_to_file(f"Whisper failed: {str(e)}")
             
-            # Only send public message if more than 30 seconds have passed since last one for this command
-            if (command not in self.last_public_message or 
-                (current_time - self.last_public_message[command]).total_seconds() > 30):
+            # Always try public message
+            try:
+                self.log_to_file("Attempting public message...")
                 await ctx.send(message)
+                self.log_to_file("Successfully sent public message")
                 self.last_public_message[command] = current_time
+            except Exception as e:
+                self.log_to_file(f"Failed to send public message: {str(e)}")
+                self.log_to_file("WARNING: Both whisper and public message failed!")
 
     def load_player_data(self):
         # Loads player data from the JSON file into Player objects.        
@@ -237,6 +252,11 @@ class Bot(commands.Bot):
     @commands.command(name='d12')
     async def d12(self, ctx):
         num = random.randint(1,12)
+        await ctx.send(f'@{ctx.author.name} you rolled a {num}') 
+
+    @commands.command(name='d100')
+    async def d100(self, ctx):
+        num = random.randint(1,100)
         await ctx.send(f'@{ctx.author.name} you rolled a {num}') 
 
     @commands.command(name='coinflip')
@@ -507,43 +527,57 @@ class Bot(commands.Bot):
 
     @commands.command(name='phish')
     async def phish(self, ctx):
-        # Performs a phishing attack if the player is at the 'email' location.
-        # Parameters: - ctx (Context): The context in which the command was invoked.
-        username = ctx.author.name.lower()  # Convert the username to lowercase for consistency
+        """Performs a phishing attack if the player is at the 'email' location."""
+        self.log_to_file("\n=== PHISH COMMAND STARTED ===")
+        self.log_to_file("This is a test log entry")
+        username = ctx.author.name.lower()
+        self.log_to_file(f"Command initiated by: {username}")
 
         # Check if the user is registered
         if username not in self.player_data:
+            self.log_to_file(f"User {username} not registered")
             await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
-        player = self.player_data[username]  # Retrieve the player's data
+        player = self.player_data[username]
+        self.log_to_file(f"Player data retrieved - Location: {player.location}, Level: {player.level}")
 
         # Check if the player is at the 'email' location
         if player.location != 'email' and not self.is_channel_owner(username):
+            self.log_to_file(f"Invalid location: {player.location}")
             await self.whisper_result(ctx, f'@{ctx.author.name}, you need to be at the email location to perform phishing.')
             return
 
         # Check if the player meets the required level
         if player.level < 0 and not self.is_channel_owner(username):
+            self.log_to_file(f"Insufficient level: {player.level}")
             await self.whisper_result(ctx, f'@{ctx.author.name}, you need to be at least level 0 to perform phishing.')
             return
 
         # Simulate phishing success or failure
         success = random.choice([True, False])
+        self.log_to_file(f"Attack result: {'Success' if success else 'Failure'}")
+
         if success:
-            points_earned = random.randint(20, 60)  # Random points earned for successful phishing
-            player.points += points_earned  # Add the points to the player's total
-            self.check_level_up(username)   # Check if the player's level should be adjusted
-            self.save_player_data()  # Save the updated player data to the JSON file
+            points_earned = random.randint(20, 60)
+            player.points += points_earned
+            self.log_to_file(f"Points earned: {points_earned}")
+            self.check_level_up(username)
+            self.save_player_data()
+            self.log_to_file("Attempting to send success message...")
             await self.whisper_result(ctx, f'@{ctx.author.name}, phishing successful! You earned {points_earned} points.')
         else:
-            points_lost = random.randint(10, 30)  # Random points lost for failed phishing
-            player.points -= points_lost  # Subtract the points from the player's total
+            points_lost = random.randint(10, 30)
+            player.points -= points_lost
             if player.points < 0:
-                player.points = 0  # Ensure points do not go below zero
-            self.check_level_up(username)   # Check if the player's level should be adjusted
-            self.save_player_data()  # Save the updated player data to the JSON file
+                player.points = 0
+            self.log_to_file(f"Points lost: {points_lost}")
+            self.check_level_up(username)
+            self.save_player_data()
+            self.log_to_file("Attempting to send failure message...")
             await self.whisper_result(ctx, f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.')
+
+        self.log_to_file("=== PHISH COMMAND COMPLETED ===\n")
 
     @commands.command(name='spoof')
     async def spoof(self, ctx):
@@ -1427,4 +1461,3 @@ if __name__ == '__main__':
     bot = Bot()
     # Run the bot, which connects it to Twitch
     bot.run()
-

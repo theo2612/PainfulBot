@@ -8,7 +8,7 @@
             "VX Underground HDD"
         ],
         "location": "email",
-        "points": 2184,
+        "points": 2187,
         "started": 0
     },
     "goproslowyo": {
@@ -39,7 +39,7 @@
             "O.MG Cable"
         ],
         "location": "email",
-        "points": 410,
+        "points": 360,
         "started": 0
     },
     "el_raginho": {
@@ -113,7 +113,7 @@
             "Metasploit"
         ],
         "location": "server",
-        "points": 7328,
+        "points": 7228,
         "started": 0
     },
     "xmetrix": {
@@ -145,13 +145,13 @@
     },
     "xhacktheplanetx": {
         "username": "xhacktheplanetx",
-        "level": 137,
+        "level": 148,
         "health": 10,
         "items": [
             "O.MG Cable"
         ],
         "location": "evilcorp",
-        "points": 13741,
+        "points": 14849,
         "started": 0
     },
     "kolkhis": {
@@ -178,7 +178,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 301,
+        "points": 313,
         "started": 0
     },
     "gainer552": {
@@ -201,11 +201,11 @@
     },
     "djzerozero2": {
         "username": "djzerozero2",
-        "level": 2,
+        "level": 1,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 143,
+        "points": 87,
         "started": 0
     },
     "ydouwantjustasking": {
@@ -340,7 +340,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 94,
+        "points": 34,
         "started": 0
     },
     "x3rox3": {
@@ -469,6 +469,71 @@
         "items": [],
         "location": "email",
         "points": 23,
+        "started": 0
+    },
+    "john2dot0": {
+        "username": "john2dot0",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "evilcorp",
+        "points": 0,
+        "started": 0
+    },
+    "norikittea": {
+        "username": "norikittea",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "dreamtravelling": {
+        "username": "dreamtravelling",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "c4p7n": {
+        "username": "c4p7n",
+        "level": 1,
+        "health": 10,
+        "items": [
+            "VX Underground HDD"
+        ],
+        "location": "email",
+        "points": 0,
+        "started": 0
+    },
+    "avocado_violet": {
+        "username": "avocado_violet",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "website",
+        "points": 24,
+        "started": 0
+    },
+    "thepwnednetwork": {
+        "username": "thepwnednetwork",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 32,
+        "started": 0
+    },
+    "spiegelfechter": {
+        "username": "spiegelfechter",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "server",
+        "points": 0,
         "started": 0
     }
 }
