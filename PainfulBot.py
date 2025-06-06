@@ -362,14 +362,13 @@ class Bot(commands.Bot):
 
         player = self.player_data[username]             # Retrieve player data
 
+        # List of valid locations
+        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
+
         # If no location is provided, display the current location
         if not location:
             await ctx.send(f"@{ctx.author.name}, you are currently at {player.location}. Use !hack <location> to move to: {', '.join(valid_locations)}")
             return
-
-        # List of valid locations
-        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
-        # valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
 
 
         # Check if the provided location is valid
