@@ -1,4 +1,3 @@
-from PainfulBot import *
 
 class Player:
     def __init__(self, username, level, health, items, location, points, started):
