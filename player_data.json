@@ -1,14 +1,15 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 21,
+        "level": 42,
         "health": 1000,
         "items": [
             "Wireshark",
-            "VX Underground HDD"
+            "VX Underground HDD",
+            "EvilGinx"
         ],
-        "location": "email",
-        "points": 2187,
+        "location": "website",
+        "points": 4218,
         "started": 0
     },
     "goproslowyo": {
@@ -22,13 +23,13 @@
     },
     "cypherenigma": {
         "username": "cypherenigma",
-        "level": 24,
+        "level": 19,
         "health": 10,
         "items": [
             "EvilGinx"
         ],
         "location": "email",
-        "points": 2414,
+        "points": 1914,
         "started": 0
     },
     "pure_cypher": {
@@ -44,20 +45,20 @@
     },
     "el_raginho": {
         "username": "el_raginho",
-        "level": 3,
+        "level": 5,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 0,
+        "points": 449,
         "started": 0
     },
     "britejess": {
         "username": "britejess",
-        "level": 4,
+        "level": 5,
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 29,
+        "points": 524,
         "started": 0
     },
     "wupinyin": {
@@ -93,7 +94,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 1031,
+        "points": 945,
         "started": 0
     },
     "mdragons7": {
@@ -113,7 +114,7 @@
             "Metasploit"
         ],
         "location": "server",
-        "points": 7228,
+        "points": 7107,
         "started": 0
     },
     "xmetrix": {
@@ -140,18 +141,18 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 0,
+        "points": 81,
         "started": 0
     },
     "xhacktheplanetx": {
         "username": "xhacktheplanetx",
-        "level": 148,
+        "level": 153,
         "health": 10,
         "items": [
             "O.MG Cable"
         ],
         "location": "evilcorp",
-        "points": 14849,
+        "points": 15262,
         "started": 0
     },
     "kolkhis": {
@@ -178,7 +179,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 313,
+        "points": 227,
         "started": 0
     },
     "gainer552": {
@@ -205,7 +206,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 87,
+        "points": 0,
         "started": 0
     },
     "ydouwantjustasking": {
@@ -222,7 +223,7 @@
         "level": 1,
         "health": 10,
         "items": [],
-        "location": "email",
+        "location": "/etc/shadow",
         "points": 0,
         "started": 0
     },
@@ -255,11 +256,11 @@
     },
     "pinakgamer9": {
         "username": "pinakgamer9",
-        "level": 1,
+        "level": 10,
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 0,
+        "points": 1000,
         "started": 0
     },
     "signup_microservice": {
@@ -394,7 +395,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 79,
+        "points": 0,
         "started": 0
     },
     "cyb3rterran": {
@@ -437,11 +438,11 @@
     },
     "taniwha3": {
         "username": "taniwha3",
-        "level": 1,
+        "level": 5,
         "health": 10,
         "items": [],
         "location": "database",
-        "points": 0,
+        "points": 429,
         "started": 0
     },
     "jamesfte": {
@@ -468,16 +469,18 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 23,
+        "points": 0,
         "started": 0
     },
     "john2dot0": {
         "username": "john2dot0",
-        "level": 1,
+        "level": 5,
         "health": 10,
-        "items": [],
-        "location": "evilcorp",
-        "points": 0,
+        "items": [
+            "wireshark"
+        ],
+        "location": "email",
+        "points": 533,
         "started": 0
     },
     "norikittea": {
@@ -515,7 +518,7 @@
         "health": 10,
         "items": [],
         "location": "website",
-        "points": 24,
+        "points": 0,
         "started": 0
     },
     "thepwnednetwork": {
@@ -533,6 +536,56 @@
         "health": 10,
         "items": [],
         "location": "server",
+        "points": 0,
+        "started": 0
+    },
+    "kiribloodrose": {
+        "username": "kiribloodrose",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "mell0wx": {
+        "username": "mell0wx",
+        "level": 7,
+        "health": 10,
+        "items": [
+            "Metasploit",
+            "VX Underground HDD",
+            "EvilGinx",
+            "Wireshark"
+        ],
+        "location": "database",
+        "points": 742,
+        "started": 0
+    },
+    "deyloop": {
+        "username": "deyloop",
+        "level": 2,
+        "health": 10,
+        "items": [],
+        "location": "home",
+        "points": 176,
+        "started": 0
+    },
+    "tazkyfinsky": {
+        "username": "tazkyfinsky",
+        "level": 1,
+        "health": 10,
+        "items": [],
+        "location": "email",
+        "points": 44,
+        "started": 0
+    },
+    "wysestone": {
+        "username": "wysestone",
+        "level": 1,
+        "health": 50,
+        "items": [],
+        "location": "email",
         "points": 0,
         "started": 0
     }

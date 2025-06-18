@@ -12,5 +12,6 @@ ITEMS: Dict[str, Item] = {
     "Metasploit": Item("Metasploit", "Penetration testing framework", 30),
     "EvilGinx": Item("EvilGinx", "Phishing attack framework", 20),
     "O.MG Cable": Item("O.MG Cable", "Hardware attack tool", 15),
-    "VX Underground HDD": Item("VX Underground HDD", "Collection of malware samples", 25)
+    "VX Underground HDD": Item("VX Underground HDD", "Collection of malware samples", 25),
+    "Cookies": Item("Cookies", "Stored session data", 15)
 }
