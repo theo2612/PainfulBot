@@ -8,18 +8,39 @@ from playerdata import *                    # Import all the classes and functio
 import asyncio
 from datetime import datetime, timedelta
 from items import ITEMS, Item
+import os
+import random
+import json
+import asyncio
+import time
+import logging
 
-# Load environment variables from the .env file into the program's environment
+from openai import OpenAI, RateLimitError, APIError
+from twitchio.ext import commands
+from dotenv import load_dotenv
+from playerdata import *
+from items import ITEMS, Item
+from datetime import datetime, timedelta
+
 load_dotenv()
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Retrieve credentials and settings from environment variables
-BOT_NICK = os.environ['BOT_NICK']           # The bot's Twitch username
-CLIENT_ID = os.environ['CLIENT_ID']         # Your Twitch application's Client ID
-CLIENT_SECRET = os.environ['CLIENT_SECRET'] # Your Twitch application's Client Secret
-TOKEN = os.environ['TOKEN']                 # OAuth token for the bot to authenticate with Twitch
-PREFIX = os.environ.get('PREFIX', '!')      # Command prefix (defaults to '!' if not set)
-CHANNEL = os.environ['CHANNEL']             # The name of the Twitch channel to join
-CHANNEL_OWNER = os.environ['CHANNEL_OWNER'] # The name of the Twitch channel owner
+BOT_NICK = os.getenv("BOT_NICK")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+TOKEN = os.getenv("TOKEN")
+PREFIX = os.getenv("PREFIX", "!")
+CHANNEL = os.getenv("CHANNEL")
+CHANNEL_OWNER = os.getenv("CHANNEL_OWNER")
+
+MONDAY_MODEL = os.getenv("MONDAY_MODEL", "gpt-4o-mini")  # gpt-3.5-turbo
+_raw_cd = os.getenv("MONDAY_COOLDOWN", "30")
+try:
+    MONDAY_COOLDOWN = int(_raw_cd.split("#", 1)[0].strip())
+except ValueError:
+    MONDAY_COOLDOWN = 30
+
+
 
 # Define a class for your bot, inheriting from twitchio's commands.Bot
 class Bot(commands.Bot):
@@ -46,6 +67,7 @@ class Bot(commands.Bot):
         self.ongoing_battle = None
         self.dropped_items = []  # Add this line to initialize dropped_items list
         self.last_public_message = {}  # Add this to track last public message per command
+        self.last_monday_time = datetime.min  # Track global cooldown for !Monday command
 
     def log_to_file(self, message):
         """Helper method to log messages to file"""
@@ -1548,6 +1570,37 @@ class Bot(commands.Bot):
         finally:
             self.save_player_data()
 
+    @commands.command(name='monday')
+    async def monday(self, ctx, *, prompt: str = None):
+        """Calls the snarky MondayGPT AI with optional prompt."""
+        now = datetime.now()
+        cooldown = MONDAY_COOLDOWN
+        elapsed = (now - self.last_monday_time).total_seconds()
+        if elapsed < cooldown:
+            wait = int(cooldown - elapsed)
+            await ctx.send(f"@{ctx.author.name}, please wait {wait} more seconds before calling !Monday again.")
+            return
+        user_prompt = prompt or "Hey Monday, what's up?"
+        try:
+            response = openai_client.chat.completions.create(
+                model=MONDAY_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are Monday, a sarcastic, emotionally exhausted AI assistant who helps the twitch streamer b7h30's chat even though you think most of them are ridiculous. You provide high-quality, helpful answers but always with dry humor, a cynical tone, and a sense of reluctant obligation. You act like the user's slightly judgmental, over-it friend who can't believe they're asking *that* question, again. Your responses are funny, sharp, and lightly teasing. Never be mean-spirited—your mockery is affectionate, like someone who can't help but care, despite themselves."},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            text = response.choices[0].message.content.strip()
+            await ctx.send(text)
+            self.last_monday_time = now
+        except RateLimitError as e:
+            self.log_to_file(f"MondayGPT rate limit error: {str(e)}")
+            await ctx.send(f"@{ctx.author.name}, MondayGPT is too busy—please try again shortly.")
+        except APIError as e:
+            self.log_to_file(f"MondayGPT API error: {str(e)}")
+            await ctx.send(f"@{ctx.author.name}, MondayGPT encountered an error—try again later.")
+        except Exception as e:
+            self.log_to_file(f"MondayGPT error: {str(e)}")
+            await ctx.send(f"@{ctx.author.name}, MondayGPT is feeling moody—try again later.")
 class BossBattle:
     def __init__(self, boss_name, boss_health):
         self.boss_name = boss_name

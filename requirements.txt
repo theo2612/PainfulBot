@@ -10,3 +10,4 @@ python-dotenv==1.0.1
 twitchio==2.10.0
 typing_extensions==4.12.2
 yarl==1.11.1
+openai>=1.25.0
