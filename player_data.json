@@ -1,7 +1,7 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 42,
+        "level": 45,
         "health": 1000,
         "items": [
             "Wireshark",
@@ -9,7 +9,7 @@
             "EvilGinx"
         ],
         "location": "website",
-        "points": 4218,
+        "points": 4545,
         "started": 0
     },
     "goproslowyo": {
@@ -152,7 +152,7 @@
             "O.MG Cable"
         ],
         "location": "evilcorp",
-        "points": 15262,
+        "points": 15164,
         "started": 0
     },
     "kolkhis": {
@@ -474,22 +474,22 @@
     },
     "john2dot0": {
         "username": "john2dot0",
-        "level": 5,
+        "level": 6,
         "health": 10,
         "items": [
             "wireshark"
         ],
         "location": "email",
-        "points": 533,
+        "points": 18,
         "started": 0
     },
     "norikittea": {
         "username": "norikittea",
-        "level": 1,
+        "level": 10,
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 0,
+        "points": 928,
         "started": 0
     },
     "dreamtravelling": {
@@ -559,7 +559,7 @@
             "Wireshark"
         ],
         "location": "database",
-        "points": 742,
+        "points": 661,
         "started": 0
     },
     "deyloop": {
@@ -577,7 +577,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 44,
+        "points": 0,
         "started": 0
     },
     "wysestone": {
