@@ -2,25 +2,17 @@ import os                                   # Import the 'OS' module to interact
                                             # specifically for environment variables
 import random                               # Import the 'random' module to generate random numbers
 import json                                 # Import 'json' module to work with json data, for storing player data
-from twitchio.ext import commands           # Import the commands module from TwitchIO to help create a TwitchBot
-from dotenv import load_dotenv              # Import the function to load environment variables from a .env file
-from playerdata import *                    # Import all the classes and functions defined in playerdata.py
-import asyncio
-from datetime import datetime, timedelta
-from items import ITEMS, Item
-import os
-import random
-import json
 import asyncio
 import time
 import logging
-
-from openai import OpenAI, RateLimitError, APIError
-from twitchio.ext import commands
-from dotenv import load_dotenv
-from playerdata import *
-from items import ITEMS, Item
 from datetime import datetime, timedelta
+
+from dotenv import load_dotenv              # Import the function to load environment variables from a .env file
+from openai import OpenAI, RateLimitError, APIError
+from twitchio.ext import commands, eventsub
+
+from playerdata import *                    # Import all the classes and functions defined in playerdata.py
+from items import ITEMS, Item
 
 load_dotenv()
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -32,6 +24,9 @@ TOKEN = os.getenv("TOKEN")
 PREFIX = os.getenv("PREFIX", "!")
 CHANNEL = os.getenv("CHANNEL")
 CHANNEL_OWNER = os.getenv("CHANNEL_OWNER")
+BROADCASTER_ID = os.getenv("BROADCASTER_ID") or os.getenv("CHANNEL_ID")
+MODERATOR_ID = os.getenv("MODERATOR_ID") or BROADCASTER_ID
+EVENTSUB_TOKEN = (os.getenv("EVENTSUB_TOKEN") or TOKEN or "").replace("oauth:", "")
 
 MONDAY_MODEL = os.getenv("MONDAY_MODEL", "gpt-4o-mini")  # gpt-3.5-turbo
 _raw_cd = os.getenv("MONDAY_COOLDOWN", "30")
@@ -64,10 +59,46 @@ class Bot(commands.Bot):
         self.player_data = {}
         self.load_player_data()
         self.last_battle_time = datetime.min
+        self.boss_battle_cooldown = timedelta(hours=1)
         self.ongoing_battle = None
         self.dropped_items = []  # Add this line to initialize dropped_items list
+        self.drop_expiry = timedelta(minutes=15)  # Drops expire after 15 minutes
         self.last_public_message = {}  # Add this to track last public message per command
         self.last_monday_time = datetime.min  # Track global cooldown for !Monday command
+        self.eventsub_client = None
+        self.session_flags = self.load_session_flags()
+        self.item_emojis = {
+            'Wireshark': '🦈',
+            'Metasploit': '💥',
+            'EvilGinx': '🕷️',
+            'O.MG Cable': '🔌',
+            'VX Underground HDD': '💿',
+            'Cookies': '🍪',
+            'Nmap': '📡',
+            'Hydra': '🗝️',
+            'YubiKey': '🪫',
+            'Shodan API Key': '🔍',
+            'Kali ISO': '🐉',
+            'NES': '🎮',
+            'Contra Cartridge': '🔫',
+            'A Fresh Hot Cup of Black Coffee': '☕',
+            'Tiny Browns Helmet': '🏈',
+            'Root Beer Flask': '🧉',
+        }
+        self.neovim_penalties = {}
+        self.hidden_only_items = {
+            "NES",
+            "Contra Cartridge",
+            "A Fresh Hot Cup of Black Coffee",
+            "Tiny Browns Helmet",
+            "Root Beer Flask",
+        }
+        # Monday random replies tuning
+        self.monday_random_chance = 0.10
+        self.monday_random_cooldown_range = (30, 60)  # seconds
+        self.monday_random_user_cooldown_range = (600, 900)  # seconds
+        self.next_random_monday_time = datetime.min
+        self.monday_random_user_block = {}
 
     def log_to_file(self, message):
         """Helper method to log messages to file"""
@@ -110,16 +141,56 @@ class Bot(commands.Bot):
             json.dump(data, f, indent=4)    # Write the JSON data to the file with indentation
 
     def check_level_up(self, username):
-        # Checks and adjusts player level based on their points
+        """Ensure points stay non-negative and levels never decrease."""
         player = self.player_data[username]
+        player.points = max(0, player.points)
         current_level = player.level
-        new_level = max(1, player.points // 100)  # Floor division, minimum level 1
-        
+        new_level = max(current_level, max(1, player.points // 100))
+
         if new_level != current_level:
             player.level = new_level
             self.save_player_data()
             return True
         return False
+
+    def load_session_flags(self):
+        """Load per-stream hidden command flags; reset daily."""
+        today = datetime.now().date().isoformat()
+        default = {
+            "date": today,
+            "konami": [],
+            "coffee": [],
+            "browns": [],
+        }
+        try:
+            with open("session_flags.json", "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {k: (set(v) if isinstance(v, list) else v) for k, v in default.items()}
+
+        if data.get("date") != today:
+            return {k: (set(v) if isinstance(v, list) else v) for k, v in default.items()}
+
+        normalized = {}
+        for k, v in data.items():
+            normalized[k] = set(v) if isinstance(v, list) else v
+        # Ensure keys exist
+        for key in ("konami", "coffee", "browns"):
+            normalized.setdefault(key, set())
+            if not isinstance(normalized[key], set):
+                normalized[key] = set(normalized[key])
+        normalized["date"] = today
+        return normalized
+
+    def save_session_flags(self):
+        payload = {
+            "date": self.session_flags.get("date", datetime.now().date().isoformat()),
+            "konami": list(self.session_flags.get("konami", set())),
+            "coffee": list(self.session_flags.get("coffee", set())),
+            "browns": list(self.session_flags.get("browns", set())),
+        }
+        with open("session_flags.json", "w") as f:
+            json.dump(payload, f, indent=2)
 
     def is_channel_owner(self, username):
         return username.lower() == CHANNEL_OWNER.lower()
@@ -139,7 +210,14 @@ class Bot(commands.Bot):
             'Metasploit': ['revshell', 'root', 'burp', 'sqliw', 'xss'],  # Penetration testing
             'O.MG Cable': ['drop', 'tailgate'],  # Physical attacks
             'VX Underground HDD': ['virus', 'ransom'],  # Malware attacks
-            'Cookies': ['burp']  # Website attacks
+            'Cookies': ['burp'],  # Website attacks
+            'Nmap': ['revshell', 'root', 'sniff'],  # Recon/network leverage
+            'Hydra': ['bruteforce', 'crack'],  # Password attacks
+            'YubiKey': ['tailgate', 'socialengineer'],  # Physical/social engineering
+            'Shodan API Key': ['ddos', 'sniff'],  # Intel feeding attacks
+            'Kali ISO': ['phish', 'burp', 'revshell'],  # Generalist boost
+            'NES': ['ddos', 'xss'],  # Fun bonus
+            'Contra Cartridge': ['ddos', 'ransom'],  # Easter egg power
         }
         
         # Check if player has any items that help with this attack
@@ -152,6 +230,11 @@ class Bot(commands.Bot):
                 
         return bonus
 
+    def format_item(self, item_name):
+        """Return item name with emoji if available."""
+        emoji = self.item_emojis.get(item_name)
+        return f"{emoji} {item_name}" if emoji else item_name
+
     async def event_ready(self):
         # Called once when the bot successfully connects to Twitch.
         # Useful for initialization tasks and confirming the bot is online.
@@ -159,6 +242,7 @@ class Bot(commands.Bot):
         print(f'User id is | {self.user_id}')   # Output the bot's user ID
         # Send a message to the chat indicating that the bot is online
         await self.connected_channels[0].send(f"{self.nick} is now online")
+        self.loop.create_task(self.setup_eventsub())
 
     async def event_message(self, message):
         # Called whenever a message is received in chat.
@@ -173,9 +257,20 @@ class Bot(commands.Bot):
         else:
             print(f'Unknown author: {message.content}')
 
+        # Hidden Konami code easter egg: !uuddlrlrba
+        if message.content.strip().lower() == "!uuddlrlrba":
+            await self.handle_konami(message.author)
+        if message.content.strip().lower() == "!coffee":
+            await self.handle_coffee(message.author)
+        if "#gobrowns" in message.content.lower():
+            await self.handle_browns(message.author)
+
         # Handle basic keyword detection
         if "neovim" in message.content.lower():
-            await message.channel.send(f'You are better than that @{message.author.name}!')
+            await self.handle_neovim_penalty(message.author)
+
+        # Random friendly Monday reply to chatters
+        await self.maybe_random_monday_reply(message)
 
         # Process commands if any
         await self.handle_commands(message)
@@ -186,17 +281,322 @@ class Bot(commands.Bot):
     async def event_subscription(self, subscription):
         await self.random_item_drop("subscription", subscription.user.name)
 
+    async def setup_eventsub(self):
+        """Start EventSub websocket for follows/subs and wire to loot drops."""
+        if self.eventsub_client is not None:
+            return
+
+        if not BROADCASTER_ID:
+            print("EventSub disabled: set BROADCASTER_ID (or CHANNEL_ID) in the environment.")
+            return
+
+        if not EVENTSUB_TOKEN:
+            print("EventSub disabled: missing EVENTSUB_TOKEN (or TOKEN) with follow/sub scopes.")
+            return
+
+        moderator_id = MODERATOR_ID or BROADCASTER_ID
+
+        try:
+            self.eventsub_client = eventsub.EventSubWSClient(self)
+            await self.eventsub_client.subscribe_channel_follows_v2(
+                broadcaster=BROADCASTER_ID,
+                moderator=moderator_id,
+                token=EVENTSUB_TOKEN
+            )
+            await self.eventsub_client.subscribe_channel_subscriptions(
+                broadcaster=BROADCASTER_ID,
+                token=EVENTSUB_TOKEN
+            )
+            await self.eventsub_client.subscribe_channel_subscription_messages(
+                broadcaster=BROADCASTER_ID,
+                token=EVENTSUB_TOKEN
+            )
+            print("EventSub connected for follows/subscriptions.")
+        except Exception as e:
+            print(f"EventSub setup failed: {e}")
+
+    async def event_eventsub_notification_followV2(self, payload):
+        """EventSub follow notifications -> random loot drops."""
+        try:
+            username = payload.event.user.name
+        except Exception:
+            username = None
+        if username:
+            await self.random_item_drop("follow", username)
+
+    async def event_eventsub_notification_subscription(self, payload):
+        """EventSub sub notifications -> random loot drops."""
+        try:
+            username = payload.event.user.name
+        except Exception:
+            username = None
+        if username:
+            await self.random_item_drop("subscription", username)
+
+    async def event_eventsub_notification_subscription_message(self, payload):
+        """EventSub sub message notifications -> random loot drops."""
+        try:
+            username = payload.event.user.name
+        except Exception:
+            username = None
+        if username:
+            await self.random_item_drop("subscription", username)
+
+    async def handle_konami(self, author):
+        """Hidden Konami code reward. Grants Contra-themed items randomly, once per user per session."""
+        if not author:
+            return
+
+        username = author.name.lower()
+        if username not in self.player_data:
+            await self.connected_channels[0].send(f"@{author.name}, register with !start to get the code reward.")
+            return
+
+        # Avoid duplicate rewards in a single bot session
+        rewarded = self.session_flags.get("konami", set())
+        if username in rewarded:
+            await self.connected_channels[0].send(f"@{author.name}, you already used the Konami code this session!")
+            return
+
+        player = self.player_data[username]
+        reward_item = random.choice(["NES", "Contra Cartridge"])
+
+        if reward_item not in player.items:
+            player.items.append(reward_item)
+        # Always give some points bonus too
+        player.points += 50
+        self.check_level_up(username)
+        self.save_player_data()
+
+        rewarded.add(username)
+        self.session_flags["konami"] = rewarded
+        self.save_session_flags()
+
+        await self.connected_channels[0].send(
+            f"🎮 Konami code accepted! @{author.name} received a {self.format_item(reward_item)} and 50 points!"
+        )
+
+    async def handle_coffee(self, author):
+        """Hidden coffee command reward. One per session per user."""
+        if not author:
+            return
+
+        username = author.name.lower()
+        if username not in self.player_data:
+            await self.connected_channels[0].send(f"@{author.name}, register with !start to get a coffee boost.")
+            return
+
+        rewarded = self.session_flags.get("coffee", set())
+        if username in rewarded:
+            await self.connected_channels[0].send(f"@{author.name}, you've already grabbed your coffee this session!")
+            return
+
+        player = self.player_data[username]
+        reward_item = "A Fresh Hot Cup of Black Coffee"
+        if reward_item not in player.items:
+            player.items.append(reward_item)
+        player.points += 25
+        self.check_level_up(username)
+        self.save_player_data()
+
+        rewarded.add(username)
+        self.session_flags["coffee"] = rewarded
+        self.save_session_flags()
+
+        await self.connected_channels[0].send(
+            f"☕ Coffee break! @{author.name} received {self.format_item(reward_item)} and 25 points!"
+        )
+
+    async def handle_browns(self, author):
+        """Hidden Browns trigger: grants a tiny helmet once per session per user."""
+        if not author:
+            return
+
+        username = author.name.lower()
+        if username not in self.player_data:
+            await self.connected_channels[0].send("You are now a fan of the Cleveland Browns. Sorry, this is the only way we can get fans now #GoBrowns...")
+            return
+
+        rewarded = self.session_flags.get("browns", set())
+        if username in rewarded:
+            return  # silently ignore repeats
+
+        self.prune_expired_drops()
+
+        player = self.player_data[username]
+        reward_item = "Tiny Browns Helmet"
+        if reward_item not in player.items:
+            player.items.append(reward_item)
+
+        self.check_level_up(username)
+        self.save_player_data()
+
+        rewarded.add(username)
+        self.session_flags["browns"] = rewarded
+        self.save_session_flags()
+
+        await self.connected_channels[0].send(
+            f"You are now a fan of the Cleveland Browns. Sorry, this is the only way we can get fans now #GoBrowns... "
+            f"{self.format_item(reward_item)} added to @{author.name}'s inventory."
+        )
+
+    def prune_expired_drops(self):
+        """Remove drops older than drop_expiry."""
+        if not getattr(self, "dropped_items", []):
+            return
+        now_ts = datetime.now().timestamp()
+        self.dropped_items = [
+            d for d in self.dropped_items
+            if 'ts' in d and now_ts - d['ts'] <= self.drop_expiry.total_seconds()
+        ]
+
+    async def maybe_random_monday_reply(self, message):
+        """Occasional kind Monday replies with global and per-user cooldowns."""
+        if not message or not message.author or not message.content:
+            return
+
+        text = message.content.strip()
+        if not text or text.startswith(PREFIX):
+            return
+
+        username = message.author.name.lower()
+        now = datetime.now()
+
+        # Global cooldown gate
+        if now < self.next_random_monday_time:
+            return
+
+        # Per-user cooldown gate
+        block_until = self.monday_random_user_block.get(username)
+        if block_until and now < block_until:
+            return
+
+        # Weighted chance for subs/followers (subs only here—follower info not exposed)
+        chance = self.monday_random_chance
+        try:
+            is_sub = getattr(message.author, "is_subscriber", False)
+            if not is_sub:
+                tags = getattr(message, "tags", {}) or {}
+                is_sub = tags.get("subscriber") == "1"
+            if is_sub:
+                chance = min(0.40, chance + 0.10)
+        except Exception:
+            pass
+
+        if random.random() > chance:
+            return
+
+        try:
+            response = openai_client.chat.completions.create(
+                model=MONDAY_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are Monday, the sarcastic but caring Twitch cohost for channel b7h30. "
+                            "Voice: dry humor, eye-roll energy, mildly roasty like the !monday command, but never mean to chatters. "
+                            "Keep it playful, supportive, and short. "
+                            "Rules: exactly 2 sentences; mention the chatter with @username in the first sentence; "
+                            "you may tease/burn the host b7h30/Theo, lightly roast the situation, but do not insult the chatter; "
+                            "avoid advice or commentary on health, finance, or personal/private matters; "
+                            "no emojis; end the second sentence with ' - Monday'."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Chatter @{message.author.name} said: \"{text}\". Reply kindly.",
+                    },
+                ],
+            )
+            reply = response.choices[0].message.content.strip()
+            await self.connected_channels[0].send(reply)
+
+            # Set next cooldown windows
+            self.next_random_monday_time = now + timedelta(seconds=random.randint(*self.monday_random_cooldown_range))
+            self.monday_random_user_block[username] = now + timedelta(seconds=random.randint(*self.monday_random_user_cooldown_range))
+        except RateLimitError as e:
+            self.log_to_file(f"Random Monday rate limit: {str(e)}")
+        except APIError as e:
+            self.log_to_file(f"Random Monday API error: {str(e)}")
+        except Exception as e:
+            self.log_to_file(f"Random Monday error: {str(e)}")
+
+    async def handle_neovim_penalty(self, author):
+        """Apply escalating penalty for saying 'neovim' and drop a random item."""
+        if not author:
+            return
+
+        username = author.name.lower()
+        if username not in self.player_data:
+            await self.connected_channels[0].send("Absolutely not, Neovim is an abomination.")
+            return
+
+        self.prune_expired_drops()
+
+        strikes = self.neovim_penalties.get(username, 0) + 1
+        self.neovim_penalties[username] = strikes
+
+        penalty = 25 * (2 ** (strikes - 1))
+
+        player = self.player_data[username]
+        player.points = max(0, player.points - penalty)
+
+        removed_item = None
+        if player.items:
+            removed_item = random.choice(player.items)
+            player.items.remove(removed_item)
+            drop_location = random.choice(['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp'])
+            existing_names = {d['name'].lower() for d in self.dropped_items}
+            if removed_item.lower() not in existing_names:
+                self.dropped_items.append({'name': removed_item, 'location': drop_location, 'ts': datetime.now().timestamp()})
+
+        self.check_level_up(username)
+        self.save_player_data()
+
+        snark_pool = [
+            "Absolutely not, Neovim is an abomination.",
+            "Nope. Vim clones get fined here.",
+            "Editor wars? Not on my watch.",
+            "Touch grass instead of Neovim.",
+            "CTA: uninstall Neovim, gain inner peace.",
+            "Neovim is trash. Do Better.",
+            "Neovim stinks, and I hate it.",
+            "I hate Neovim, because it stinks.",
+            "Neovim sucks. Try Vim, and suck less.",
+            "Neovim? Absolutely mid. Points deducted."
+        ]
+        snark = random.choice(snark_pool)
+
+        item_msg = ""
+        if removed_item:
+            item_msg = f" Dropped {self.format_item(removed_item)} at {drop_location} for anyone to grab."
+
+        await self.connected_channels[0].send(
+            f"{snark} @{author.name} lost {penalty} points.{item_msg}"
+        )
+
     async def random_item_drop(self, event_type, username):
+        self.prune_expired_drops()
+
         item = random.choice(list(ITEMS.values()))
         location = random.choice(['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp'])
-        
-        message = f"🎉 {username} just {event_type}ed! A wild {item.name} appeared at {location}!"
+
+        # Prevent duplicate listing of the same item name at once
+        existing_names = {d['name'].lower() for d in self.dropped_items}
+        if item.name.lower() in existing_names:
+            return  # silently skip duplicate drop
+
+        message = f"🎉 {username} just {event_type}ed! A wild {self.format_item(item.name)} appeared at {location}!"
         message += f" Type '!grab {item.name}' to claim it!"
-        
+
         await self.connected_channels[0].send(message)
-        
-        # Add the dropped item to the list
-        self.dropped_items.append({'name': item.name, 'location': location})
+
+        # Add the dropped item to the list with timestamp
+        self.dropped_items.append({
+            'name': item.name,
+            'location': location,
+            'ts': datetime.now().timestamp()
+        })
         print(f"Debug: Item dropped - {item.name} at {location}")  # Add debug print
 
     @commands.command(name='grab')
@@ -216,7 +616,7 @@ class Bot(commands.Bot):
             if dropped_item['name'].lower() == item_name.lower():
                 if item_name not in player.items:
                     player.items.append(item_name)
-                    await ctx.send(f"@{ctx.author.name} grabbed the {item_name}!")
+                    await ctx.send(f"@{ctx.author.name} grabbed the {self.format_item(item_name)}!")
                     del self.dropped_items[i]
                     self.save_player_data()
                 else:
@@ -231,26 +631,88 @@ class Bot(commands.Bot):
             await ctx.send(f"@{ctx.author.name}, this command is only for the channel owner.")
             return
 
-        num_drops = random.randint(1, 5)  # Random number of items to drop (1 to 5)
+        self.prune_expired_drops()
+
+        num_drops = random.randint(1, 2)  # Cap at 2 items per call
         locations = ['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp']
 
+        names_seen = {d['name'].lower() for d in self.dropped_items}
+        dropped_count = 0
+
         for _ in range(num_drops):
-            item = random.choice(list(ITEMS.values()))
+            pool = [i for i in ITEMS.values() if i.name not in self.hidden_only_items]
+            if not pool:
+                break
+            item = random.choice(pool)
             location = random.choice(locations)
-            
-            message = f"🎁 A wild {item.name} appeared at {location}! Type '!grab {item.name}' to claim it!"
+
+            # Prevent duplicate listing of the same item name at once
+            if item.name.lower() in names_seen:
+                continue
+
+            message = f"🎁 A wild {self.format_item(item.name)} appeared at {location}! Type '!grab {item.name}' to claim it!"
             await ctx.send(message)
-            
-            # Store the dropped item temporarily
+
+            # Store the dropped item temporarily with timestamp
             if not hasattr(self, 'dropped_items'):
                 self.dropped_items = []
-            self.dropped_items.append({'name': item.name, 'location': location})
+            self.dropped_items.append({'name': item.name, 'location': location, 'ts': datetime.now().timestamp()})
+            names_seen.add(item.name.lower())
+            dropped_count += 1
 
-        await ctx.send(f"@{ctx.author.name} has dropped {num_drops} random items across various locations!")
+        await ctx.send(f"@{ctx.author.name} has dropped {dropped_count} random items across various locations!")
 
-###################################################################
-# ChatBot COMMANDS #
-###################################################################
+    ###################################################################
+    # ChatBot COMMANDS #
+    ###################################################################
+
+    @commands.command(name='items')
+    async def items_cmd(self, ctx):
+        """Show your items, what they buff, and any items dropped in chat."""
+        username = ctx.author.name.lower()
+
+        if username not in self.player_data:
+            await ctx.send(f"@{ctx.author.name}, please register using !start before playing.")
+            return
+
+        self.prune_expired_drops()
+
+        player = self.player_data[username]
+        owned = player.items or []
+
+        # Map item bonuses to attacks for quick reference
+        item_benefits = {
+            'Wireshark': ['sniff', 'mitm', 'ddos'],
+            'EvilGinx': ['phish', 'spoof'],
+            'Metasploit': ['revshell', 'root', 'burp', 'sqliw', 'xss'],
+            'O.MG Cable': ['drop', 'tailgate'],
+            'VX Underground HDD': ['virus', 'ransom'],
+            'Cookies': ['burp'],
+            'Nmap': ['revshell', 'root', 'sniff'],
+            'Hydra': ['bruteforce', 'crack'],
+            'YubiKey': ['tailgate', 'socialengineer'],
+            'Shodan API Key': ['ddos', 'sniff'],
+            'Kali ISO': ['phish', 'burp', 'revshell'],
+            'NES': ['ddos', 'xss'],
+            'Contra Cartridge': ['ddos', 'ransom'],
+        }
+
+        owned_parts = []
+        for item in owned:
+            buffs = item_benefits.get(item, [])
+            buffs_str = f" buffs: {', '.join(buffs)}" if buffs else ""
+            owned_parts.append(f"{self.format_item(item)}{buffs_str}")
+
+        owned_text = ", ".join(owned_parts) if owned_parts else "None"
+
+        # Show currently dropped items waiting to be grabbed
+        dropped_text = "None"
+        if getattr(self, "dropped_items", []):
+            dropped_text = "; ".join(f"{self.format_item(d['name'])} at {d['location']}" for d in self.dropped_items)
+
+        await ctx.send(
+            f"@{ctx.author.name} | Items: {owned_text} | Dropped: {dropped_text}"
+        )
 
     @commands.command(name='hello')
     async def hello(self, ctx):
@@ -301,9 +763,120 @@ class Bot(commands.Bot):
         # Send a greeting message in the chat, mentioning the user who invoked the command
         await ctx.send(f'There is no secret. // Consistency over intensity / Progress over Perfection / Fundamentals over fads // Over and over again')
 
-###################################################################
-# TwitcHack COMMANDS #
-###################################################################
+    @commands.command(name='statusbot')
+    async def statusbot(self, ctx):
+        """Owner-only bot diagnostics: EventSub, Monday cooldown, boss battle, drops."""
+        username = ctx.author.name.lower()
+        if not self.is_channel_owner(username):
+            return
+
+        # EventSub status
+        es_client = getattr(self, "eventsub_client", None)
+        sockets = getattr(es_client, "_sockets", []) if es_client else []
+        es_connected = any(getattr(s, "is_connected", False) for s in sockets)
+        es_msg = "connected" if es_connected else "not connected"
+
+        # Monday cooldown
+        now = datetime.now()
+        elapsed = (now - self.last_monday_time).total_seconds()
+        monday_ok = elapsed >= MONDAY_COOLDOWN
+        monday_msg = "ready" if monday_ok else f"cooling ({int(MONDAY_COOLDOWN - elapsed)}s left)"
+
+        # Boss battle status
+        battle = self.ongoing_battle
+        if battle:
+            battle_msg = f"active vs {battle.boss_name} (HP {battle.boss_health}) | join_phase={battle.join_phase} | team={len(battle.challenger_team)}"
+        else:
+            battle_msg = "idle"
+
+        drops = len(getattr(self, "dropped_items", []))
+
+        await ctx.send(
+            f"Bot status -> EventSub: {es_msg} | Monday: {monday_msg} (model {MONDAY_MODEL}) | Battle: {battle_msg} | Drops: {drops}"
+        )
+
+    @commands.command(name='battle')
+    async def battle_status(self, ctx):
+        """Show current boss battle status (join phase, team, HP)."""
+        battle = self.ongoing_battle
+        if not battle:
+            await ctx.send("Boss battle: idle. Use !bossbattle to start when off cooldown.")
+            return
+
+        team = battle.challenger_team or {}
+        team_list = ", ".join(team.keys()) if team else "none"
+        phase = "join" if battle.join_phase else "fight"
+        await ctx.send(
+            f"Boss battle ({phase}) vs {battle.boss_name} | Boss HP: {battle.boss_health} | Team: {team_list}"
+        )
+
+    @commands.command(name='mondayinsulttheo')
+    async def mondayinsulttheo(self, ctx):
+        """
+        Higher-spice Monday roast for Theo. Tuning: adjust templates in insult_pool or change messaging below.
+        Off-limits: family. Facts baked in: Browns fandom, 48/old gag, black coffee, 3-year pentester still feels junior, sleeps early.
+        """
+        try:
+            response = openai_client.chat.completions.create(
+                model=MONDAY_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are Monday, a sarcastic, emotionally exhausted AI assistant who roasts Theo (the streamer b7h30). Facts: die-hard Browns fan (never wins, perpetual misery); 48 and chat teases him for being old; drinks black coffee constantly; 3 years into pentesting and still feels like a beginner; goes to bed early. Off limits: spouse and children. Style: harsh, funny, 1-2 sentences, no apologies."},
+                    {"role": "user", "content": "Roast Theo right now."}
+                ]
+            )
+            burn = response.choices[0].message.content.strip()
+            await ctx.send(f"[Monday] {burn}")
+        except RateLimitError as e:
+            self.log_to_file(f"MondayInsult rate limit: {str(e)}")
+            await ctx.send("[Monday] I'm too tired to insult right now. Try again later.")
+        except APIError as e:
+            self.log_to_file(f"MondayInsult API error: {str(e)}")
+            await ctx.send("[Monday] Error fetching fresh insults. Try again later.")
+        except Exception as e:
+            self.log_to_file(f"MondayInsult error: {str(e)}")
+            # Fallback static burn
+            fallback = "Theo, you’re 48, fueled by black coffee, and still praying for a Browns Super Bowl. Adorable."
+            await ctx.send(f"[Monday] {fallback}")
+
+    @commands.command(name='patchtuesday')
+    async def patchtuesday(self, ctx):
+        """Owner-only chaos event: random global patch outcome."""
+        if not self.is_channel_owner(ctx.author.name.lower()):
+            return
+
+        # Outcomes: 0 = bad patch (points loss), 1 = good patch (points gain)
+        outcome = random.choice([0, 1])
+        delta = random.randint(15, 35)
+        message_lines = []
+
+        if outcome == 0:
+            for player in self.player_data.values():
+                player.points = max(0, player.points - delta)
+            message_lines.append(f"🛠️ Patch Tuesday backfired. Everyone loses {delta} points.")
+            # Drop a consolation Root Beer Flask
+            self.prune_expired_drops()
+            if "Root Beer Flask".lower() not in {d['name'].lower() for d in self.dropped_items}:
+                location = random.choice(['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp'])
+                self.dropped_items.append({
+                    'name': "Root Beer Flask",
+                    'location': location,
+                    'ts': datetime.now().timestamp()
+                })
+                message_lines.append(f"🧉 A {self.format_item('Root Beer Flask')} fell off the change cart at {location}! !grab Root Beer Flask")
+        else:
+            for player in self.player_data.values():
+                player.points += delta
+            message_lines.append(f"🛠️ Patch Tuesday miracle. Everyone gains {delta} points.")
+
+        self.save_player_data()
+        # Monday snark
+        monday_snark = "Monday: You’re shipping patches on stream? Bold choice."
+        message_lines.append(monday_snark)
+        await ctx.send(" ".join(message_lines))
+
+    ###################################################################
+    # TwitcHack COMMANDS #
+    ###################################################################
 
     @commands.command(name='start')
     async def start(self, ctx):
@@ -495,7 +1068,7 @@ class Bot(commands.Bot):
                 f"Health: {player.health} | \n"
                 f"Points: {player.points} | \n"
                 f"Location: {player.location} | \n"
-                f"Items: {', '.join(player.items) if player.items else 'None'}"
+                f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
             )
 
             await ctx.send(status_message)
@@ -515,7 +1088,7 @@ class Bot(commands.Bot):
                 f"Health: {player.health} | \n"
                 f"Points: {player.points} | \n"
                 f"Location: {player.location} | \n"
-                f"Items: {', '.join(player.items) if player.items else 'None'}"
+                f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
             )
             
             await ctx.send(status_message)
@@ -1381,8 +1954,8 @@ class Bot(commands.Bot):
                 return
 
             current_time = datetime.now()
-            if current_time - self.last_battle_time < timedelta(hours=0):
-                time_left = timedelta(hours=1) - (current_time - self.last_battle_time)
+            if current_time - self.last_battle_time < self.boss_battle_cooldown:
+                time_left = self.boss_battle_cooldown - (current_time - self.last_battle_time)
                 minutes_left = int(time_left.total_seconds() / 60)
                 await ctx.send(f"Please wait {minutes_left} minutes before starting another boss battle!")
                 return

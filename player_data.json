@@ -1,15 +1,20 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 45,
+        "level": 46,
         "health": 1000,
         "items": [
             "Wireshark",
+            "EvilGinx",
+            "O.MG Cable",
+            "Contra Cartridge",
             "VX Underground HDD",
-            "EvilGinx"
+            "A Fresh Hot Cup of Black Coffee",
+            "Tiny Browns Helmet",
+            "NES"
         ],
-        "location": "website",
-        "points": 4545,
+        "location": "database",
+        "points": 4516,
         "started": 0
     },
     "goproslowyo": {
@@ -18,7 +23,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 3267,
+        "points": 3241,
         "started": 0
     },
     "cypherenigma": {
@@ -29,7 +34,7 @@
             "EvilGinx"
         ],
         "location": "email",
-        "points": 1914,
+        "points": 1888,
         "started": 0
     },
     "pure_cypher": {
@@ -40,7 +45,7 @@
             "O.MG Cable"
         ],
         "location": "email",
-        "points": 360,
+        "points": 334,
         "started": 0
     },
     "el_raginho": {
@@ -49,7 +54,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 449,
+        "points": 423,
         "started": 0
     },
     "britejess": {
@@ -58,7 +63,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 524,
+        "points": 498,
         "started": 0
     },
     "wupinyin": {
@@ -94,7 +99,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 945,
+        "points": 919,
         "started": 0
     },
     "mdragons7": {
@@ -114,7 +119,7 @@
             "Metasploit"
         ],
         "location": "server",
-        "points": 7107,
+        "points": 7081,
         "started": 0
     },
     "xmetrix": {
@@ -141,7 +146,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 81,
+        "points": 55,
         "started": 0
     },
     "xhacktheplanetx": {
@@ -152,7 +157,7 @@
             "O.MG Cable"
         ],
         "location": "evilcorp",
-        "points": 15164,
+        "points": 15138,
         "started": 0
     },
     "kolkhis": {
@@ -179,7 +184,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 227,
+        "points": 201,
         "started": 0
     },
     "gainer552": {
@@ -260,7 +265,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 1000,
+        "points": 974,
         "started": 0
     },
     "signup_microservice": {
@@ -287,7 +292,7 @@
         "health": 10,
         "items": [],
         "location": "evilcorp",
-        "points": 13759,
+        "points": 13733,
         "started": 0
     },
     "krunkmastercash": {
@@ -341,7 +346,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 34,
+        "points": 8,
         "started": 0
     },
     "x3rox3": {
@@ -413,7 +418,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 139,
+        "points": 113,
         "started": 0
     },
     "pickle290780": {
@@ -442,7 +447,7 @@
         "health": 10,
         "items": [],
         "location": "database",
-        "points": 429,
+        "points": 403,
         "started": 0
     },
     "jamesfte": {
@@ -480,7 +485,7 @@
             "wireshark"
         ],
         "location": "email",
-        "points": 18,
+        "points": 0,
         "started": 0
     },
     "norikittea": {
@@ -489,7 +494,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 928,
+        "points": 902,
         "started": 0
     },
     "dreamtravelling": {
@@ -527,7 +532,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 32,
+        "points": 6,
         "started": 0
     },
     "spiegelfechter": {
@@ -559,7 +564,7 @@
             "Wireshark"
         ],
         "location": "database",
-        "points": 661,
+        "points": 635,
         "started": 0
     },
     "deyloop": {
@@ -568,7 +573,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 176,
+        "points": 150,
         "started": 0
     },
     "tazkyfinsky": {

@@ -1,14 +1,10 @@
 ## TwitcHack
 - **To Do**
 	- more documentation to the code
-	- add !items functionality that lists items and where they help
-	- need boss battle result sent to chat erroring out before finishing battle and sending dialog
-	- !virus wiping out level.
-	- levels should not decrease once achieved 
-	- dropping items on a follow or sub
-	- leveling working?
-	- output of hack messages to whisipers
-
+		- need boss battle result sent to chat erroring out before finishing battle and sending dialog
+		- !virus wiping out level.
+		- dropping items on a follow or sub
+	    - Add per-command cooldowns (especially attacks) to curb spam and avoid rate limits.
 
 - **Player Maintenance**
 
