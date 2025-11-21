@@ -949,16 +949,16 @@ class Bot(commands.Bot):
         #               - location (str): The location to move to.
         
         username = ctx.author.name.lower()              # Convert the username to lowercase for consistency
-        
+
+        # Define valid locations before any early returns
+        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
+
         # Check if the user is registered
         if username not in self.player_data:
             await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
             return
 
         player = self.player_data[username]             # Retrieve player data
-
-        # List of valid locations
-        valid_locations = ['email', '/etc/shadow', 'website', 'database', 'server', 'network', 'evilcorp']
 
         # If no location is provided, display the current location
         if not location:
