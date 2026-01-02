@@ -23,5 +23,9 @@ ITEMS: Dict[str, Item] = {
     "Contra Cartridge": Item("Contra Cartridge", "Up, up, down, down for extra lives", 30),
     "A Fresh Hot Cup of Black Coffee": Item("A Fresh Hot Cup of Black Coffee", "Keeps you hacking all night", 5),
     "Tiny Browns Helmet": Item("Tiny Browns Helmet", "Mandatory fandom initiation", 5),
-    "Root Beer Flask": Item("Root Beer Flask", "Soothing elixir after patch nights", 12)
+    "Root Beer Flask": Item("Root Beer Flask", "Soothing elixir after patch nights", 12),
+    "Mimikatz": Item("Mimikatz", "Credential dumper for your imaginary lab", 10),
+    "Golden Cassette Tape": Item("Golden Cassette Tape", "MVP loot: vintage gold vibes", 5),
+    "Jet Black Hoodie": Item("Jet Black Hoodie", "MVP loot: stealthy drip", 5),
+    "RGB Keyboard (Purple)": Item("RGB Keyboard (Purple)", "MVP loot: gamer glow locked to purple", 5),
 }

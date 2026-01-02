@@ -1,20 +1,14 @@
 {
     "b7h30": {
         "username": "b7h30",
-        "level": 46,
+        "level": 69,
         "health": 1000,
         "items": [
-            "Wireshark",
-            "EvilGinx",
-            "O.MG Cable",
-            "Contra Cartridge",
-            "VX Underground HDD",
-            "A Fresh Hot Cup of Black Coffee",
-            "Tiny Browns Helmet",
-            "NES"
+            "nes",
+            "Jet Black Hoodie"
         ],
-        "location": "database",
-        "points": 4516,
+        "location": "evilcorp",
+        "points": 6941,
         "started": 0
     },
     "goproslowyo": {
@@ -41,11 +35,9 @@
         "username": "pure_cypher",
         "level": 5,
         "health": 10,
-        "items": [
-            "O.MG Cable"
-        ],
+        "items": [],
         "location": "email",
-        "points": 334,
+        "points": 309,
         "started": 0
     },
     "el_raginho": {
@@ -54,7 +46,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 423,
+        "points": 333,
         "started": 0
     },
     "britejess": {
@@ -63,7 +55,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 498,
+        "points": 427,
         "started": 0
     },
     "wupinyin": {
@@ -115,11 +107,9 @@
         "username": "nohusuro",
         "level": 73,
         "health": 10,
-        "items": [
-            "Metasploit"
-        ],
+        "items": [],
         "location": "server",
-        "points": 7081,
+        "points": 7031,
         "started": 0
     },
     "xmetrix": {
@@ -153,11 +143,9 @@
         "username": "xhacktheplanetx",
         "level": 153,
         "health": 10,
-        "items": [
-            "O.MG Cable"
-        ],
+        "items": [],
         "location": "evilcorp",
-        "points": 15138,
+        "points": 15113,
         "started": 0
     },
     "kolkhis": {
@@ -182,9 +170,11 @@
         "username": "fallenlearns",
         "level": 3,
         "health": 10,
-        "items": [],
+        "items": [
+            "Cookies"
+        ],
         "location": "email",
-        "points": 201,
+        "points": 104,
         "started": 0
     },
     "gainer552": {
@@ -265,7 +255,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 974,
+        "points": 888,
         "started": 0
     },
     "signup_microservice": {
@@ -290,7 +280,10 @@
         "username": "pebl3",
         "level": 137,
         "health": 10,
-        "items": [],
+        "items": [
+            "Shodan API Key",
+            "Wireshark"
+        ],
         "location": "evilcorp",
         "points": 13733,
         "started": 0
@@ -447,7 +440,7 @@
         "health": 10,
         "items": [],
         "location": "database",
-        "points": 403,
+        "points": 328,
         "started": 0
     },
     "jamesfte": {
@@ -493,8 +486,8 @@
         "level": 10,
         "health": 10,
         "items": [],
-        "location": "home",
-        "points": 902,
+        "location": "email",
+        "points": 793,
         "started": 0
     },
     "dreamtravelling": {
@@ -564,7 +557,7 @@
             "Wireshark"
         ],
         "location": "database",
-        "points": 635,
+        "points": 539,
         "started": 0
     },
     "deyloop": {
@@ -573,7 +566,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 150,
+        "points": 62,
         "started": 0
     },
     "tazkyfinsky": {
@@ -591,6 +584,44 @@
         "health": 50,
         "items": [],
         "location": "email",
+        "points": 0,
+        "started": 0
+    },
+    "zoro_fps": {
+        "username": "zoro_fps",
+        "level": 4,
+        "health": 50,
+        "items": [
+            "NES",
+            "A Fresh Hot Cup of Black Coffee",
+            "Tiny Browns Helmet",
+            "Nmap",
+            "EvilGinx",
+            "VX Underground HDD",
+            "Hydra",
+            "O.MG Cable",
+            "Shodan API Key",
+            "Wireshark"
+        ],
+        "location": "email",
+        "points": 451,
+        "started": 0
+    },
+    "frankielivada22": {
+        "username": "frankielivada22",
+        "level": 1,
+        "health": 50,
+        "items": [],
+        "location": "email",
+        "points": 68,
+        "started": 0
+    },
+    "typical_hardworker": {
+        "username": "typical_hardworker",
+        "level": 1,
+        "health": 50,
+        "items": [],
+        "location": "home",
         "points": 0,
         "started": 0
     }

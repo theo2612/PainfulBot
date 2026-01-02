@@ -1,0 +1,48 @@
+[
+  {
+    "clip": "!htp",
+    "keywords": ["hack the planet", "hacking", "hacks", "hacker", "hackers"]
+  },
+  {
+    "clip": "!kelso",
+    "keywords": ["trying", "try hard", "study", "studying", "job", "career", "interview", "grind", "practice", "school", "exam", "cert"]
+  },
+  {
+    "clip": "!begin",
+    "keywords": ["starting", "begin", "kick off", "first step", "getting started", "new to", "learn", "learning"]
+  },
+  {
+    "clip": "!here",
+    "keywords": ["how long have you been", "where were you", "you been here", "here the whole time", "where have you been"]
+  },
+  {
+    "clip": "!theobaby",
+    "keywords": ["complain", "whine", "whining", "rigged", "unfair", "this sucks", "crying"]
+  },
+  {
+    "clip": "!hallwaycats",
+    "keywords": ["cav", "leon", "dog", "dogs", "cat", "cats", "hallway"]
+  },
+  {
+    "clip": "!donttell",
+    "keywords": ["dont tell jess"],
+    "first_message_user": "britejess"
+  },
+  {
+    "clip": "!gb",
+    "keywords": ["got the job", "promotion", "finished", "completed", "shipped", "won", "beat it", "passed", "accomplished", "success"]
+  },
+  {
+    "clip": "!looking",
+    "keywords": ["hard", "difficult", "stuck", "struggling", "no luck", "can't find", "cant find", "tough", "not easy"]
+  },
+  {
+    "clip": "!hal",
+    "keywords": ["ai", "gpt", "chatgpt", "llm", "model", "openai"]
+  },
+  {
+    "clip": "!daddy",
+    "keywords": ["daddy"],
+    "cooldown_minutes": 30
+  }
+]

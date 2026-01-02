@@ -2,3 +2,6 @@
 venv/
 __pycache__/
 bot.log
+player_data.json
+session_flags.json
+*.log

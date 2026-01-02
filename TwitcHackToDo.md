@@ -1,5 +1,6 @@
 ## TwitcHack
 - **To Do**
+    - codex resume 019aa189-376f-7fa0-808f-ceda6841e849
 	- more documentation to the code
 		- need boss battle result sent to chat erroring out before finishing battle and sending dialog
 		- !virus wiping out level.
