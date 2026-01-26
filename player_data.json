@@ -4,11 +4,10 @@
         "level": 69,
         "health": 1000,
         "items": [
-            "nes",
-            "Jet Black Hoodie"
+            "nes"
         ],
-        "location": "evilcorp",
-        "points": 6941,
+        "location": "database",
+        "points": 6916,
         "started": 0
     },
     "goproslowyo": {
@@ -116,7 +115,9 @@
         "username": "xmetrix",
         "level": 1,
         "health": 10,
-        "items": [],
+        "items": [
+            "Jet Black Hoodie"
+        ],
         "location": "email",
         "points": 0,
         "started": 0
@@ -145,7 +146,7 @@
         "health": 10,
         "items": [],
         "location": "evilcorp",
-        "points": 15113,
+        "points": 15038,
         "started": 0
     },
     "kolkhis": {
@@ -168,13 +169,15 @@
     },
     "fallenlearns": {
         "username": "fallenlearns",
-        "level": 3,
+        "level": 11,
         "health": 10,
         "items": [
-            "Cookies"
+            "Cookies",
+            "wireshark",
+            "O.MG Cable"
         ],
         "location": "email",
-        "points": 104,
+        "points": 1169,
         "started": 0
     },
     "gainer552": {
@@ -255,7 +258,7 @@
         "health": 10,
         "items": [],
         "location": "home",
-        "points": 888,
+        "points": 863,
         "started": 0
     },
     "signup_microservice": {
@@ -281,11 +284,10 @@
         "level": 137,
         "health": 10,
         "items": [
-            "Shodan API Key",
-            "Wireshark"
+            "Shodan API Key"
         ],
         "location": "evilcorp",
-        "points": 13733,
+        "points": 13708,
         "started": 0
     },
     "krunkmastercash": {
@@ -440,7 +442,7 @@
         "health": 10,
         "items": [],
         "location": "database",
-        "points": 328,
+        "points": 0,
         "started": 0
     },
     "jamesfte": {
@@ -487,7 +489,7 @@
         "health": 10,
         "items": [],
         "location": "email",
-        "points": 793,
+        "points": 743,
         "started": 0
     },
     "dreamtravelling": {
@@ -622,6 +624,15 @@
         "health": 50,
         "items": [],
         "location": "home",
+        "points": 0,
+        "started": 0
+    },
+    "portabuser18218": {
+        "username": "portabuser18218",
+        "level": 1,
+        "health": 50,
+        "items": [],
+        "location": "website",
         "points": 0,
         "started": 0
     }
