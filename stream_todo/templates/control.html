@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Control</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ v }}">
+  <style>
+    html, body {
+      height: 100%;
+      overflow: auto;
+      min-width: 540px;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Control panel layout ── */
+    .ctrl-body {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      flex: 1;
+    }
+
+    /* ── Buttons ── */
+    .ctrl-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: var(--font-head);
+      font-size: .88rem;
+      font-weight: 400;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 10px 22px;
+      background: transparent;
+      border-radius: 3px;
+      border: 1px solid;
+      cursor: pointer;
+      transition: box-shadow .15s, background .15s, transform .1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn--primary {
+      border-color: var(--green);
+      background: rgba(0,255,65,.15);
+      color: var(--green);
+      box-shadow: 0 0 10px rgba(0,255,65,.2);
+    }
+    .btn--primary:hover {
+      background: rgba(0,255,65,.25);
+      box-shadow: 0 0 20px rgba(0,255,65,.4);
+    }
+    .btn--skip {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .btn--skip:hover {
+      background: rgba(0,180,255,.08);
+      box-shadow: 0 0 14px rgba(0,180,255,.25);
+    }
+    .btn--restart {
+      border-color: var(--purple-bright);
+      color: var(--purple-bright);
+    }
+    .btn--restart:hover {
+      background: rgba(192,132,252,.08);
+      box-shadow: 0 0 14px rgba(192,132,252,.25);
+    }
+    .btn--danger {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn--danger:hover {
+      background: rgba(255,34,68,.08);
+      box-shadow: 0 0 14px rgba(255,34,68,.25);
+    }
+
+    /* ── Keyboard hints ── */
+    .kbd-hints {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .kbd-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .76rem;
+      color: var(--text-muted);
+    }
+    kbd {
+      background: var(--panel);
+      border: 1px solid rgba(136,153,170,.3);
+      border-bottom: 2px solid rgba(136,153,170,.4);
+      border-radius: 2px;
+      padding: 2px 7px;
+      font-family: var(--font-head);
+      font-size: .76rem;
+      color: var(--text);
+    }
+
+    /* ── Info bar ── */
+    .ctrl-info {
+      display: flex;
+      gap: 32px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .ctrl-info__item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .ctrl-info__label {
+      font-size: .68rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-head);
+    }
+    .ctrl-info__value {
+      font-family: 'VT323', monospace;
+      font-size: 1.7rem;
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1;
+      text-shadow: 0 0 8px rgba(0,255,65,.2);
+    }
+
+    /* ── Item list ── */
+    .ctrl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .ctrl-row:hover       { background: rgba(0,255,65,.02); border-color: rgba(0,255,65,.15); }
+    .ctrl-row--active     { background: rgba(0,255,65,.03); border-color: rgba(0,255,65,.2); }
+    .ctrl-row--complete   { opacity: 0.38; }
+
+    .ctrl-row__num  { font-family: var(--font-head); color: var(--text-muted); min-width: 28px; text-align: right; font-size: .82rem; }
+    .ctrl-row__dot  { width: 8px; height: 8px; border-radius: 50%; background: rgba(136,153,170,.25); border: 1px solid rgba(136,153,170,.3); flex-shrink: 0; }
+    .ctrl-row--active  .ctrl-row__dot { background: var(--green); border-color: var(--green); box-shadow: 0 0 6px rgba(0,255,65,.7); }
+    .ctrl-row--complete .ctrl-row__dot { background: var(--dim-green); border-color: var(--dim-green); }
+
+    .ctrl-row__labels  { flex: 1; min-width: 0; }
+    .ctrl-row__label   { font-family: var(--font-head); font-size: .95rem; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+    .ctrl-row--active  .ctrl-row__label { color: var(--green); text-shadow: 0 0 8px rgba(0,255,65,.4); }
+    .ctrl-row__sublabel { font-size: .72rem; color: var(--text-muted); }
+
+    .ctrl-row__dur  { font-family: 'VT323', monospace; font-size: 1.2rem; color: var(--text-muted); min-width: 60px; text-align: right; }
+    .ctrl-row--active .ctrl-row__dur { color: var(--text); }
+
+    .ctrl-row__jump { font-size: .68rem; color: var(--purple-bright); text-transform: uppercase; letter-spacing: .1em; opacity: 0; transition: opacity .15s; }
+    .ctrl-row:hover .ctrl-row__jump { opacity: 1; }
+
+    /* ── Section divider ── */
+    .section-title {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER (reused) -->
+  <header class="header" id="header">
+    <span class="header__title" id="show-title">PainfulIT Live</span>
+    <span class="header__label">CONTROL</span>
+    <span class="header__clock" id="show-clock">0:00:00</span>
+    <span class="header__status header__status--stopped" id="status-badge">STOPPED</span>
+  </header>
+
+  <div class="ctrl-body">
+
+    <!-- Info bar -->
+    <div class="ctrl-info">
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Show Remaining</span>
+        <span class="ctrl-info__value" id="info-remaining">—</span>
+      </div>
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Current Item</span>
+        <span class="ctrl-info__value" id="info-current">—</span>
+      </div>
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Item Time Left</span>
+        <span class="ctrl-info__value" id="info-item-time">—</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="ctrl-buttons">
+      <button class="btn btn--primary" id="btn-start-pause" onclick="cmd('cmd_start_pause')">▶ START</button>
+      <button class="btn btn--skip"    onclick="cmd('cmd_skip')">⏭ SKIP</button>
+      <button class="btn btn--restart" onclick="cmd('cmd_restart_item')">↺ RESTART ITEM</button>
+      <button class="btn btn--danger"  onclick="confirmRestartShow()">⟳ RESTART SHOW</button>
+    </div>
+
+    <!-- Keyboard shortcuts -->
+    <div class="kbd-hints">
+      <div class="kbd-hint"><kbd>Space</kbd> Start / Pause</div>
+      <div class="kbd-hint"><kbd>→</kbd><kbd>N</kbd> Skip</div>
+      <div class="kbd-hint"><kbd>←</kbd><kbd>P</kbd> Restart item</div>
+      <div class="kbd-hint"><kbd>R</kbd> Restart show</div>
+    </div>
+
+    <!-- Item list -->
+    <div>
+      <div class="section-title">Rundown — click any item to jump</div>
+      <div class="ctrl-list" id="ctrl-list">
+        <!-- rows injected by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/socket.io.min.js?v={{ v }}"></script>
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function fmtHMS(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+    function fmtMS(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return m + ':' + String(s).padStart(2,'0');
+    }
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── State ──────────────────────────────────────────────────────────────
+    let _state = null;
+    const socket = io({ transports: ['websocket'] });
+
+    function cmd(event, data) {
+      socket.emit(event, data || {});
+    }
+
+    function confirmRestartShow() {
+      if (confirm('Restart entire show? This will reload config.json and reset all items.')) {
+        cmd('cmd_restart_show');
+      }
+    }
+
+    // ── Full render ────────────────────────────────────────────────────────
+    function render(st) {
+      _state = st;
+      document.getElementById('show-title').textContent = st.show_title;
+
+      // Status badge + start/pause button
+      const badge = document.getElementById('status-badge');
+      const btnSP = document.getElementById('btn-start-pause');
+      badge.className = 'header__status';
+
+      if (st.running) {
+        badge.classList.add('header__status--live');
+        badge.textContent = '● LIVE';
+        btnSP.textContent = '⏸ PAUSE';
+      } else if (st.current_index === -1) {
+        badge.classList.add('header__status--stopped');
+        badge.textContent = 'STOPPED';
+        btnSP.textContent = '▶ START';
+      } else if (st.current_index >= st.items.length) {
+        badge.classList.add('header__status--done');
+        badge.textContent = '✓ DONE';
+        btnSP.textContent = '▶ START';
+      } else {
+        badge.classList.add('header__status--paused');
+        badge.textContent = '⏸ PAUSED';
+        btnSP.textContent = '▶ RESUME';
+      }
+
+      // Info bar
+      updateInfoBar(st);
+
+      // Item list
+      const list = document.getElementById('ctrl-list');
+      list.innerHTML = '';
+      st.items.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'ctrl-row';
+        row.id = 'ctrl-row-' + idx;
+        if (item.status === 'active')   row.classList.add('ctrl-row--active');
+        if (item.status === 'complete') row.classList.add('ctrl-row--complete');
+        row.onclick = () => jumpTo(idx);
+
+        const rem = item.status === 'active' ? fmtMS(item.remaining) : fmtMS(item.duration);
+
+        row.innerHTML = `
+          <span class="ctrl-row__num">${String(idx+1).padStart(2,'0')}</span>
+          <span class="ctrl-row__dot"></span>
+          <div class="ctrl-row__labels">
+            <div class="ctrl-row__label">${escHtml(item.label)}</div>
+            ${item.sublabel ? `<div class="ctrl-row__sublabel">${escHtml(item.sublabel)}</div>` : ''}
+          </div>
+          <span class="ctrl-row__dur" id="ctrl-dur-${idx}">${rem}</span>
+          <span class="ctrl-row__jump">jump ↵</span>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function updateInfoBar(st) {
+      let total = 0;
+      st.items.forEach(item => {
+        if (item.status === 'pending') total += item.duration;
+        else if (item.status === 'active') total += item.remaining;
+      });
+      document.getElementById('show-clock').textContent = fmtHMS(total);
+      document.getElementById('info-remaining').textContent = fmtHMS(total);
+
+      const idx = st.current_index;
+      if (idx >= 0 && idx < st.items.length) {
+        const item = st.items[idx];
+        document.getElementById('info-current').textContent = item.label;
+        document.getElementById('info-item-time').textContent = fmtMS(item.remaining);
+      } else {
+        document.getElementById('info-current').textContent = '—';
+        document.getElementById('info-item-time').textContent = '—';
+      }
+    }
+
+    // ── Lightweight ticker ──────────────────────────────────────────────────
+    function applyTicker(data) {
+      if (!_state) return;
+      const idx = data.current_index;
+      const rem = data.remaining;
+
+      if (_state.items[idx]) _state.items[idx].remaining = rem;
+
+      // Update show clock
+      let total = 0;
+      _state.items.forEach(item => {
+        if (item.status === 'pending') total += item.duration;
+        else if (item.status === 'active') total += item.remaining;
+      });
+      document.getElementById('show-clock').textContent = fmtHMS(total);
+      document.getElementById('info-remaining').textContent = fmtHMS(total);
+      document.getElementById('info-item-time').textContent = fmtMS(rem);
+
+      const durEl = document.getElementById('ctrl-dur-' + idx);
+      if (durEl) durEl.textContent = fmtMS(rem);
+    }
+
+    function jumpTo(idx) {
+      if (!confirm(`Jump to item ${idx+1}: ${_state.items[idx].label}?`)) return;
+      cmd('cmd_jump', { index: idx });
+    }
+
+    // ── Keyboard shortcuts ──────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      // Ignore if focus is on an input/button
+      if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          cmd('cmd_start_pause');
+          break;
+        case 'ArrowRight':
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          cmd('cmd_skip');
+          break;
+        case 'ArrowLeft':
+        case 'p':
+        case 'P':
+          e.preventDefault();
+          cmd('cmd_restart_item');
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          confirmRestartShow();
+          break;
+      }
+    });
+
+    // ── Socket ────────────────────────────────────────────────────────────
+    socket.on('connect', () => {
+      console.log('[socket] connected');
+      socket.emit('request_state');
+    });
+    socket.on('disconnect', () => console.log('[socket] disconnected'));
+    socket.on('connect_error', (err) => console.log('[socket] error:', err));
+    socket.on('state_update', render);
+    socket.on('ticker', applyTicker);
+  </script>
+</body>
+</html>

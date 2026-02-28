@@ -1,0 +1,293 @@
+/* =========================================================
+   PainfulBot Stream Overlay — Hacker Aesthetic
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+/* ── Variables ──────────────────────────────────────────── */
+:root {
+  --bg:            #050508;
+  --panel:         #0a0a12;
+  --panel-dark:    #07070e;
+  --border:        #141420;
+  --green:         #00ff41;
+  --dim-green:     #00a82a;
+  --purple:        #9b59b6;
+  --purple-bright: #c084fc;
+  --blue:          #00b4ff;
+  --red:           #ff2244;
+  --text:          #d0dce8;
+  --text-muted:    rgba(136, 153, 170, 0.6);
+  --complete-op:   0.32;
+  --row-h:         72px;
+  --header-h:      64px;
+  --font-head:     'Share Tech Mono', 'Courier New', monospace;
+  --font-body:     'Share Tech Mono', 'Courier New', monospace;
+}
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97%           { opacity: .82; }
+  98%           { opacity: .95; }
+  99%           { opacity: .78; }
+}
+@keyframes header-glow {
+  0%, 100% { box-shadow: 0 2px 16px rgba(0,255,65,.18), 0 0 40px rgba(0,255,65,.05); }
+  50%      { box-shadow: 0 2px 28px rgba(0,255,65,.35), 0 0 60px rgba(0,255,65,.10); }
+}
+
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--green);
+  font-family: var(--font-body);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.12) 3px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  height: var(--header-h);
+  background: var(--panel-dark);
+  border-bottom: 2px solid var(--green);
+  animation: header-glow 3s ease-in-out infinite, flicker 14s infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 0 32px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.header__title {
+  font-family: 'VT323', monospace;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--green);
+  text-shadow: 0 0 16px rgba(0,255,65,.8), 0 0 40px rgba(0,255,65,.2);
+}
+
+.header__label {
+  font-family: var(--font-head);
+  font-size: .72rem;
+  font-weight: 400;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.header__clock {
+  font-family: 'VT323', monospace;
+  font-size: 2.3rem;
+  font-weight: 400;
+  letter-spacing: .04em;
+  color: var(--text);
+  min-width: 110px;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(0,255,65,.25);
+}
+
+/* Status badge (control panel only) */
+.header__status {
+  font-family: var(--font-head);
+  font-size: .7rem;
+  font-weight: 400;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.header__status--live {
+  border-color: var(--red);
+  background: rgba(255, 34, 68, .12);
+  color: var(--red);
+  text-shadow: 0 0 8px rgba(255,34,68,.6);
+}
+.header__status--paused {
+  border-color: rgba(136,153,170,.25);
+  background: transparent;
+  color: var(--text-muted);
+}
+.header__status--stopped {
+  border-color: rgba(136,153,170,.18);
+  background: transparent;
+  color: var(--text-muted);
+}
+.header__status--done {
+  border-color: rgba(0,255,65,.4);
+  background: rgba(0,255,65,.07);
+  color: var(--green);
+  text-shadow: 0 0 6px rgba(0,255,65,.4);
+}
+
+/* ── Topic List ─────────────────────────────────────────── */
+.topic-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Topic Row ──────────────────────────────────────────── */
+.row {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  border-left: 4px solid transparent;
+  transition: background .2s, opacity .3s;
+  gap: 20px;
+  position: relative;
+}
+
+.row--active {
+  background: rgba(0, 255, 65, .022);
+  /* border-left-color injected by JS via item.color */
+}
+
+.row--complete {
+  opacity: var(--complete-op);
+}
+
+/* Row: number */
+.row__num {
+  font-family: var(--font-head);
+  font-size: .82rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  width: 28px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+/* Row: active arrow */
+.row__arrow {
+  font-size: .9rem;
+  width: 20px;
+  flex-shrink: 0;
+  color: var(--green);
+  text-shadow: 0 0 8px rgba(0,255,65,.9);
+  visibility: hidden;
+}
+.row--active .row__arrow { visibility: visible; }
+
+/* Row: labels */
+.row__labels {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.row__label {
+  font-family: var(--font-head);
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  color: var(--text);
+}
+/* active row label color set by JS via item.color */
+
+.row--complete .row__label {
+  text-decoration: line-through;
+  text-decoration-color: rgba(200, 220, 240, .28);
+}
+
+.row__sublabel {
+  font-family: var(--font-body);
+  font-size: .76rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Row: countdown */
+.row__countdown {
+  font-family: 'VT323', monospace;
+  font-size: 1.85rem;
+  font-weight: 400;
+  min-width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  letter-spacing: .02em;
+}
+.row--active .row__countdown {
+  color: var(--text);
+  text-shadow: 0 0 8px rgba(0,255,65,.2);
+}
+.row__countdown--urgent {
+  color: var(--red) !important;
+  text-shadow: 0 0 10px rgba(255,34,68,.65) !important;
+}
+
+/* Row: progress bar (active only) */
+.row__progress-wrap {
+  width: 180px;
+  flex-shrink: 0;
+  height: 5px;
+  background: rgba(20, 20, 32, 1);
+  border: 1px solid rgba(0,255,65,.12);
+  border-radius: 2px;
+  overflow: hidden;
+  display: none;
+}
+.row--active .row__progress-wrap { display: block; }
+
+.row__progress-bar {
+  height: 100%;
+  border-radius: 1px;
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(0,255,65,.5);
+  transition: width .9s linear, background .3s;
+}
+.row__progress-bar--urgent {
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(255,34,68,.6);
+}
+
+/* Row: checkmark */
+.row__check {
+  font-size: 1rem;
+  color: var(--dim-green);
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+  visibility: hidden;
+}
+.row--complete .row__check { visibility: visible; }
+
+/* ── Utility ─────────────────────────────────────────────── */
+.urgent { color: var(--red) !important; }
