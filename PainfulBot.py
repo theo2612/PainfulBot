@@ -30,6 +30,48 @@ HACK_ITEMS = {
     "Kali ISO", "Mimikatz", "YubiKey"
 }
 
+BATTLE_DROPS = [
+    "John Hammond's Consciousness USB",
+    "Heath Adams' Lambo Keys",
+    "Kevin Mitnick's Password Cracker",
+    "Elliot Alderson's Raspberry Pi",
+]
+
+JOIN_TAUNTS = [
+    "Scanning @{username}... threat level: negligible.",
+    "Another script kiddie enters the terminal. How adorable.",
+    "@{username} has connected. Logging keystrokes already.",
+    "Oh good, more RAM for me to free up. Welcome, @{username}.",
+    "Adding @{username} to my botnet. They just don't know it yet.",
+    "Is that a Kali ISO, @{username}? Cute.",
+    "@{username} at level {level}? I've seen scarier ping requests.",
+    "@{username} detected on the network. Firewall says: lol.",
+]
+
+DEATH_TAUNTS = [
+    "Process terminated. Exit code: skill issue.",
+    "Garbage collected. Next.",
+    "404: Hacker not found.",
+    "Connection closed by foreign host.",
+    "Segmentation fault (core dumped).",
+    "CTRL+C accepted. Thread killed.",
+    "That one gets recycled into my botnet. Thanks.",
+    "rm -rf challenger — done.",
+]
+
+TURN_TAUNTS = [
+    "My DDoS has its own DDoS.",
+    "I've already pwned your home router. Just so you know.",
+    "My firewall is literally laughing at you right now.",
+    "Checked your commit history. Oh no.",
+    "I have root on six of your machines already.",
+    "AngyTheo.exe has entered an infinite loop.",
+    "I wrote this ransomware over a lunch break. Took 20 minutes.",
+    "Your OPSEC is giving me second-hand embarrassment.",
+    "I see you're using Metasploit. How... beginner of you.",
+    "The RGB is set to red. You know what that means.",
+]
+
 
 class Bot(commands.Bot):
 
@@ -122,6 +164,10 @@ class Bot(commands.Bot):
             'Golden Cassette Tape': '📼',
             'Jet Black Hoodie': '🥷',
             'RGB Keyboard (Purple)': '🎹',
+            "John Hammond's Consciousness USB": '🧠',
+            "Heath Adams' Lambo Keys": '🏎️',
+            "Kevin Mitnick's Password Cracker": '🔓',
+            "Elliot Alderson's Raspberry Pi": '🫐',
         }
         self.neovim_penalties = {}
         self.hidden_only_items = {
@@ -133,6 +179,10 @@ class Bot(commands.Bot):
             "Golden Cassette Tape",
             "Jet Black Hoodie",
             "RGB Keyboard (Purple)",
+            "John Hammond's Consciousness USB",
+            "Heath Adams' Lambo Keys",
+            "Kevin Mitnick's Password Cracker",
+            "Elliot Alderson's Raspberry Pi",
         }
         # Monday random replies tuning
         self.monday_random_chance = 0.10
@@ -2197,6 +2247,11 @@ class Bot(commands.Bot):
                 await ctx.send(f"⚔️ Turn {turn} ⚔️")
                 await asyncio.sleep(1)  # Small delay between messages
 
+                # Boss turn taunt (50% chance)
+                if random.random() < 0.5:
+                    await ctx.send(f"💀 {battle.boss_name}: {random.choice(TURN_TAUNTS)}")
+                    await asyncio.sleep(0.5)
+
                 # Boss attack phase
                 damage = random.randint(10, 30)
                 boss_action = random.choice([
@@ -2207,7 +2262,7 @@ class Bot(commands.Bot):
                     "sets rgb keyboard to red!",
                     "sends 'AngyTheo' emote!"
                 ])
-                
+
                 await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
                 await asyncio.sleep(1)
 
@@ -2216,10 +2271,11 @@ class Bot(commands.Bot):
                 for player_name, health in battle.challenger_team.items():
                     new_health = max(0, health - damage)
                     battle.challenger_team[player_name] = new_health
-                    
+
                     if new_health <= 0:
                         dead_players.append(player_name)
-                        await ctx.send(f"☠️ @{player_name} has fallen!")
+                        death_taunt = random.choice(DEATH_TAUNTS)
+                        await ctx.send(f"☠️ @{player_name} has fallen! | 💀 {battle.boss_name}: {death_taunt}")
                     else:
                         await ctx.send(f"@{player_name} takes {damage} damage! ({new_health} HP remaining)")
                     await asyncio.sleep(0.5)
@@ -2326,6 +2382,8 @@ class Bot(commands.Bot):
         player = self.player_data[username]
         self.ongoing_battle.challenger_team[username] = player.health
         await ctx.send(f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)")
+        taunt = random.choice(JOIN_TAUNTS).format(username=ctx.author.name, level=player.level)
+        await ctx.send(f"💀 {self.ongoing_battle.boss_name}: {taunt}")
 
     async def battle_summary(self, ctx, victory: bool):
         battle = self.ongoing_battle
@@ -2375,7 +2433,23 @@ class Bot(commands.Bot):
                 await self.send_result(ctx, f"@{username} earned {total_reward} points and +5 max HP!")
 
             await ctx.send(f"The team has defeated {battle.boss_name}! Each survivor earned {total_reward} points!")
-            
+
+            # Victory drop — one random battle-exclusive item, first to !grab it wins
+            self.prune_expired_drops()
+            drop_item = random.choice(BATTLE_DROPS)
+            existing_names = {d['name'].lower() for d in self.dropped_items}
+            if drop_item.lower() not in existing_names:
+                self.dropped_items.append({
+                    'name': drop_item,
+                    'location': 'the arena',
+                    'ts': datetime.now().timestamp()
+                })
+                await ctx.send(
+                    f"🏆 VICTORY DROP! The battle left behind "
+                    f"{self.format_item(drop_item)}! "
+                    f"Type !grab {drop_item} to claim it before it's gone!"
+                )
+
         except Exception as e:
             print(f"Error in reward_team: {str(e)}")
             await ctx.send("An error occurred while distributing rewards.")
