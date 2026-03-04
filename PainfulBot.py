@@ -2252,38 +2252,64 @@ class Bot(commands.Bot):
                     await ctx.send(f"💀 {battle.boss_name}: {random.choice(TURN_TAUNTS)}")
                     await asyncio.sleep(0.5)
 
-                # Boss attack phase
-                damage = random.randint(10, 30)
-                boss_action = random.choice([
-                    "launches a massive DDoS attack!",
-                    "deploys ransomware across the network!",
-                    "executes a supply chain attack!",
-                    "activates the corporate defenses!",
-                    "sets rgb keyboard to red!",
-                    "sends 'AngyTheo' emote!"
-                ])
+                # Raspberry Pi: 25% chance to short-circuit boss attack this turn
+                pi_holders = [p for p in battle.challenger_team
+                              if "Elliot Alderson's Raspberry Pi" in self.player_data[p].items]
+                if pi_holders and random.random() < 0.25:
+                    await ctx.send(
+                        f"🫐 @{random.choice(pi_holders)}'s Raspberry Pi runs interference — "
+                        f"boss attack short-circuited this turn!"
+                    )
+                else:
+                    # Boss targets one random player
+                    target = random.choice(list(battle.challenger_team.keys()))
+                    damage = random.randint(10, 30)
+                    boss_action = random.choice([
+                        f"launches a targeted DDoS at @{target}!",
+                        f"deploys ransomware on @{target}'s rig!",
+                        f"executes a supply chain attack against @{target}!",
+                        f"activates defenses specifically against @{target}!",
+                        f"sets rgb to red and locks eyes on @{target}!",
+                        f"sends 'AngyTheo' emote directly at @{target}!",
+                    ])
+                    await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
+                    await asyncio.sleep(1)
 
-                await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
-                await asyncio.sleep(1)
+                    target_player = self.player_data.get(target)
 
-                # Process damage to each player
-                dead_players = []
-                for player_name, health in battle.challenger_team.items():
-                    new_health = max(0, health - damage)
-                    battle.challenger_team[player_name] = new_health
-
-                    if new_health <= 0:
-                        dead_players.append(player_name)
-                        death_taunt = random.choice(DEATH_TAUNTS)
-                        await ctx.send(f"☠️ @{player_name} has fallen! | 💀 {battle.boss_name}: {death_taunt}")
+                    # Lambo Keys: 35% dodge chance when targeted
+                    if (target_player and
+                            "Heath Adams' Lambo Keys" in target_player.items and
+                            random.random() < 0.35):
+                        await ctx.send(f"🏎️ @{target} floors it in the Lambo — attack missed!")
                     else:
-                        await ctx.send(f"@{player_name} takes {damage} damage! ({new_health} HP remaining)")
-                    await asyncio.sleep(0.5)
+                        health = battle.challenger_team[target]
+                        new_health = max(0, health - damage)
 
-                # Remove defeated players
-                for player in dead_players:
-                    del battle.challenger_team[player]
-                    battle.fallen.append(player)
+                        if new_health <= 0:
+                            # Consciousness USB: one-time death save per player per battle
+                            if (target_player and
+                                    "John Hammond's Consciousness USB" in target_player.items and
+                                    target not in battle.consciousness_used):
+                                battle.consciousness_used.add(target)
+                                battle.challenger_team[target] = 1
+                                await ctx.send(
+                                    f"🧠 @{target}'s Consciousness USB kicks in — "
+                                    f"mind transferred to backup! Survives at 1 HP!"
+                                )
+                            else:
+                                death_taunt = random.choice(DEATH_TAUNTS)
+                                await ctx.send(
+                                    f"☠️ @{target} has fallen! | 💀 {battle.boss_name}: {death_taunt}"
+                                )
+                                del battle.challenger_team[target]
+                                battle.fallen.append(target)
+                        else:
+                            battle.challenger_team[target] = new_health
+                            await ctx.send(
+                                f"@{target} takes {damage} damage! ({new_health} HP remaining)"
+                            )
+                    await asyncio.sleep(0.5)
 
                 if not battle.challenger_team:
                     await ctx.send("All challengers have been defeated!")
@@ -2299,7 +2325,7 @@ class Bot(commands.Bot):
                     total_damage += player_damage
                     battle.team_damage += player_damage
                     battle.per_player_damage[player_name] = battle.per_player_damage.get(player_name, 0) + player_damage
-                    
+
                     attack_action = random.choice([
                         "executes a SQL injection",
                         "deploys a zero-day exploit",
@@ -2307,8 +2333,22 @@ class Bot(commands.Bot):
                         "attempts a buffer overflow",
                         "distracts Theo by disparaging the Cleveland Browns"
                     ])
-                    
+
                     await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
+                    await asyncio.sleep(0.5)
+
+                # Password Cracker: +15 bonus damage per holder
+                crackers = [p for p in battle.challenger_team
+                            if "Kevin Mitnick's Password Cracker" in self.player_data[p].items]
+                if crackers:
+                    crack_bonus = len(crackers) * 15
+                    total_damage += crack_bonus
+                    battle.team_damage += crack_bonus
+                    holder_str = ", ".join(f"@{p}" for p in crackers)
+                    await ctx.send(
+                        f"🔓 Password Cracker{'s' if len(crackers) > 1 else ''} "
+                        f"({holder_str}) — +{crack_bonus} bonus damage!"
+                    )
                     await asyncio.sleep(0.5)
 
                 battle.boss_health = max(0, battle.boss_health - total_damage)
