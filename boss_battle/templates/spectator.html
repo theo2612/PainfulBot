@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boss Battle — PainfulIT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap">
+  <style>
+    /* ── Variables ── */
+    :root {
+      --bg:           #050508;
+      --panel:        #0a0a12;
+      --panel-dark:   #07070e;
+      --border:       #141420;
+      --green:        #00ff41;
+      --dim-green:    #00a82a;
+      --purple:       #9b59b6;
+      --purple-bright:#c084fc;
+      --blue:         #00b4ff;
+      --red:          #ff2244;
+      --orange:       #ff8c00;
+      --gold:         #ffd700;
+      --text:         #d0dce8;
+      --text-muted:   rgba(136,153,170,0.6);
+      --font-head:    'Share Tech Mono', 'Courier New', monospace;
+      --font-vt:      'VT323', monospace;
+    }
+
+    /* ── Animations ── */
+    @keyframes flicker {
+      0%,96%,100% { opacity:1; } 97% { opacity:.82; } 98% { opacity:.95; } 99% { opacity:.78; }
+    }
+    @keyframes header-glow {
+      0%,100% { box-shadow: 0 2px 16px rgba(0,255,65,.18), 0 0 40px rgba(0,255,65,.05); }
+      50%     { box-shadow: 0 2px 28px rgba(0,255,65,.35), 0 0 60px rgba(0,255,65,.10); }
+    }
+    @keyframes boss-pulse {
+      0%,100% { box-shadow: 0 0 12px rgba(255,34,68,.4); }
+      50%     { box-shadow: 0 0 28px rgba(255,34,68,.8), 0 0 50px rgba(255,34,68,.3); }
+    }
+    @keyframes blink {
+      0%,100% { opacity:1; } 50% { opacity:0; }
+    }
+    @keyframes scanline {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+    @keyframes slide-in {
+      from { opacity:0; transform: translateX(20px); }
+      to   { opacity:1; transform: translateX(0); }
+    }
+    @keyframes victory-glow {
+      0%,100% { text-shadow: 0 0 20px rgba(0,255,65,.6), 0 0 40px rgba(0,255,65,.3); }
+      50%     { text-shadow: 0 0 40px rgba(0,255,65,1),  0 0 80px rgba(0,255,65,.5); }
+    }
+    @keyframes defeat-glow {
+      0%,100% { text-shadow: 0 0 20px rgba(255,34,68,.6), 0 0 40px rgba(255,34,68,.3); }
+      50%     { text-shadow: 0 0 40px rgba(255,34,68,1),  0 0 80px rgba(255,34,68,.5); }
+    }
+    @keyframes hp-urgent {
+      0%,100% { background: var(--red); }
+      50%     { background: #ff6680; }
+    }
+
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+    html, body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--font-head);
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,.12) 3px, rgba(0,0,0,.12) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Layout ── */
+    .page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      height: 64px;
+      background: var(--panel-dark);
+      border-bottom: 2px solid var(--green);
+      animation: header-glow 3s ease-in-out infinite, flicker 14s infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 0 32px;
+      flex-shrink: 0;
+    }
+    .header__title {
+      font-family: var(--font-vt);
+      font-size: 2rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green);
+      text-shadow: 0 0 16px rgba(0,255,65,.8), 0 0 40px rgba(0,255,65,.2);
+    }
+    .header__label {
+      font-size: .72rem;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .header__status {
+      font-size: .7rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+    .status--idle    { border-color: rgba(136,153,170,.25); color: var(--text-muted); }
+    .status--live    { border-color: var(--red); background: rgba(255,34,68,.12); color: var(--red);
+                       text-shadow: 0 0 8px rgba(255,34,68,.6); }
+    .status--victory { border-color: var(--green); background: rgba(0,255,65,.1); color: var(--green);
+                       text-shadow: 0 0 8px rgba(0,255,65,.6); }
+    .status--defeat  { border-color: var(--red); background: rgba(255,34,68,.1); color: var(--red);
+                       text-shadow: 0 0 8px rgba(255,34,68,.6); }
+
+    /* ── Idle screen ── */
+    .idle-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .idle-screen__text {
+      font-family: var(--font-vt);
+      font-size: 3rem;
+      color: var(--text-muted);
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    .idle-screen__sub {
+      font-size: .78rem;
+      color: var(--text-muted);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    .idle-screen__sub::after {
+      content: '█';
+      animation: blink 1s step-end infinite;
+      margin-left: 4px;
+    }
+
+    /* ── Battle layout ── */
+    .battle {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    /* ── Boss panel ── */
+    .boss-panel {
+      background: var(--panel-dark);
+      border: 1px solid rgba(255,34,68,.3);
+      border-radius: 4px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    .boss-panel--urgent {
+      animation: boss-pulse 1.2s ease-in-out infinite;
+    }
+    .boss-skull {
+      font-family: var(--font-vt);
+      font-size: 2.4rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .boss-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .boss-name {
+      font-family: var(--font-vt);
+      font-size: 1.8rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--red);
+      text-shadow: 0 0 10px rgba(255,34,68,.5);
+      line-height: 1;
+    }
+    .boss-hp-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .boss-hp-bar {
+      flex: 1;
+      height: 12px;
+      background: rgba(20,20,32,1);
+      border: 1px solid rgba(255,34,68,.25);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .boss-hp-fill {
+      height: 100%;
+      background: var(--red);
+      box-shadow: 0 0 8px rgba(255,34,68,.6);
+      border-radius: 1px;
+      transition: width .6s ease;
+    }
+    .boss-hp-fill--urgent {
+      animation: hp-urgent .8s ease-in-out infinite;
+    }
+    .boss-hp-text {
+      font-family: var(--font-vt);
+      font-size: 1.4rem;
+      color: var(--text);
+      min-width: 120px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom row: challengers + log ── */
+    .bottom {
+      flex: 1;
+      display: flex;
+      gap: 14px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── Challengers ── */
+    .challengers {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 340px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .challengers__title {
+      font-size: .68rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── Player card ── */
+    .player-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: opacity .3s, border-color .3s;
+    }
+    .player-card--dead {
+      opacity: 0.3;
+      border-color: transparent;
+    }
+    .player-card__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .player-card__name {
+      font-size: .9rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .player-card--dead .player-card__name {
+      text-decoration: line-through;
+      text-decoration-color: rgba(200,220,240,.3);
+    }
+    .player-card__status {
+      font-size: .62rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .player-card__status--dead { color: var(--red); opacity: .7; }
+
+    .player-hp-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .player-hp-bar {
+      flex: 1;
+      height: 7px;
+      background: rgba(20,20,32,1);
+      border: 1px solid rgba(0,255,65,.12);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .player-hp-fill {
+      height: 100%;
+      border-radius: 1px;
+      transition: width .5s ease, background .5s ease;
+    }
+    .player-hp-text {
+      font-family: var(--font-vt);
+      font-size: 1.1rem;
+      min-width: 60px;
+      text-align: right;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .player-card__items {
+      font-size: 1rem;
+      letter-spacing: .05em;
+      min-height: 18px;
+    }
+
+    /* ── Combat log ── */
+    .combat-log {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .combat-log__title {
+      font-size: .68rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .log-entries {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .log-entry {
+      font-size: .82rem;
+      line-height: 1.4;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(20,20,32,.6);
+      animation: slide-in .2s ease;
+      flex-shrink: 0;
+    }
+    .log-entry::before { content: '> '; color: var(--text-muted); }
+
+    /* Log type colors */
+    .log-entry--taunt   { color: var(--purple-bright); }
+    .log-entry--damage  { color: var(--orange); }
+    .log-entry--death   { color: var(--red); }
+    .log-entry--dodge   { color: var(--blue); }
+    .log-entry--save    { color: var(--gold); }
+    .log-entry--pi      { color: #00ffcc; }
+    .log-entry--cracker { color: var(--green); }
+    .log-entry--team    { color: var(--dim-green); }
+    .log-entry--victory { color: var(--green); font-weight: bold; }
+    .log-entry--defeat  { color: var(--red); font-weight: bold; }
+    .log-entry--info    { color: var(--text-muted); }
+
+    /* ── Result overlay ── */
+    .result-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5,5,8,.75);
+      z-index: 100;
+    }
+    .result-box {
+      border: 2px solid;
+      border-radius: 4px;
+      padding: 40px 60px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .result-box--victory {
+      border-color: var(--green);
+      background: rgba(0,255,65,.06);
+    }
+    .result-box--defeat {
+      border-color: var(--red);
+      background: rgba(255,34,68,.06);
+    }
+    .result-title {
+      font-family: var(--font-vt);
+      font-size: 5rem;
+      letter-spacing: .15em;
+      line-height: 1;
+    }
+    .result-box--victory .result-title {
+      color: var(--green);
+      animation: victory-glow 2s ease-in-out infinite;
+    }
+    .result-box--defeat .result-title {
+      color: var(--red);
+      animation: defeat-glow 2s ease-in-out infinite;
+    }
+    .result-sub {
+      font-size: .82rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <span class="header__title">PainfulIT</span>
+    <span class="header__label">BOSS BATTLE</span>
+    <span class="header__status status--idle" id="status-badge">IDLE</span>
+  </header>
+
+  <!-- Idle screen -->
+  <div class="idle-screen" id="idle-screen">
+    <div class="idle-screen__text">No Active Battle</div>
+    <div class="idle-screen__sub">Waiting for raid to begin</div>
+  </div>
+
+  <!-- Battle view -->
+  <div class="battle hidden" id="battle-view">
+
+    <!-- Boss panel -->
+    <div class="boss-panel" id="boss-panel">
+      <div class="boss-skull">💀</div>
+      <div class="boss-info">
+        <div class="boss-name" id="boss-name">BOSS</div>
+        <div class="boss-hp-wrap">
+          <div class="boss-hp-bar">
+            <div class="boss-hp-fill" id="boss-hp-fill" style="width:100%"></div>
+          </div>
+          <div class="boss-hp-text" id="boss-hp-text">— / —</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challengers + Log -->
+    <div class="bottom">
+
+      <div class="challengers">
+        <div class="challengers__title">Challengers</div>
+        <div id="player-list"><!-- cards injected by JS --></div>
+      </div>
+
+      <div class="combat-log">
+        <div class="combat-log__title">Combat Log</div>
+        <div class="log-entries" id="log-entries"><!-- entries injected by JS --></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Result overlay -->
+  <div class="result-overlay hidden" id="result-overlay">
+    <div class="result-box" id="result-box">
+      <div class="result-title" id="result-title">VICTORY</div>
+      <div class="result-sub" id="result-sub"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/socket.io.min.js?v={{ v }}"></script>
+<script>
+  // ── Item emoji map ─────────────────────────────────────────────────────
+  const ITEM_EMOJIS = {
+    "John Hammond's Consciousness USB": '🧠',
+    "Heath Adams' Lambo Keys":          '🏎️',
+    "Kevin Mitnick's Password Cracker": '🔓',
+    "Elliot Alderson's Raspberry Pi":   '🫐',
+  };
+
+  // ── HP bar color ───────────────────────────────────────────────────────
+  function hpColor(pct) {
+    if (pct > 0.6) return 'var(--green)';
+    if (pct > 0.3) return '#ffcc00';
+    return 'var(--red)';
+  }
+
+  // ── Render state ───────────────────────────────────────────────────────
+  function render(st) {
+    const badge       = document.getElementById('status-badge');
+    const idleScreen  = document.getElementById('idle-screen');
+    const battleView  = document.getElementById('battle-view');
+    const resultOv    = document.getElementById('result-overlay');
+
+    // Status badge
+    badge.className = 'header__status';
+    if (!st.active) {
+      badge.classList.add('status--idle');
+      badge.textContent = 'IDLE';
+    } else if (st.result === 'victory') {
+      badge.classList.add('status--victory');
+      badge.textContent = '✓ VICTORY';
+    } else if (st.result === 'defeat') {
+      badge.classList.add('status--defeat');
+      badge.textContent = '☠ DEFEAT';
+    } else {
+      badge.classList.add('status--live');
+      badge.textContent = '● LIVE';
+    }
+
+    // Idle vs battle
+    if (!st.active) {
+      idleScreen.classList.remove('hidden');
+      battleView.classList.add('hidden');
+      resultOv.classList.add('hidden');
+      return;
+    }
+    idleScreen.classList.add('hidden');
+    battleView.classList.remove('hidden');
+
+    // Boss
+    document.getElementById('boss-name').textContent = st.boss_name;
+    const bossMax = st.boss_max_health || 1;
+    const bossPct = Math.max(0, Math.min(1, st.boss_health / bossMax));
+    const bossHpFill = document.getElementById('boss-hp-fill');
+    bossHpFill.style.width = (bossPct * 100) + '%';
+    bossHpFill.className = 'boss-hp-fill' + (bossPct < 0.25 ? ' boss-hp-fill--urgent' : '');
+    document.getElementById('boss-hp-text').textContent =
+      st.boss_health + ' / ' + st.boss_max_health + ' HP';
+    const bossPanel = document.getElementById('boss-panel');
+    bossPanel.className = 'boss-panel' + (bossPct < 0.25 ? ' boss-panel--urgent' : '');
+
+    // Players
+    const list = document.getElementById('player-list');
+    list.innerHTML = '';
+    const players = st.players || {};
+    // Sort: alive first, then dead
+    const names = Object.keys(players).sort((a, b) => {
+      const av = players[a].alive ? 0 : 1;
+      const bv = players[b].alive ? 0 : 1;
+      return av - bv;
+    });
+    names.forEach(name => {
+      const p = players[name];
+      const maxHp = p.max_health || 1;
+      const pct   = Math.max(0, Math.min(1, p.health / maxHp));
+      const items = (p.items || []).map(i => ITEM_EMOJIS[i] || '').filter(Boolean);
+
+      const card = document.createElement('div');
+      card.className = 'player-card' + (p.alive ? '' : ' player-card--dead');
+      card.innerHTML = `
+        <div class="player-card__top">
+          <div class="player-card__name">@${escHtml(name)}</div>
+          <div class="player-card__status${p.alive ? '' : ' player-card__status--dead'}">
+            ${p.alive ? 'ALIVE' : '☠ FALLEN'}
+          </div>
+        </div>
+        <div class="player-hp-wrap">
+          <div class="player-hp-bar">
+            <div class="player-hp-fill" style="width:${pct*100}%; background:${p.alive ? hpColor(pct) : 'rgba(136,153,170,.2)'}; box-shadow: 0 0 6px ${p.alive ? hpColor(pct) : 'none'}"></div>
+          </div>
+          <div class="player-hp-text">${p.alive ? p.health + ' HP' : '0 HP'}</div>
+        </div>
+        ${items.length ? `<div class="player-card__items">${items.join(' ')}</div>` : ''}
+      `;
+      list.appendChild(card);
+    });
+
+    // Log
+    renderLog(st.log || []);
+
+    // Result overlay
+    if (st.result) {
+      const box = document.getElementById('result-box');
+      const title = document.getElementById('result-title');
+      const sub = document.getElementById('result-sub');
+      box.className = 'result-box result-box--' + st.result;
+      if (st.result === 'victory') {
+        title.textContent = '🏆 VICTORY';
+        const survivors = names.filter(n => players[n].alive);
+        sub.textContent = 'Team defeated ' + st.boss_name +
+          (survivors.length ? ' — Survivors: ' + survivors.map(n => '@'+n).join(', ') : '');
+      } else {
+        title.textContent = '☠ DEFEAT';
+        sub.textContent = 'All challengers have fallen.';
+      }
+      resultOv.classList.remove('hidden');
+    } else {
+      resultOv.classList.add('hidden');
+    }
+  }
+
+  function renderLog(entries) {
+    const container = document.getElementById('log-entries');
+    container.innerHTML = '';
+    entries.forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'log-entry log-entry--' + (e.type || 'info');
+      div.textContent = e.msg;
+      container.appendChild(div);
+    });
+  }
+
+  function prependLogEntry(e) {
+    const container = document.getElementById('log-entries');
+    const div = document.createElement('div');
+    div.className = 'log-entry log-entry--' + (e.type || 'info');
+    div.textContent = e.msg;
+    container.insertBefore(div, container.firstChild);
+    // Trim overflow
+    while (container.children.length > 60) {
+      container.removeChild(container.lastChild);
+    }
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Socket ────────────────────────────────────────────────────────────
+  const socket = io({ transports: ['websocket'] });
+
+  socket.on('connect', () => {
+    console.log('[socket] connected');
+    socket.emit('request_state');
+  });
+  socket.on('disconnect', () => console.log('[socket] disconnected'));
+  socket.on('state_update', render);
+  socket.on('log_entry', prependLogEntry);
+</script>
+</body>
+</html>

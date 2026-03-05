@@ -22,6 +22,7 @@ from bot import helpers
 from bot import memory as chatter_memory
 from integrations import monday, audio
 from integrations.monday import openai_client
+from integrations import battle_overlay as overlay
 from game.battle import BossBattle
 
 HACK_ITEMS = {
@@ -296,6 +297,39 @@ class Bot(commands.Bot):
         """Return item name with emoji if available."""
         emoji = self.item_emojis.get(item_name)
         return f"{emoji} {item_name}" if emoji else item_name
+
+    def _ov_state(self, result=None):
+        """Build overlay state dict from current battle for push()."""
+        battle = self.ongoing_battle
+        if not battle:
+            return {"active": False}
+        players = {}
+        for name, hp in battle.challenger_team.items():
+            p = self.player_data.get(name)
+            players[name] = {
+                "health": hp,
+                "max_health": battle.player_max_health.get(name, hp),
+                "items": [i for i in (p.items if p else []) if i in BATTLE_DROPS],
+                "alive": True,
+            }
+        for name in battle.fallen:
+            p = self.player_data.get(name)
+            players[name] = {
+                "health": 0,
+                "max_health": battle.player_max_health.get(name, 100),
+                "items": [i for i in (p.items if p else []) if i in BATTLE_DROPS],
+                "alive": False,
+            }
+        state = {
+            "active": True,
+            "boss_name": battle.boss_name,
+            "boss_health": battle.boss_health,
+            "boss_max_health": battle.boss_max_health,
+            "players": players,
+        }
+        if result is not None:
+            state["result"] = result
+        return state
 
     async def event_ready(self):
         # Called once when the bot successfully connects to Twitch.
@@ -2242,24 +2276,37 @@ class Bot(commands.Bot):
             turn = 0
             max_turns = 15
 
+            # Push initial battle state to overlay
+            await overlay.push(**self._ov_state())
+            await overlay.log(
+                f"⚔️ RAID BEGINS — {battle.boss_name} vs {len(battle.challenger_team)} challengers!",
+                "info"
+            )
+
             while battle.boss_health > 0 and battle.challenger_team and turn < max_turns:
                 turn += 1
                 await ctx.send(f"⚔️ Turn {turn} ⚔️")
-                await asyncio.sleep(1)  # Small delay between messages
+                await overlay.push(**self._ov_state())
+                await asyncio.sleep(1)
 
                 # Boss turn taunt (50% chance)
                 if random.random() < 0.5:
-                    await ctx.send(f"💀 {battle.boss_name}: {random.choice(TURN_TAUNTS)}")
+                    taunt_text = random.choice(TURN_TAUNTS)
+                    taunt_msg = f"💀 {battle.boss_name}: {taunt_text}"
+                    await ctx.send(taunt_msg)
+                    await overlay.log(taunt_msg, "taunt")
                     await asyncio.sleep(0.5)
 
                 # Raspberry Pi: 25% chance to short-circuit boss attack this turn
                 pi_holders = [p for p in battle.challenger_team
                               if "Elliot Alderson's Raspberry Pi" in self.player_data[p].items]
                 if pi_holders and random.random() < 0.25:
-                    await ctx.send(
+                    pi_msg = (
                         f"🫐 @{random.choice(pi_holders)}'s Raspberry Pi runs interference — "
                         f"boss attack short-circuited this turn!"
                     )
+                    await ctx.send(pi_msg)
+                    await overlay.log(pi_msg, "pi")
                 else:
                     # Boss targets one random player
                     target = random.choice(list(battle.challenger_team.keys()))
@@ -2272,7 +2319,9 @@ class Bot(commands.Bot):
                         f"sets rgb to red and locks eyes on @{target}!",
                         f"sends 'AngyTheo' emote directly at @{target}!",
                     ])
-                    await ctx.send(f"🔥 {battle.boss_name} {boss_action}")
+                    boss_msg = f"🔥 {battle.boss_name} {boss_action}"
+                    await ctx.send(boss_msg)
+                    await overlay.log(boss_msg, "damage")
                     await asyncio.sleep(1)
 
                     target_player = self.player_data.get(target)
@@ -2281,7 +2330,9 @@ class Bot(commands.Bot):
                     if (target_player and
                             "Heath Adams' Lambo Keys" in target_player.items and
                             random.random() < 0.35):
-                        await ctx.send(f"🏎️ @{target} floors it in the Lambo — attack missed!")
+                        dodge_msg = f"🏎️ @{target} floors it in the Lambo — attack missed!"
+                        await ctx.send(dodge_msg)
+                        await overlay.log(dodge_msg, "dodge")
                     else:
                         health = battle.challenger_team[target]
                         new_health = max(0, health - damage)
@@ -2293,26 +2344,33 @@ class Bot(commands.Bot):
                                     target not in battle.consciousness_used):
                                 battle.consciousness_used.add(target)
                                 battle.challenger_team[target] = 1
-                                await ctx.send(
+                                save_msg = (
                                     f"🧠 @{target}'s Consciousness USB kicks in — "
                                     f"mind transferred to backup! Survives at 1 HP!"
                                 )
+                                await ctx.send(save_msg)
+                                await overlay.log(save_msg, "save")
+                                await overlay.push(**self._ov_state())
                             else:
                                 death_taunt = random.choice(DEATH_TAUNTS)
-                                await ctx.send(
-                                    f"☠️ @{target} has fallen! | 💀 {battle.boss_name}: {death_taunt}"
-                                )
+                                death_msg = f"☠️ @{target} has fallen! | 💀 {battle.boss_name}: {death_taunt}"
+                                await ctx.send(death_msg)
+                                await overlay.log(death_msg, "death")
                                 del battle.challenger_team[target]
                                 battle.fallen.append(target)
+                                await overlay.push(**self._ov_state())
                         else:
                             battle.challenger_team[target] = new_health
-                            await ctx.send(
-                                f"@{target} takes {damage} damage! ({new_health} HP remaining)"
-                            )
+                            dmg_msg = f"@{target} takes {damage} damage! ({new_health} HP remaining)"
+                            await ctx.send(dmg_msg)
+                            await overlay.log(dmg_msg, "damage")
+                            await overlay.push(**self._ov_state())
                     await asyncio.sleep(0.5)
 
                 if not battle.challenger_team:
-                    await ctx.send("All challengers have been defeated!")
+                    wipe_msg = "All challengers have been defeated!"
+                    await ctx.send(wipe_msg)
+                    await overlay.log(wipe_msg, "defeat")
                     break
 
                 await ctx.send("🗡️ Team attack phase:")
@@ -2334,7 +2392,9 @@ class Bot(commands.Bot):
                         "distracts Theo by disparaging the Cleveland Browns"
                     ])
 
-                    await ctx.send(f"@{player_name} {attack_action} for {player_damage} damage!")
+                    atk_msg = f"@{player_name} {attack_action} for {player_damage} damage!"
+                    await ctx.send(atk_msg)
+                    await overlay.log(atk_msg, "team")
                     await asyncio.sleep(0.5)
 
                 # Password Cracker: +15 bonus damage per holder
@@ -2345,14 +2405,19 @@ class Bot(commands.Bot):
                     total_damage += crack_bonus
                     battle.team_damage += crack_bonus
                     holder_str = ", ".join(f"@{p}" for p in crackers)
-                    await ctx.send(
+                    crack_msg = (
                         f"🔓 Password Cracker{'s' if len(crackers) > 1 else ''} "
                         f"({holder_str}) — +{crack_bonus} bonus damage!"
                     )
+                    await ctx.send(crack_msg)
+                    await overlay.log(crack_msg, "cracker")
                     await asyncio.sleep(0.5)
 
                 battle.boss_health = max(0, battle.boss_health - total_damage)
-                await ctx.send(f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}")
+                hp_msg = f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}"
+                await ctx.send(hp_msg)
+                await overlay.log(hp_msg, "info")
+                await overlay.push(**self._ov_state())
                 await asyncio.sleep(2)
 
             # Battle resolution
@@ -2360,10 +2425,18 @@ class Bot(commands.Bot):
             if battle.boss_health <= 0:
                 self.session_battles["won"] += 1
                 self.session_battles["bosses"].append(battle.boss_name)
+                await overlay.push(**self._ov_state(result="victory"))
+                await overlay.log(f"🏆 VICTORY! {battle.boss_name} has been defeated!", "victory")
                 await self.reward_team(ctx)
+                await asyncio.sleep(30)
+                await overlay.clear()
             else:
                 self.session_battles["lost"] += 1
+                await overlay.push(**self._ov_state(result="defeat"))
+                await overlay.log("☠ DEFEAT — all challengers have fallen.", "defeat")
                 await self.battle_summary(ctx, victory=False)
+                await asyncio.sleep(20)
+                await overlay.clear()
             
         except Exception as e:
             await ctx.send(f"An error occurred during battle: {str(e)}")
@@ -2421,9 +2494,15 @@ class Bot(commands.Bot):
 
         player = self.player_data[username]
         self.ongoing_battle.challenger_team[username] = player.health
-        await ctx.send(f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)")
+        self.ongoing_battle.player_max_health[username] = player.health
+        join_msg = f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)"
+        await ctx.send(join_msg)
+        await overlay.log(join_msg, "info")
+        await overlay.push(**self._ov_state())
         taunt = random.choice(JOIN_TAUNTS).format(username=ctx.author.name, level=player.level)
-        await ctx.send(f"💀 {self.ongoing_battle.boss_name}: {taunt}")
+        taunt_msg = f"💀 {self.ongoing_battle.boss_name}: {taunt}"
+        await ctx.send(taunt_msg)
+        await overlay.log(taunt_msg, "taunt")
 
     async def battle_summary(self, ctx, victory: bool):
         battle = self.ongoing_battle

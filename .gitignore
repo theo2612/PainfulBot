@@ -5,3 +5,4 @@ bot.log
 player_data.json
 session_flags.json
 *.log
+boss_battle/.venv/

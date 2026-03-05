@@ -7,6 +7,7 @@ class BossBattle:
     def __init__(self, boss_name, boss_health):
         self.boss_name = boss_name
         self.boss_health = boss_health
+        self.boss_max_health = boss_health
         self.challenger_team = {}  # Dict of {username: health}
         self.join_phase = True
         self.join_timer = 30  # Seconds
@@ -15,3 +16,4 @@ class BossBattle:
         self.per_player_damage = {}     # {username: total_damage_dealt} for MVP
         self.fallen = []                # ordered list of players who died (for summary)
         self.consciousness_used = set() # players who've burned their Consciousness USB save
+        self.player_max_health = {}     # {username: hp at join time} for overlay HP bars
