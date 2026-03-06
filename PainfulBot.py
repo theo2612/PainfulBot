@@ -2208,6 +2208,11 @@ class Bot(commands.Bot):
         """Link to the full TwitcHack player manual."""
         await ctx.send(f"@{ctx.author.name} TwitcHack player manual — locations, attacks, leveling, items, secrets, and more: https://twitchack.b7h30.com/")
 
+    @commands.command(name='battlecam')
+    async def battlecam(self, ctx):
+        """Link to the live boss battle spectator page."""
+        await ctx.send(f"@{ctx.author.name} Watch the boss battle live: https://bossbattle.b7h30.com/")
+
     @commands.command(name='bossbattle')
     async def bossbattle(self, ctx):
         try:
