@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TwitcHack Live — PainfulIT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap">
+  <style>
+    /* ── Variables ── */
+    :root {
+      --bg:           #050508;
+      --panel:        #0a0a12;
+      --panel-dark:   #07070e;
+      --border:       #141420;
+      --green:        #00ff41;
+      --dim-green:    #00a82a;
+      --purple:       #9b59b6;
+      --purple-bright:#c084fc;
+      --blue:         #00b4ff;
+      --red:          #ff2244;
+      --orange:       #ff8c00;
+      --gold:         #ffd700;
+      --text:         #d0dce8;
+      --text-muted:   rgba(136,153,170,0.6);
+      --font-head:    'Share Tech Mono', 'Courier New', monospace;
+      --font-vt:      'VT323', monospace;
+    }
+
+    /* ── Animations ── */
+    @keyframes flicker {
+      0%,96%,100% { opacity:1; } 97% { opacity:.82; } 98% { opacity:.95; } 99% { opacity:.78; }
+    }
+    @keyframes header-glow {
+      0%,100% { box-shadow: 0 2px 16px rgba(0,255,65,.18), 0 0 40px rgba(0,255,65,.05); }
+      50%     { box-shadow: 0 2px 28px rgba(0,255,65,.35), 0 0 60px rgba(0,255,65,.10); }
+    }
+    @keyframes slide-in {
+      from { opacity:0; transform:translateX(12px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+    @keyframes level-flash {
+      0%   { background: rgba(255,215,0,.2); box-shadow: 0 0 20px rgba(255,215,0,.5); }
+      100% { background: transparent; box-shadow: none; }
+    }
+
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html, body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--font-head);
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Scanlines */
+    body::after {
+      content:'';
+      position:fixed; inset:0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,.12) 3px, rgba(0,0,0,.12) 4px
+      );
+      pointer-events:none;
+      z-index:9999;
+    }
+
+    /* ── Page layout ── */
+    .page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      height: 64px;
+      background: var(--panel-dark);
+      border-bottom: 2px solid var(--green);
+      animation: header-glow 3s ease-in-out infinite, flicker 14s infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 0 32px;
+      flex-shrink: 0;
+    }
+    .header__title {
+      font-family: var(--font-vt);
+      font-size: 2rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green);
+      text-shadow: 0 0 16px rgba(0,255,65,.8), 0 0 40px rgba(0,255,65,.2);
+    }
+    .header__label {
+      font-size: .72rem;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .header__count {
+      font-family: var(--font-vt);
+      font-size: 1.4rem;
+      color: var(--text-muted);
+      letter-spacing: .06em;
+    }
+    .header__count span {
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(0,255,65,.5);
+    }
+
+    /* ── Main split ── */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── Player panel (left) ── */
+    .player-panel {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .panel-title {
+      font-size: .65rem;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .player-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .player-list::-webkit-scrollbar { width: 4px; }
+    .player-list::-webkit-scrollbar-track { background: transparent; }
+    .player-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Player card ── */
+    .player-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      transition: border-color .2s;
+    }
+    .player-card:hover { border-color: rgba(0,255,65,.2); }
+    .player-card.level-up-flash {
+      animation: level-flash .8s ease-out forwards;
+    }
+    .pc-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pc-name {
+      font-size: .82rem;
+      letter-spacing: .05em;
+      color: var(--text);
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+    .pc-level {
+      font-family: var(--font-vt);
+      font-size: 1.1rem;
+      color: var(--purple-bright);
+      flex-shrink: 0;
+    }
+    .pc-points {
+      font-family: var(--font-vt);
+      font-size: 1rem;
+      color: var(--text-muted);
+    }
+    .pc-points span { color: var(--green); }
+
+    /* HP bar */
+    .pc-hp-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pc-hp-bar {
+      flex: 1;
+      height: 5px;
+      background: rgba(20,20,32,1);
+      border: 1px solid rgba(0,255,65,.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .pc-hp-fill {
+      height: 100%;
+      border-radius: 1px;
+      transition: width .4s ease, background .4s ease;
+    }
+    .pc-hp-text {
+      font-family: var(--font-vt);
+      font-size: .9rem;
+      color: var(--text-muted);
+      min-width: 44px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Items */
+    .pc-items {
+      font-size: .85rem;
+      min-height: 14px;
+      color: var(--text-muted);
+      letter-spacing: .04em;
+    }
+
+    /* Empty state */
+    .player-empty {
+      color: var(--text-muted);
+      font-size: .72rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 24px 0;
+    }
+    .player-empty::after {
+      content: '█';
+      animation: blink 1s step-end infinite;
+      margin-left: 3px;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Event feed (right) ── */
+    .feed-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .feed-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+    .feed-list::-webkit-scrollbar { width: 4px; }
+    .feed-list::-webkit-scrollbar-track { background: transparent; }
+    .feed-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Event entry ── */
+    .event-entry {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 5px 14px;
+      border-bottom: 1px solid rgba(20,20,32,.8);
+      animation: slide-in .18s ease;
+      line-height: 1.45;
+    }
+    .event-entry:hover { background: rgba(255,255,255,.012); }
+
+    .ev-user {
+      font-size: .78rem;
+      color: var(--blue);
+      flex-shrink: 0;
+      min-width: 90px;
+      letter-spacing: .04em;
+    }
+    .ev-user--empty { color: var(--text-muted); font-style: italic; }
+
+    .ev-cmd {
+      font-size: .78rem;
+      color: var(--purple-bright);
+      flex-shrink: 0;
+      min-width: 80px;
+      letter-spacing: .04em;
+    }
+
+    .ev-result {
+      font-size: .8rem;
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    /* Result colors by type */
+    .ev--attack-success .ev-result { color: var(--green); }
+    .ev--attack-fail    .ev-result { color: rgba(255,34,68,.7); }
+    .ev--level-up       .ev-result { color: var(--gold); }
+    .ev--level-up .ev-cmd          { color: var(--gold); }
+    .ev--grab           .ev-result { color: var(--purple-bright); }
+    .ev--drop           .ev-result { color: var(--blue); }
+    .ev--status         .ev-result { color: var(--text-muted); }
+    .ev--info           .ev-result { color: var(--text-muted); }
+    .ev--boss           .ev-result { color: rgba(255,34,68,.85); }
+    .ev--boss .ev-cmd              { color: rgba(255,34,68,.6); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <span class="header__title">PainfulIT</span>
+    <span class="header__label">TWITCHACK LIVE</span>
+    <span class="header__count">Players: <span id="player-count">0</span></span>
+  </header>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Player panel -->
+    <div class="player-panel">
+      <div class="panel-title">Active This Session</div>
+      <div class="player-list" id="player-list">
+        <div class="player-empty" id="player-empty">Waiting for players</div>
+      </div>
+    </div>
+
+    <!-- Event feed -->
+    <div class="feed-panel">
+      <div class="panel-title" style="border-left:1px solid var(--border); padding-left:14px;">
+        Live Feed — <span style="color:var(--green)" id="event-count">0</span> events
+      </div>
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/socket.io.min.js?v={{ v }}"></script>
+<script>
+  // ── Item emoji map ────────────────────────────────────────────────────────
+  const ITEM_EMOJIS = {
+    "John Hammond's Consciousness USB": '🧠',
+    "Heath Adams' Lambo Keys":          '🏎️',
+    "Kevin Mitnick's Password Cracker": '🔓',
+    "Elliot Alderson's Raspberry Pi":   '🫐',
+    "Wireshark": '🦈', "EvilGinx": '🎣', "Metasploit": '💀',
+    "O.MG Cable": '🔌', "VX Underground HDD": '💽', "Cookies": '🍪',
+    "Nmap": '🗺️', "Hydra": '🐉', "YubiKey": '🔑',
+    "Shodan API Key": '🔍', "Kali ISO": '🐉', "NES": '🎮',
+    "Contra Cartridge": '🔫', "Black Coffee": '☕',
+    "Tiny Browns Helmet": '🏈', "Root Beer Flask": '🧉',
+    "Golden Cassette Tape": '📼', "Jet Black Hoodie": '🥷',
+    "RGB Keyboard (Purple)": '🎹', "Mimikatz": '🐱',
+  };
+
+  function itemBadges(items) {
+    if (!items || !items.length) return '';
+    return items.map(i => ITEM_EMOJIS[i] || '').filter(Boolean).join(' ');
+  }
+
+  function hpColor(pct) {
+    if (pct > 0.6) return 'var(--green)';
+    if (pct > 0.3) return '#ffcc00';
+    return 'var(--red)';
+  }
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let _players = {};
+  let _eventCount = 0;
+  const MAX_FEED = 200;
+
+  // ── Player list render ────────────────────────────────────────────────────
+  function renderPlayers(players) {
+    _players = players || {};
+    const list = document.getElementById('player-list');
+    const empty = document.getElementById('player-empty');
+    const count = Object.keys(_players).length;
+
+    document.getElementById('player-count').textContent = count;
+
+    if (count === 0) {
+      list.innerHTML = '';
+      list.appendChild(empty);
+      return;
+    }
+    if (empty.parentNode) empty.parentNode.removeChild(empty);
+
+    // Sort by points desc
+    const sorted = Object.entries(_players).sort((a,b) => b[1].points - a[1].points);
+
+    // Update or create cards
+    const existing = {};
+    list.querySelectorAll('.player-card').forEach(el => {
+      existing[el.dataset.user] = el;
+    });
+
+    const seen = new Set();
+    sorted.forEach(([name, p]) => {
+      seen.add(name);
+      const maxHp = 1000;
+      const pct = Math.max(0, Math.min(1, p.health / maxHp));
+      const badges = itemBadges(p.items);
+
+      if (existing[name]) {
+        // Update in place
+        const card = existing[name];
+        card.querySelector('.pc-level').textContent = `LVL ${p.level}`;
+        card.querySelector('.pc-points span').textContent = p.points;
+        const fill = card.querySelector('.pc-hp-fill');
+        fill.style.width = (pct * 100) + '%';
+        fill.style.background = hpColor(pct);
+        card.querySelector('.pc-hp-text').textContent = p.health + ' HP';
+        card.querySelector('.pc-items').textContent = badges;
+      } else {
+        // Create new card
+        const card = document.createElement('div');
+        card.className = 'player-card';
+        card.dataset.user = name;
+        card.innerHTML = `
+          <div class="pc-top">
+            <div class="pc-name">@${escHtml(name)}</div>
+            <div class="pc-level">LVL ${p.level}</div>
+          </div>
+          <div class="pc-points">pts: <span>${p.points}</span></div>
+          <div class="pc-hp-wrap">
+            <div class="pc-hp-bar">
+              <div class="pc-hp-fill" style="width:${pct*100}%;background:${hpColor(pct)}"></div>
+            </div>
+            <div class="pc-hp-text">${p.health} HP</div>
+          </div>
+          <div class="pc-items">${badges}</div>
+        `;
+        list.appendChild(card);
+      }
+    });
+
+    // Remove cards for players no longer in list
+    Object.keys(existing).forEach(name => {
+      if (!seen.has(name)) existing[name].remove();
+    });
+  }
+
+  function flashLevelUp(username) {
+    const card = document.querySelector(`.player-card[data-user="${username}"]`);
+    if (!card) return;
+    card.classList.remove('level-up-flash');
+    void card.offsetWidth; // reflow
+    card.classList.add('level-up-flash');
+    card.addEventListener('animationend', () => card.classList.remove('level-up-flash'), { once: true });
+  }
+
+  // ── Event feed ────────────────────────────────────────────────────────────
+  function prependEvent(e) {
+    const feed = document.getElementById('feed-list');
+
+    const div = document.createElement('div');
+    div.className = `event-entry ev--${e.type || 'info'}`;
+
+    const userClass = e.username ? '' : ' ev-user--empty';
+    div.innerHTML = `
+      <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
+      <span class="ev-cmd">${escHtml(e.command || '')}</span>
+      <span class="ev-result">${escHtml(e.result || '')}</span>
+    `;
+
+    feed.insertBefore(div, feed.firstChild);
+    _eventCount++;
+    document.getElementById('event-count').textContent = _eventCount;
+
+    // Trim overflow
+    while (feed.children.length > MAX_FEED) feed.removeChild(feed.lastChild);
+
+    // Flash player card on level-up
+    if (e.type === 'level-up' && e.username) flashLevelUp(e.username);
+  }
+
+  function renderFeed(events) {
+    const feed = document.getElementById('feed-list');
+    feed.innerHTML = '';
+    _eventCount = events.length;
+    document.getElementById('event-count').textContent = _eventCount;
+    // Events are newest-first; render them all (newest at top)
+    events.forEach(e => {
+      const div = document.createElement('div');
+      div.className = `event-entry ev--${e.type || 'info'}`;
+      const userClass = e.username ? '' : ' ev-user--empty';
+      div.innerHTML = `
+        <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
+        <span class="ev-cmd">${escHtml(e.command || '')}</span>
+        <span class="ev-result">${escHtml(e.result || '')}</span>
+      `;
+      feed.appendChild(div);
+    });
+  }
+
+  // ── Socket ────────────────────────────────────────────────────────────────
+  const socket = io({ transports: ['websocket'] });
+
+  socket.on('connect', () => {
+    console.log('[socket] connected');
+    socket.emit('request_game_state');
+  });
+  socket.on('disconnect', () => console.log('[socket] disconnected'));
+
+  socket.on('game_state', st => {
+    renderPlayers(st.players || {});
+    renderFeed(st.events || []);
+  });
+
+  socket.on('game_event', e => {
+    prependEvent(e);
+  });
+
+  socket.on('players_update', players => {
+    renderPlayers(players);
+  });
+</script>
+</body>
+</html>

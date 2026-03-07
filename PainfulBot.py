@@ -23,6 +23,7 @@ from bot import memory as chatter_memory
 from integrations import monday, audio
 from integrations.monday import openai_client
 from integrations import battle_overlay as overlay
+from integrations import game_overlay
 from game.battle import BossBattle
 
 HACK_ITEMS = {
@@ -298,6 +299,19 @@ class Bot(commands.Bot):
         emoji = self.item_emojis.get(item_name)
         return f"{emoji} {item_name}" if emoji else item_name
 
+    async def _attack_result(self, ctx, command, result_msg, success, player):
+        """Push attack result to game overlay (no chat send). Handle level-up chat notification."""
+        username = ctx.author.name.lower()
+        event_type = 'attack-success' if success else 'attack-fail'
+        leveled_up = helpers.check_level_up(self.player_data, username)
+        helpers.save_player_data(self.player_data)
+        await game_overlay.event(username, command, result_msg, event_type)
+        await game_overlay.player(username, player)
+        if leveled_up:
+            lv_msg = f'@{ctx.author.name} reached level {player.level}! 🎉'
+            await ctx.send(lv_msg)
+            await game_overlay.event(username, 'LEVEL UP', lv_msg, 'level-up')
+
     def _ov_state(self, result=None):
         """Build overlay state dict from current battle for push()."""
         battle = self.ongoing_battle
@@ -338,6 +352,7 @@ class Bot(commands.Bot):
         print(f'User id is | {self.user_id}')   # Output the bot's user ID
         # Send a message to the chat indicating that the bot is online
         await self.connected_channels[0].send(f"{self.nick} is now online")
+        await game_overlay.clear()
         self.loop.create_task(self.setup_eventsub())
         self.loop.create_task(self.eventsub_healthcheck())
 
@@ -792,6 +807,7 @@ class Bot(commands.Bot):
         message += f" Type '!grab {item.name}' to claim it!"
 
         await self.connected_channels[0].send(message)
+        await game_overlay.event("", '!drop', message, 'drop')
 
         # Add the dropped item to the list with timestamp
         self.dropped_items.append({
@@ -821,9 +837,11 @@ class Bot(commands.Bot):
                 if item_name not in player.items:
                     player.items.append(item_name)
                     self.session_items_picked_up.append((username, item_name))
-                    await ctx.send(f"@{ctx.author.name} grabbed the {self.format_item(item_name)}!")
+                    grab_msg = f"@{ctx.author.name} grabbed the {self.format_item(item_name)}!"
                     del self.dropped_items[i]
                     helpers.save_player_data(self.player_data)
+                    await game_overlay.event(username, '!grab', grab_msg, 'grab')
+                    await game_overlay.player(username, player)
                 else:
                     await ctx.send(f"@{ctx.author.name}, you already have this item!")
                 return
@@ -857,6 +875,7 @@ class Bot(commands.Bot):
 
             message = f"🎁 A wild {self.format_item(item.name)} appeared at {location}! Type '!grab {item.name}' to claim it!"
             await ctx.send(message)
+            await game_overlay.event("", '!drop', message, 'drop')
 
             # Store the dropped item temporarily with timestamp
             if not hasattr(self, 'dropped_items'):
@@ -1077,7 +1096,7 @@ class Bot(commands.Bot):
         self.player_data[username] = new_player
         self.session_new_players.append(username)
         helpers.save_player_data(self.player_data)
-        
+
         welcome_msg = (
             f"Welcome to TwitcHack, @{ctx.author.name}! You're now registered as a level 1 hacker. 🖥️ | \n"
             f"1. Use !hack <location> to move (email, website, server, etc) | \n"
@@ -1087,6 +1106,8 @@ class Bot(commands.Bot):
             f"Use !help for more commands!"
         )
         await self.send_clamped(ctx, welcome_msg)
+        await game_overlay.event(username, '!start', f'@{ctx.author.name} joined TwitcHack!', 'info')
+        await game_overlay.player(username, new_player)
 
     @commands.command(name='help')
     async def help(self, ctx):
@@ -1173,6 +1194,8 @@ class Bot(commands.Bot):
         player = self.player_data[username]
         # Send the player's current points to the chat
         await ctx.send(f'@{ctx.author.name}, you have {player.points} points.')
+        await game_overlay.event(username, '!points', f'@{ctx.author.name} has {player.points} points.', 'info')
+        await game_overlay.player(username, player)
 
     @commands.command(name='ownerpoints')
     async def ownerpoints(self, ctx, amount: int):
@@ -1229,6 +1252,7 @@ class Bot(commands.Bot):
 
         # Send the leaderboard message to chat
         await self.send_clamped(ctx, leaderboard_message)
+        await game_overlay.event(ctx.author.name.lower(), '!leaderboard', leaderboard_message, 'info')
 
 
     @commands.command(name='status')
@@ -1253,16 +1277,18 @@ class Bot(commands.Bot):
             )
 
             await self.send_clamped(ctx, status_message)
+            await game_overlay.event(username, '!status', status_message, 'info')
+            await game_overlay.player(username, player)
         else:
             # Show the specified player's status
             target_username = target_player.lower()
-            
+
             if target_username not in self.player_data:
                 await ctx.send(f'@{ctx.author.name}, player "{target_player}" is not registered.')
                 return
-                
+
             player = self.player_data[target_username]
-            
+
             status_message = (
                 f"@{ctx.author.name}, here is {target_player}'s status: "
                 f"Level: {player.level} | \n"
@@ -1271,8 +1297,10 @@ class Bot(commands.Bot):
                 f"Location: {player.location} | \n"
                 f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
             )
-            
+
             await self.send_clamped(ctx, status_message)
+            await game_overlay.event(username, '!status', status_message, 'info')
+            await game_overlay.player(target_username, player)
 
     @commands.command(name='virus')
     async def virus(self, ctx, target: str = None):
@@ -1374,17 +1402,13 @@ class Bot(commands.Bot):
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             points_earned = random.randint(20, 60)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, phishing successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!phish', f'@{ctx.author.name}, phishing successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(10, 30)
             player.points -= points_lost
             if player.points < 0:
                 player.points = 0
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!phish', f'@{ctx.author.name}, phishing failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='spoof')
     async def spoof(self, ctx):
@@ -1417,17 +1441,13 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, spoofing successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!spoof', f'@{ctx.author.name}, spoofing successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(15, 35)
             player.points -= points_lost
             if player.points < 0:
                 player.points = 0
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, spoofing failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!spoof', f'@{ctx.author.name}, spoofing failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='dump')
     async def dump(self, ctx):
@@ -1460,17 +1480,13 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, email dump successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!dump', f'@{ctx.author.name}, email dump successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(20, 40)
             player.points -= points_lost
             if player.points < 0:
                 player.points = 0
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, email dump failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!dump', f'@{ctx.author.name}, email dump failed! You lost {points_lost} points.', False, player)
 
     ###################################################################
     # /etc/shadow ATTACKS #
@@ -1510,17 +1526,13 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, cracking successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!crack', f'@{ctx.author.name}, cracking successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(10, 30)
             player.points -= points_lost
             if player.points < 0:
                 player.points = 0
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, cracking failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!crack', f'@{ctx.author.name}, cracking failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='stealth')
     async def stealth(self, ctx):
@@ -1551,17 +1563,13 @@ class Bot(commands.Bot):
         if success:
             points_earned = random.randint(60, 100)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, stealth successful! You earned {points_earned} points.')
+            await self._attack_result(ctx, '!stealth', f'@{ctx.author.name}, stealth successful! You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(5, 20)
             player.points -= points_lost
             if player.points < 0:
                 player.points = 0
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, stealth failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!stealth', f'@{ctx.author.name}, stealth failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='bruteforce')
     async def bruteforce(self, ctx):
@@ -1591,19 +1599,15 @@ class Bot(commands.Bot):
         # Simulate success or failure of brute force attack
         success = random.choice([True, False])
         if success:
-            points_earned = random.randint(70, 110)  # Random points earned for successful brute force
-            player.points += points_earned  # Add the points to the player's total
-            helpers.check_level_up(self.player_data, username)   # Check if the player's level should be adjusted
-            helpers.save_player_data(self.player_data)  # Save the updated player data to the JSON file
-            await ctx.send(f'@{ctx.author.name}, brute force attack successful! You earned {points_earned} points.')
+            points_earned = random.randint(70, 110)
+            player.points += points_earned
+            await self._attack_result(ctx, '!bruteforce', f'@{ctx.author.name}, brute force attack successful! You earned {points_earned} points.', True, player)
         else:
-            points_lost = random.randint(15, 40)  # Random points lost for failed brute force
-            player.points -= points_lost  # Subtract the points from the player's total
+            points_lost = random.randint(15, 40)
+            player.points -= points_lost
             if player.points < 0:
-                player.points = 0  # Ensure points do not go below zero
-            helpers.check_level_up(self.player_data, username)   # Check if the player's level should be adjusted
-            helpers.save_player_data(self.player_data)  # Save the updated player data to the JSON file
-            await ctx.send(f'@{ctx.author.name}, brute force attack failed! You lost {points_lost} points.')
+                player.points = 0
+            await self._attack_result(ctx, '!bruteforce', f'@{ctx.author.name}, brute force attack failed! You lost {points_lost} points.', False, player)
 
     ###################################################################
     # WEBSITE ATTACKS #
@@ -1634,14 +1638,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, ffuf found some tasty endpoints!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!ffuf', f'@{ctx.author.name}, ffuf found some tasty endpoints!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(5, 12)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, ffuf came up empty. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!ffuf', f'@{ctx.author.name}, ffuf came up empty. You lost {points_lost} points.', False, player)
 
     @commands.command(name='burp')
     async def burp(self, ctx):
@@ -1669,14 +1670,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, vulnerability scan successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!burp', f'@{ctx.author.name}, vulnerability scan successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(20, 45)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, scan failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!burp', f'@{ctx.author.name}, scan failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='sqliw')
     async def sqliw(self, ctx):
@@ -1704,14 +1702,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, SQL injection successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!sqliw', f'@{ctx.author.name}, SQL injection successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(25, 50)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, SQL injection failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!sqliw', f'@{ctx.author.name}, SQL injection failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='xss')
     async def xss(self, ctx):
@@ -1739,14 +1734,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, XSS attack successful!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!xss', f'@{ctx.author.name}, XSS attack successful!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(30, 55)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, XSS attack failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!xss', f'@{ctx.author.name}, XSS attack failed! You lost {points_lost} points.', False, player)
 
     ###################################################################
     # DATABASE ATTACKS #
@@ -1772,14 +1764,11 @@ class Bot(commands.Bot):
         if success:
             points_earned = random.randint(110, 150)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, database dump successful! You earned {points_earned} points.')
+            await self._attack_result(ctx, '!dumpdb', f'@{ctx.author.name}, database dump successful! You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(35, 60)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, database dump failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!dumpdb', f'@{ctx.author.name}, database dump failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='sqlidb')
     async def sqlidb(self, ctx):
@@ -1801,14 +1790,11 @@ class Bot(commands.Bot):
         if success:
             points_earned = random.randint(120, 160)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, database SQL injection successful! You gained unauthorized access. You earned {points_earned} points.')
+            await self._attack_result(ctx, '!sqlidb', f'@{ctx.author.name}, database SQL injection successful! You gained unauthorized access. You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(40, 65)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, database SQL injection failed! Your query was blocked. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!sqlidb', f'@{ctx.author.name}, database SQL injection failed! Your query was blocked. You lost {points_lost} points.', False, player)
 
     @commands.command(name='admin')
     async def admin(self, ctx):
@@ -1830,14 +1816,11 @@ class Bot(commands.Bot):
         if success:
             points_earned = random.randint(130, 170)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, privilege escalation successful! You now have admin access. You earned {points_earned} points.')
+            await self._attack_result(ctx, '!admin', f'@{ctx.author.name}, privilege escalation successful! You now have admin access. You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(45, 70)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, privilege escalation failed! Your attempt was logged and blocked. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!admin', f'@{ctx.author.name}, privilege escalation failed! Your attempt was logged and blocked. You lost {points_lost} points.', False, player)
 
     ###################################################################
     # SERVER ATTACKS #
@@ -1868,14 +1851,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, nmap recon found open doors!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!nmap', f'@{ctx.author.name}, nmap recon found open doors!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(5, 12)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, nmap recon fizzled. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!nmap', f'@{ctx.author.name}, nmap recon fizzled. You lost {points_lost} points.', False, player)
 
     @commands.command(name='revshell')
     async def revshell(self, ctx):
@@ -1903,14 +1883,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, reverse shell established!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!revshell', f'@{ctx.author.name}, reverse shell established!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(50, 75)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, reverse shell attempt failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!revshell', f'@{ctx.author.name}, reverse shell attempt failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='root')
     async def root(self, ctx):
@@ -1938,14 +1915,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, root access achieved!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!root', f'@{ctx.author.name}, root access achieved!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(55, 80)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, privilege escalation failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!root', f'@{ctx.author.name}, privilege escalation failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='ransom')
     async def ransom(self, ctx):
@@ -1973,14 +1947,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, ransomware deployed successfully!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!ransom', f'@{ctx.author.name}, ransomware deployed successfully!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(60, 85)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, ransomware deployment failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!ransom', f'@{ctx.author.name}, ransomware deployment failed! You lost {points_lost} points.', False, player)
 
     ###################################################################
     # NETWORK ATTACKS #
@@ -2012,14 +1983,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, network sniffing successful! Captured sensitive data!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!sniff', f'@{ctx.author.name}, network sniffing successful! Captured sensitive data!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(65, 90)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, network sniffing failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!sniff', f'@{ctx.author.name}, network sniffing failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='mitm')
     async def mitm(self, ctx):
@@ -2047,14 +2015,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, MITM attack successful! Intercepted traffic!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!mitm', f'@{ctx.author.name}, MITM attack successful! Intercepted traffic!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(70, 95)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, MITM attack failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!mitm', f'@{ctx.author.name}, MITM attack failed! You lost {points_lost} points.', False, player)
 
     @commands.command(name='ddos')
     async def ddos(self, ctx):
@@ -2082,14 +2047,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, DDoS attack successful! Services disrupted!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!ddos', f'@{ctx.author.name}, DDoS attack successful! Services disrupted!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(75, 100)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, DDoS attack failed! You lost {points_lost} points.')
+            await self._attack_result(ctx, '!ddos', f'@{ctx.author.name}, DDoS attack failed! You lost {points_lost} points.', False, player)
 
     ###################################################################
     # EVILCORP ATTACKS #
@@ -2121,14 +2083,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, USB drop attack successful! Target connected the device!{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!drop', f'@{ctx.author.name}, USB drop attack successful! Target connected the device!{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(80, 105)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, USB drop attack failed! No one took the bait. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!drop', f'@{ctx.author.name}, USB drop attack failed! No one took the bait. You lost {points_lost} points.', False, player)
 
     @commands.command(name='tailgate')
     async def tailgate(self, ctx):
@@ -2156,14 +2115,11 @@ class Bot(commands.Bot):
             points_earned = int(base_points * bonus['points_multiplier'])
             item_msg = f" Your {bonus['item_name']} helped!" if bonus['item_name'] else ""
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, tailgating successful! You slipped in unnoticed.{item_msg} You earned {points_earned} points.')
+            await self._attack_result(ctx, '!tailgate', f'@{ctx.author.name}, tailgating successful! You slipped in unnoticed.{item_msg} You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(85, 110)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, tailgating failed! Security caught you. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!tailgate', f'@{ctx.author.name}, tailgating failed! Security caught you. You lost {points_lost} points.', False, player)
 
     @commands.command(name='socialengineer')
     async def socialengineer(self, ctx):
@@ -2185,14 +2141,11 @@ class Bot(commands.Bot):
         if success:
             points_earned = random.randint(220, 260)
             player.points += points_earned
-            helpers.check_level_up(self.player_data, username)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, social engineering successful! You obtained sensitive information. You earned {points_earned} points.')
+            await self._attack_result(ctx, '!socialengineer', f'@{ctx.author.name}, social engineering successful! You obtained sensitive information. You earned {points_earned} points.', True, player)
         else:
             points_lost = random.randint(90, 115)
             player.points = max(0, player.points - points_lost)
-            helpers.save_player_data(self.player_data)
-            await ctx.send(f'@{ctx.author.name}, social engineering failed! Your cover was blown. You lost {points_lost} points.')
+            await self._attack_result(ctx, '!socialengineer', f'@{ctx.author.name}, social engineering failed! Your cover was blown. You lost {points_lost} points.', False, player)
 
     ###################################################################
     # BOSS BATTLE #
@@ -2290,7 +2243,7 @@ class Bot(commands.Bot):
 
             while battle.boss_health > 0 and battle.challenger_team and turn < max_turns:
                 turn += 1
-                await ctx.send(f"⚔️ Turn {turn} ⚔️")
+                await overlay.log(f"⚔️ Turn {turn} ⚔️", "info")
                 await overlay.push(**self._ov_state())
                 await asyncio.sleep(1)
 
@@ -2298,7 +2251,6 @@ class Bot(commands.Bot):
                 if random.random() < 0.5:
                     taunt_text = random.choice(TURN_TAUNTS)
                     taunt_msg = f"💀 {battle.boss_name}: {taunt_text}"
-                    await ctx.send(taunt_msg)
                     await overlay.log(taunt_msg, "taunt")
                     await asyncio.sleep(0.5)
 
@@ -2310,7 +2262,6 @@ class Bot(commands.Bot):
                         f"🫐 @{random.choice(pi_holders)}'s Raspberry Pi runs interference — "
                         f"boss attack short-circuited this turn!"
                     )
-                    await ctx.send(pi_msg)
                     await overlay.log(pi_msg, "pi")
                 else:
                     # Boss targets one random player
@@ -2325,7 +2276,6 @@ class Bot(commands.Bot):
                         f"sends 'AngyTheo' emote directly at @{target}!",
                     ])
                     boss_msg = f"🔥 {battle.boss_name} {boss_action}"
-                    await ctx.send(boss_msg)
                     await overlay.log(boss_msg, "damage")
                     await asyncio.sleep(1)
 
@@ -2336,7 +2286,6 @@ class Bot(commands.Bot):
                             "Heath Adams' Lambo Keys" in target_player.items and
                             random.random() < 0.35):
                         dodge_msg = f"🏎️ @{target} floors it in the Lambo — attack missed!"
-                        await ctx.send(dodge_msg)
                         await overlay.log(dodge_msg, "dodge")
                     else:
                         health = battle.challenger_team[target]
@@ -2353,13 +2302,11 @@ class Bot(commands.Bot):
                                     f"🧠 @{target}'s Consciousness USB kicks in — "
                                     f"mind transferred to backup! Survives at 1 HP!"
                                 )
-                                await ctx.send(save_msg)
                                 await overlay.log(save_msg, "save")
                                 await overlay.push(**self._ov_state())
                             else:
                                 death_taunt = random.choice(DEATH_TAUNTS)
                                 death_msg = f"☠️ @{target} has fallen! | 💀 {battle.boss_name}: {death_taunt}"
-                                await ctx.send(death_msg)
                                 await overlay.log(death_msg, "death")
                                 del battle.challenger_team[target]
                                 battle.fallen.append(target)
@@ -2367,18 +2314,16 @@ class Bot(commands.Bot):
                         else:
                             battle.challenger_team[target] = new_health
                             dmg_msg = f"@{target} takes {damage} damage! ({new_health} HP remaining)"
-                            await ctx.send(dmg_msg)
                             await overlay.log(dmg_msg, "damage")
                             await overlay.push(**self._ov_state())
                     await asyncio.sleep(0.5)
 
                 if not battle.challenger_team:
                     wipe_msg = "All challengers have been defeated!"
-                    await ctx.send(wipe_msg)
                     await overlay.log(wipe_msg, "defeat")
                     break
 
-                await ctx.send("🗡️ Team attack phase:")
+                await overlay.log("🗡️ Team attack phase:", "info")
                 await asyncio.sleep(1)
 
                 # Team attack phase
@@ -2398,7 +2343,6 @@ class Bot(commands.Bot):
                     ])
 
                     atk_msg = f"@{player_name} {attack_action} for {player_damage} damage!"
-                    await ctx.send(atk_msg)
                     await overlay.log(atk_msg, "team")
                     await asyncio.sleep(0.5)
 
@@ -2414,13 +2358,11 @@ class Bot(commands.Bot):
                         f"🔓 Password Cracker{'s' if len(crackers) > 1 else ''} "
                         f"({holder_str}) — +{crack_bonus} bonus damage!"
                     )
-                    await ctx.send(crack_msg)
                     await overlay.log(crack_msg, "cracker")
                     await asyncio.sleep(0.5)
 
                 battle.boss_health = max(0, battle.boss_health - total_damage)
                 hp_msg = f"Boss HP: {battle.boss_health} | Team members remaining: {len(battle.challenger_team)}"
-                await ctx.send(hp_msg)
                 await overlay.log(hp_msg, "info")
                 await overlay.push(**self._ov_state())
                 await asyncio.sleep(2)
