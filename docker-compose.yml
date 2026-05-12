@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: painful
+      POSTGRES_PASSWORD: painful
+      POSTGRES_DB: painfulbot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U painful -d painfulbot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://painful:painful@db:5432/painfulbot
+      BOT_API_HOST: 0.0.0.0
+      BOT_API_PORT: "3004"
+      OVERLAY_URL: http://overlay:3003
+    volumes:
+      # Live code mount for fast iteration; remove for immutable production builds.
+      - .:/app
+    expose:
+      - "3004"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  overlay:
+    build:
+      context: .
+      dockerfile: Dockerfile.overlay
+    restart: unless-stopped
+    depends_on:
+      - bot
+    env_file:
+      - .env
+    environment:
+      BOT_API: http://bot:3004/command
+    volumes:
+      - ./boss_battle:/app/boss_battle
+      - ./bossbattle-guide:/app/bossbattle-guide
+      - ./twitchack-guide:/app/twitchack-guide
+    ports:
+      - "3003:3003"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  pgdata:
