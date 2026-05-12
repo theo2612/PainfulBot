@@ -1,0 +1,25 @@
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY boss_battle/requirements.txt ./boss_battle/requirements.txt
+RUN pip install -r boss_battle/requirements.txt
+
+COPY boss_battle/ ./boss_battle/
+COPY bossbattle-guide/ ./bossbattle-guide/
+COPY twitchack-guide/ ./twitchack-guide/
+
+WORKDIR /app/boss_battle
+
+EXPOSE 3003
+
+CMD ["gunicorn", \
+     "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", \
+     "--workers", "1", \
+     "--bind", "0.0.0.0:3003", \
+     "--access-logfile", "-", \
+     "server:app"]
