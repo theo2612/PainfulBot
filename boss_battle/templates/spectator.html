@@ -338,6 +338,28 @@
       letter-spacing: .05em;
       min-height: 18px;
     }
+    .player-card__jail {
+      font-family: var(--font-vt);
+      font-size: 1rem;
+      letter-spacing: .1em;
+      color: #ff5a6a;
+      border: 1px solid rgba(255,77,141,.5);
+      background: rgba(255,77,141,.08);
+      padding: 2px 8px;
+      margin-top: 4px;
+      display: inline-block;
+      text-transform: uppercase;
+      animation: jail-pulse 1.4s ease-in-out infinite;
+    }
+    .player-card--jailed {
+      border-color: rgba(255,77,141,.5);
+      background: rgba(255,77,141,.04);
+      box-shadow: 0 0 8px rgba(255,77,141,.12);
+    }
+    @keyframes jail-pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(255,77,141,0); opacity: 1; }
+      50%      { box-shadow: 0 0 6px rgba(255,77,141,.55); opacity: .85; }
+    }
 
     /* ── Combat log ── */
     .combat-log {
@@ -575,8 +597,22 @@
       const pct   = Math.max(0, Math.min(1, p.health / maxHp));
       const items = (p.items || []).map(i => ITEM_EMOJIS[i] || '').filter(Boolean);
 
+      // Jail badge — only show when the until timestamp is still in the future.
+      let jailHtml = '';
+      let isJailed = false;
+      if (p.jail && p.jail.until) {
+        const untilMs = Date.parse(p.jail.until);
+        if (Number.isFinite(untilMs) && untilMs > Date.now()) {
+          const mins = Math.max(1, Math.ceil((untilMs - Date.now()) / 60000));
+          jailHtml = `<div class="player-card__jail">🚔 JAIL ${mins}m · #${p.jail.offense_number || 1}</div>`;
+          isJailed = true;
+        }
+      }
+
       const card = document.createElement('div');
-      card.className = 'player-card' + (p.alive ? '' : ' player-card--dead');
+      card.className = 'player-card'
+        + (p.alive ? '' : ' player-card--dead')
+        + (isJailed ? ' player-card--jailed' : '');
       card.innerHTML = `
         <div class="player-card__top">
           <div class="player-card__name">@${escHtml(name)}</div>
@@ -591,6 +627,7 @@
           <div class="player-hp-text">${p.alive ? p.health + ' HP' : '0 HP'}</div>
         </div>
         ${items.length ? `<div class="player-card__items">${items.join(' ')}</div>` : ''}
+        ${jailHtml}
       `;
       list.appendChild(card);
     });

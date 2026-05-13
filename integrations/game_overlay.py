@@ -6,10 +6,11 @@ it never affects the bot.
 
 import asyncio
 import json
+import os
 import urllib.request
 
-OVERLAY_URL = "http://localhost:3003"
-_TIMEOUT = 0.5
+OVERLAY_URL = os.environ.get("OVERLAY_URL", "http://localhost:3003")
+_TIMEOUT = 2.0
 
 
 def _post(path: str, payload: dict) -> None:
@@ -39,15 +40,60 @@ async def event(username: str, command: str, result: str,
 
 
 async def player(username: str, player_obj) -> None:
-    """Update a player's stats in the session player list."""
+    """Update a player's stats in the session player list.
+
+    The `jail` field, if present, lets the overlay render a 🚔 badge and
+    countdown. Shape: {until: iso8601, reason: str, offense_number: int}.
+    """
     try:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: _post("/api/game/player", {
-            "username": username,
-            "level":    getattr(player_obj, "level", 1),
-            "points":   getattr(player_obj, "points", 0),
-            "health":   getattr(player_obj, "health", 100),
-            "items":    getattr(player_obj, "items", []),
+            "username":     username,
+            "level":        getattr(player_obj, "level", 1),
+            "points":       getattr(player_obj, "points", 0),
+            "health":       getattr(player_obj, "health", 100),
+            "items":        getattr(player_obj, "items", []),
+            "location":     getattr(player_obj, "location", "home"),
+            "founder_tier": getattr(player_obj, "founder_tier", None),
+            "jail":         getattr(player_obj, "jail", None),
+            "speed_strikes": getattr(player_obj, "speed_strikes", 0),
+            "bail_request_for": getattr(player_obj, "bail_request_for", None),
+            "no_cap_until": getattr(player_obj, "no_cap_until", None),
+        }))
+    except Exception:
+        pass
+
+
+async def treasury(balance: int) -> None:
+    """Push the current treasury balance to the overlay so the GUI widget
+    can render a live total."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _post("/api/game/treasury", {
+            "balance": int(balance),
+        }))
+    except Exception:
+        pass
+
+
+async def drop(item_name: str, location: str) -> None:
+    """Announce a new item drop to the overlay (structured, for web grab buttons)."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _post("/api/game/drop", {
+            "name": item_name,
+            "location": location,
+        }))
+    except Exception:
+        pass
+
+
+async def drop_taken(item_name: str) -> None:
+    """Notify the overlay that an item was grabbed."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _post("/api/game/drop_taken", {
+            "name": item_name,
         }))
     except Exception:
         pass

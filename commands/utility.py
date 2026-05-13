@@ -244,8 +244,10 @@ class UtilityCommands(commands.Cog):
             "PainfulBot cmds | Utility: !hello, !coinflip, !roll/!d6/!d20/etc, !juststart, !secret, "
             "!boxstatus (HTB progress), !monday [prompt] (AI), !mondayinsulttheo | "
             "TwitcHack: !start, !status, !points, !leaderboard, !hack <location>, "
-            "!attacks, !bossbattle, !joinbattle, !grab, !items | "
-            "Game info: !help, !twitchackguide, !bossbattleguide, !battlecam"
+            "!attacks, !bossbattle, !joinbattle, !grab, !items, !useburner | "
+            "PvP & jail: !steal @user, !requestbail @user, !bail @user, !jail [@user], !treasury | "
+            "Game info: !help, !twitchackguide, !bossbattleguide, !battlecam | "
+            "Gear & links: !links, !gear, !lab, !setup, !training, !merch"
         )
 
     @commands.command(name='boxstatus')

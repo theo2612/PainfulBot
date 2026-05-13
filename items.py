@@ -28,4 +28,10 @@ ITEMS: Dict[str, Item] = {
     "Golden Cassette Tape": Item("Golden Cassette Tape", "MVP loot: vintage gold vibes", 5),
     "Jet Black Hoodie": Item("Jet Black Hoodie", "MVP loot: stealthy drip", 5),
     "RGB Keyboard (Purple)": Item("RGB Keyboard (Purple)", "MVP loot: gamer glow locked to purple", 5),
+    "Burner Laptop": Item(
+        "Burner Laptop",
+        "One-shot consumable: !useburner fires 10 rapid attacks at your current location, "
+        "bypassing the speed-penalty rate limit. Vanishes after use.",
+        1,
+    ),
 }

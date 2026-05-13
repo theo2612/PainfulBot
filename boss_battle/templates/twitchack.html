@@ -43,6 +43,12 @@
       0%   { background: rgba(255,215,0,.2); box-shadow: 0 0 20px rgba(255,215,0,.5); }
       100% { background: transparent; box-shadow: none; }
     }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulse-result {
+      0%   { border-color: rgba(0,255,65,.5); }
+      50%  { border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,65,.3); }
+      100% { border-color: rgba(0,255,65,.2); box-shadow: none; }
+    }
 
     /* ── Reset ── */
     *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
@@ -73,9 +79,97 @@
       height: 100vh;
     }
 
+    /* ── Login banner (unauthenticated only) ── */
+    .login-banner {
+      background: linear-gradient(90deg, rgba(0,180,255,.06) 0%, rgba(0,180,255,.02) 100%);
+      border-bottom: 1px solid rgba(0,180,255,.2);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-shrink: 0;
+      font-size: .78rem;
+      letter-spacing: .06em;
+      color: var(--text-muted);
+    }
+    .login-btn {
+      background: rgba(100,65,165,.25);
+      border: 1px solid rgba(155,89,182,.5);
+      color: var(--purple-bright);
+      padding: 5px 16px;
+      font-family: var(--font-head);
+      font-size: .78rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: background .15s, border-color .15s;
+    }
+    .login-btn:hover {
+      background: rgba(100,65,165,.45);
+      border-color: var(--purple-bright);
+    }
+
+    /* ── Player stats strip (authenticated only) ── */
+    .stats-strip {
+      background: rgba(0,255,65,.03);
+      border-bottom: 1px solid rgba(0,255,65,.12);
+      padding: 7px 18px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-shrink: 0;
+      font-size: .75rem;
+      letter-spacing: .06em;
+      flex-wrap: wrap;
+    }
+    .ss-user {
+      font-family: var(--font-vt);
+      font-size: 1.05rem;
+      color: var(--blue);
+      letter-spacing: .06em;
+      text-shadow: 0 0 8px rgba(0,180,255,.4);
+    }
+    .ss-sep { color: var(--border); font-size: 1.1rem; }
+    .ss-stat { color: var(--text-muted); }
+    .ss-stat span { color: var(--green); }
+    .ss-loc { color: var(--orange); font-size: .82rem; }
+    .ss-items { color: var(--purple-bright); font-size: .9rem; }
+    .ss-logout {
+      margin-left: auto;
+      font-size: .65rem;
+      color: var(--text-muted);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      text-decoration: none;
+      opacity: .5;
+      transition: opacity .15s;
+    }
+    .ss-logout:hover { opacity: 1; color: var(--red); }
+
+    .header__manual {
+      margin-left: auto;
+      margin-right: 16px;
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      transition: all .15s;
+    }
+    .header__manual:hover {
+      color: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 0 10px rgba(0,255,65,.3);
+    }
+
     /* ── Header ── */
     .header {
-      height: 64px;
+      height: 56px;
       background: var(--panel-dark);
       border-bottom: 2px solid var(--green);
       animation: header-glow 3s ease-in-out infinite, flicker 14s infinite;
@@ -88,7 +182,7 @@
     }
     .header__title {
       font-family: var(--font-vt);
-      font-size: 2rem;
+      font-size: 1.9rem;
       letter-spacing: .1em;
       text-transform: uppercase;
       color: var(--green);
@@ -102,13 +196,29 @@
     }
     .header__count {
       font-family: var(--font-vt);
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       color: var(--text-muted);
       letter-spacing: .06em;
     }
     .header__count span {
       color: var(--green);
       text-shadow: 0 0 8px rgba(0,255,65,.5);
+    }
+    .header__treasury {
+      font-family: var(--font-vt);
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      letter-spacing: .06em;
+      padding: 2px 10px;
+      border: 1px solid rgba(240,192,64,.35);
+      background: rgba(240,192,64,.04);
+      border-radius: 2px;
+      cursor: help;
+    }
+    .header__treasury #treasury-balance {
+      color: var(--gold, #f0c040);
+      text-shadow: 0 0 8px rgba(240,192,64,.4);
+      font-weight: bold;
     }
 
     /* ── Main split ── */
@@ -121,7 +231,7 @@
 
     /* ── Player panel (left) ── */
     .player-panel {
-      width: 280px;
+      width: 260px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -129,11 +239,11 @@
       overflow: hidden;
     }
     .panel-title {
-      font-size: .65rem;
+      font-size: .63rem;
       letter-spacing: .24em;
       text-transform: uppercase;
       color: var(--text-muted);
-      padding: 10px 14px 8px;
+      padding: 9px 14px 7px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
@@ -170,34 +280,45 @@
       justify-content: space-between;
     }
     .pc-name {
-      font-size: .82rem;
+      font-size: .8rem;
       letter-spacing: .05em;
       color: var(--text);
       text-transform: uppercase;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 140px;
+      max-width: 128px;
     }
     .pc-level {
       font-family: var(--font-vt);
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       color: var(--purple-bright);
       flex-shrink: 0;
     }
+    .pc-founder {
+      display: inline-block;
+      margin-top: 2px;
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+      font-size: .58rem;
+      letter-spacing: .12em;
+      color: var(--gold, #f0c040);
+      border: 1px solid rgba(240,192,64,.45);
+      padding: 1px 6px;
+      text-transform: uppercase;
+      background: rgba(240,192,64,.05);
+    }
+    .pc-founder.tier-31337  { color: #ff4d8d; border-color: rgba(255,77,141,.55);  background: rgba(255,77,141,.06); }
+    .pc-founder.tier-1337   { color: #c084fc; border-color: rgba(192,132,252,.55); background: rgba(192,132,252,.06); }
+    .pc-founder.tier-h4ck3r { color: #00b4ff; border-color: rgba(0,180,255,.55);   background: rgba(0,180,255,.06); }
+    .pc-founder.tier-0p3r4t0r { color: #00ff41; border-color: rgba(0,255,65,.45);  background: rgba(0,255,65,.05); }
     .pc-points {
       font-family: var(--font-vt);
-      font-size: 1rem;
+      font-size: .95rem;
       color: var(--text-muted);
     }
     .pc-points span { color: var(--green); }
 
-    /* HP bar */
-    .pc-hp-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    .pc-hp-wrap { display: flex; align-items: center; gap: 6px; }
     .pc-hp-bar {
       flex: 1;
       height: 5px;
@@ -206,32 +327,124 @@
       border-radius: 2px;
       overflow: hidden;
     }
-    .pc-hp-fill {
-      height: 100%;
-      border-radius: 1px;
-      transition: width .4s ease, background .4s ease;
-    }
+    .pc-hp-fill { height: 100%; border-radius: 1px; transition: width .4s ease, background .4s ease; }
     .pc-hp-text {
       font-family: var(--font-vt);
-      font-size: .9rem;
+      font-size: .88rem;
       color: var(--text-muted);
       min-width: 44px;
       text-align: right;
       flex-shrink: 0;
     }
+    .pc-items { font-size: .85rem; min-height: 14px; color: var(--text-muted); letter-spacing: .04em; }
+    .item-badge { cursor: help; }
+    .pc-location { font-size: .65rem; color: var(--orange); letter-spacing: .06em; opacity: .7; }
 
-    /* Items */
-    .pc-items {
-      font-size: .85rem;
-      min-height: 14px;
-      color: var(--text-muted);
-      letter-spacing: .04em;
+    /* Jail badge — pulsing red bar on cards for jailed players */
+    .pc-jail {
+      display: none;
+      font-family: var(--font-vt);
+      font-size: .72rem;
+      letter-spacing: .12em;
+      color: #ff5a6a;
+      border: 1px solid rgba(255,77,141,.5);
+      background: rgba(255,77,141,.08);
+      padding: 2px 6px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      animation: jail-pulse 1.4s ease-in-out infinite;
+    }
+    .pc-jail.is-jailed { display: inline-block; }
+    .player-card.is-jailed {
+      border-color: rgba(255,77,141,.5);
+      background: rgba(255,77,141,.04);
+      box-shadow: 0 0 8px rgba(255,77,141,.12);
+    }
+    @keyframes jail-pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(255,77,141,0); opacity: 1; }
+      50%      { box-shadow: 0 0 6px rgba(255,77,141,.55); opacity: .8; }
     }
 
-    /* Empty state */
+    /* Speed-strike warning (1 or 2 strikes) — yellow caution chip */
+    .pc-strikes {
+      display: none;
+      font-family: var(--font-vt);
+      font-size: .68rem;
+      letter-spacing: .1em;
+      color: #ffd166;
+      border: 1px solid rgba(255,209,102,.45);
+      background: rgba(255,209,102,.06);
+      padding: 1px 5px;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+    .pc-strikes.has-strikes { display: inline-block; }
+
+    /* No-cap window chip — burner laptop's lingering speed-cap bypass */
+    .pc-nocap {
+      display: none;
+      font-family: var(--font-vt);
+      font-size: .72rem;
+      letter-spacing: .12em;
+      color: var(--green);
+      border: 1px solid rgba(0,255,65,.55);
+      background: rgba(0,255,65,.08);
+      padding: 2px 6px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      animation: nocap-pulse 1.6s ease-in-out infinite;
+    }
+    .pc-nocap.is-active { display: inline-block; }
+    @keyframes nocap-pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(0,255,65,0); opacity: 1; }
+      50%      { box-shadow: 0 0 8px rgba(0,255,65,.55); opacity: .88; }
+    }
+
+    /* Per-card bail action buttons. The "request bail" button shows on my
+     * own card when I'm jailed; the "pay bail" button shows on someone
+     * else's card when they've requested bail from me. */
+    .pc-bail-actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .pc-bail-btn {
+      font-family: var(--font-vt);
+      font-size: .68rem;
+      letter-spacing: .08em;
+      padding: 3px 7px;
+      cursor: pointer;
+      text-transform: uppercase;
+      background: rgba(0,255,65,.08);
+      color: var(--green);
+      border: 1px solid rgba(0,255,65,.4);
+    }
+    .pc-bail-btn:hover { background: rgba(0,255,65,.18); }
+    .pc-bail-btn.bail-req {
+      color: #ffd166;
+      border-color: rgba(255,209,102,.5);
+      background: rgba(255,209,102,.06);
+    }
+    .pc-bail-btn.bail-req:hover { background: rgba(255,209,102,.14); }
+    .pc-bail-btn.bail-pay {
+      color: #4ad9ff;
+      border-color: rgba(74,217,255,.5);
+      background: rgba(74,217,255,.06);
+      animation: bail-pay-pulse 1.6s ease-in-out infinite;
+    }
+    .pc-bail-btn.bail-pay:hover { background: rgba(74,217,255,.18); }
+    @keyframes bail-pay-pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(74,217,255,0); }
+      50%      { box-shadow: 0 0 8px rgba(74,217,255,.55); }
+    }
+
+    /* Target selection */
+    .player-card.selected {
+      border-color: rgba(255,34,68,.5);
+      background: rgba(255,34,68,.04);
+      box-shadow: 0 0 8px rgba(255,34,68,.12);
+    }
+    .player-card.selected .pc-name { color: var(--red); }
+
     .player-empty {
       color: var(--text-muted);
-      font-size: .72rem;
+      font-size: .7rem;
       letter-spacing: .16em;
       text-transform: uppercase;
       text-align: center;
@@ -242,14 +455,22 @@
       animation: blink 1s step-end infinite;
       margin-left: 3px;
     }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── Event feed (right) ── */
+    /* ── Right panel ── */
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Event feed ── */
     .feed-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      border-bottom: 1px solid var(--border);
     }
     .feed-list {
       flex: 1;
@@ -271,32 +492,10 @@
       line-height: 1.45;
     }
     .event-entry:hover { background: rgba(255,255,255,.012); }
-
-    .ev-user {
-      font-size: .78rem;
-      color: var(--blue);
-      flex-shrink: 0;
-      min-width: 90px;
-      letter-spacing: .04em;
-    }
+    .ev-user { font-size: .76rem; color: var(--blue); flex-shrink: 0; min-width: 88px; letter-spacing: .04em; }
     .ev-user--empty { color: var(--text-muted); font-style: italic; }
-
-    .ev-cmd {
-      font-size: .78rem;
-      color: var(--purple-bright);
-      flex-shrink: 0;
-      min-width: 80px;
-      letter-spacing: .04em;
-    }
-
-    .ev-result {
-      font-size: .8rem;
-      flex: 1;
-      min-width: 0;
-      word-break: break-word;
-    }
-
-    /* Result colors by type */
+    .ev-cmd { font-size: .76rem; color: var(--purple-bright); flex-shrink: 0; min-width: 78px; letter-spacing: .04em; }
+    .ev-result { font-size: .78rem; flex: 1; min-width: 0; word-break: break-word; }
     .ev--attack-success .ev-result { color: var(--green); }
     .ev--attack-fail    .ev-result { color: rgba(255,34,68,.7); }
     .ev--level-up       .ev-result { color: var(--gold); }
@@ -307,16 +506,298 @@
     .ev--info           .ev-result { color: var(--text-muted); }
     .ev--boss           .ev-result { color: rgba(255,34,68,.85); }
     .ev--boss .ev-cmd              { color: rgba(255,34,68,.6); }
+
+    /* ── Command panel (authenticated only) ── */
+    .cmd-panel {
+      flex-shrink: 0;
+      background: var(--panel-dark);
+      border-top: 1px solid rgba(0,255,65,.1);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+    .cmd-panel::-webkit-scrollbar { width: 4px; }
+    .cmd-panel::-webkit-scrollbar-track { background: transparent; }
+    .cmd-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .cmd-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .cmd-label {
+      font-size: .6rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      min-width: 64px;
+    }
+
+    /* Location chips */
+    .loc-chip {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .06em;
+      padding: 3px 9px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: var(--panel);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .loc-chip:hover { border-color: var(--orange); color: var(--orange); }
+    .loc-chip.active {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(255,140,0,.08);
+      box-shadow: 0 0 6px rgba(255,140,0,.15);
+    }
+
+    /* Attack buttons */
+    .atk-btn {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .06em;
+      padding: 4px 10px;
+      border: 1px solid rgba(0,255,65,.25);
+      border-radius: 2px;
+      background: rgba(0,255,65,.04);
+      color: var(--green);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .atk-btn:hover {
+      border-color: var(--green);
+      background: rgba(0,255,65,.12);
+      box-shadow: 0 0 8px rgba(0,255,65,.2);
+    }
+    .atk-btn:active { transform: scale(.97); }
+    .atk-btn:disabled {
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: transparent;
+      cursor: not-allowed;
+      opacity: .5;
+    }
+    .atk-btn.locked {
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: transparent;
+      cursor: not-allowed;
+      opacity: .4;
+    }
+
+    /* Grab buttons */
+    .grab-btn {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .06em;
+      padding: 4px 10px;
+      border: 1px solid rgba(192,132,252,.3);
+      border-radius: 2px;
+      background: rgba(192,132,252,.06);
+      color: var(--purple-bright);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .grab-btn:hover {
+      border-color: var(--purple-bright);
+      background: rgba(192,132,252,.15);
+    }
+    .grab-btn:active { transform: scale(.97); }
+
+    /* Util buttons (status, points, leaderboard) */
+    .util-btn {
+      font-family: var(--font-head);
+      font-size: .65rem;
+      letter-spacing: .06em;
+      padding: 3px 9px;
+      border: 1px solid rgba(0,180,255,.2);
+      border-radius: 2px;
+      background: rgba(0,180,255,.04);
+      color: var(--blue);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .util-btn:hover {
+      border-color: var(--blue);
+      background: rgba(0,180,255,.1);
+    }
+
+    /* Result display */
+    .cmd-result {
+      font-size: .76rem;
+      letter-spacing: .04em;
+      color: var(--text-muted);
+      padding: 5px 8px;
+      border: 1px solid rgba(0,255,65,.1);
+      border-radius: 2px;
+      background: rgba(0,0,0,.3);
+      min-height: 28px;
+      transition: border-color .3s;
+      word-break: break-word;
+      display: none;
+    }
+    .cmd-result.visible {
+      display: block;
+      animation: pulse-result .6s ease;
+    }
+    .cmd-result.ok  { color: var(--green); border-color: rgba(0,255,65,.3); }
+    .cmd-result.err { color: rgba(255,34,68,.8); border-color: rgba(255,34,68,.2); }
+
+    /* Generic visibility utility */
+    .hidden { display: none !important; }
+
+    /* No-drops state */
+    .no-drops { font-size: .65rem; color: var(--text-muted); letter-spacing: .1em; }
+
+    /* Owner / PvP buttons */
+    .owner-btn {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .06em;
+      padding: 4px 10px;
+      border: 1px solid rgba(255,34,68,.3);
+      border-radius: 2px;
+      background: rgba(255,34,68,.06);
+      color: var(--red);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .owner-btn:hover {
+      border-color: var(--red);
+      background: rgba(255,34,68,.15);
+    }
+    .owner-btn:active { transform: scale(.97); }
+    .owner-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .pvp-btn {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .06em;
+      padding: 4px 10px;
+      border: 1px solid rgba(255,140,0,.3);
+      border-radius: 2px;
+      background: rgba(255,140,0,.06);
+      color: var(--orange);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .pvp-btn:hover { border-color: var(--orange); background: rgba(255,140,0,.14); }
+    .pvp-btn:active { transform: scale(.97); }
+    .pvp-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ── Konami toast ─────────────────────────────────────── */
+    @keyframes konami-fade-in {
+      from { opacity: 0; transform: translate(-50%, -10px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+    @keyframes konami-fade-out {
+      to { opacity: 0; transform: translate(-50%, -10px); }
+    }
+    @keyframes konami-glow {
+      0%,100% { box-shadow: 0 0 18px rgba(0,255,65,.35), 0 0 60px rgba(0,255,65,.15); }
+      50%     { box-shadow: 0 0 36px rgba(0,255,65,.65), 0 0 100px rgba(0,255,65,.3); }
+    }
+    #konami-toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      z-index: 9999;
+      max-width: min(640px, 92vw);
+      padding: 16px 22px;
+      background: rgba(5,5,8,.96);
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+      font-size: .9rem;
+      letter-spacing: .04em;
+      line-height: 1.55;
+      text-align: center;
+      animation: konami-fade-in .25s ease-out, konami-glow 2.4s ease-in-out infinite .3s;
+      cursor: pointer;
+    }
+    #konami-toast.hiding {
+      animation: konami-fade-out .3s ease-in forwards;
+    }
+    #konami-toast .ktoast-title {
+      font-family: var(--font-vt, 'VT323', monospace);
+      font-size: 1.6rem;
+      letter-spacing: .15em;
+      color: var(--green);
+      text-shadow: 0 0 12px rgba(0,255,65,.7);
+      margin-bottom: 4px;
+    }
+    #konami-toast .ktoast-body {
+      color: var(--text);
+      font-size: .82rem;
+    }
+    #konami-toast .ktoast-body .hl  { color: var(--green); }
+    #konami-toast .ktoast-body .box { color: var(--gold, #f0c040); }
+    #konami-toast .ktoast-dismiss {
+      display: block;
+      margin-top: 10px;
+      font-size: .65rem;
+      color: var(--text-muted);
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    /* Variants */
+    #konami-toast.denied {
+      border-color: var(--red);
+      animation: konami-fade-in .25s ease-out;
+      box-shadow: 0 0 18px rgba(255,34,68,.4);
+    }
+    #konami-toast.denied .ktoast-title { color: var(--red); text-shadow: 0 0 10px rgba(255,34,68,.6); }
+    #konami-toast.warn {
+      border-color: var(--gold, #f0c040);
+      animation: konami-fade-in .25s ease-out;
+      box-shadow: 0 0 18px rgba(240,192,64,.35);
+    }
+    #konami-toast.warn .ktoast-title { color: var(--gold, #f0c040); text-shadow: 0 0 10px rgba(240,192,64,.5); }
   </style>
 </head>
 <body>
 <div class="page">
+
+  <!-- Login banner (guests) -->
+  <div class="login-banner" id="login-banner">
+    <span>Sign in to play TwitcHack from your browser — no chat required</span>
+    <a class="login-btn" href="/twitchack/login">Sign in with Twitch</a>
+  </div>
+
+  <!-- Stats strip (authenticated) -->
+  <div class="stats-strip hidden" id="stats-strip">
+    <span class="ss-user" id="ss-username">@—</span>
+    <span class="ss-sep">|</span>
+    <span class="ss-stat">LVL <span id="ss-level">—</span></span>
+    <span class="ss-stat">HP <span id="ss-health">—</span></span>
+    <span class="ss-stat">PTS <span id="ss-points">—</span></span>
+    <span class="ss-sep">|</span>
+    <span class="ss-loc" id="ss-location">home</span>
+    <span class="ss-items" id="ss-items"></span>
+    <a class="ss-logout" href="#" id="ss-logout-link" style="display:none"></a>
+  </div>
 
   <!-- Header -->
   <header class="header">
     <span class="header__title">PainfulIT</span>
     <span class="header__label">TWITCHACK LIVE</span>
     <span class="header__count">Players: <span id="player-count">0</span></span>
+    <span class="header__treasury" id="treasury-widget" title="Treasury — bail money sink. Hackable… someday.">
+      💰 Treasury: <span id="treasury-balance">0</span> pts
+    </span>
+    <a class="header__manual" href="https://twitchack.b7h30.com/" target="_blank" rel="noopener">&#9656; Manual</a>
   </header>
 
   <!-- Main -->
@@ -324,26 +805,99 @@
 
     <!-- Player panel -->
     <div class="player-panel">
-      <div class="panel-title">Active This Session</div>
+      <div class="panel-title" id="player-panel-title">Active This Session</div>
       <div class="player-list" id="player-list">
         <div class="player-empty" id="player-empty">Waiting for players</div>
       </div>
     </div>
 
-    <!-- Event feed -->
-    <div class="feed-panel">
-      <div class="panel-title" style="border-left:1px solid var(--border); padding-left:14px;">
-        Live Feed — <span style="color:var(--green)" id="event-count">0</span> events
-      </div>
-      <div class="feed-list" id="feed-list"></div>
-    </div>
+    <!-- Right: feed + command panel -->
+    <div class="right-panel">
 
-  </div>
-</div>
+      <!-- Event feed -->
+      <div class="feed-panel">
+        <div class="panel-title" style="border-left:1px solid var(--border); padding-left:14px;">
+          Live Feed — <span style="color:var(--green)" id="event-count">0</span> events
+        </div>
+        <div class="feed-list" id="feed-list"></div>
+      </div>
+
+      <!-- Command panel (authenticated only) -->
+      <div class="cmd-panel hidden" id="cmd-panel">
+
+        <!-- Result display — top so it's always visible -->
+        <div class="cmd-result" id="cmd-result"></div>
+
+        <!-- Location -->
+        <div class="cmd-row">
+          <span class="cmd-label">Move to</span>
+          <button class="loc-chip" data-loc="email" onclick="sendHack('email')">email</button>
+          <button class="loc-chip" data-loc="website" onclick="sendHack('website')">website</button>
+          <button class="loc-chip" data-loc="/etc/shadow" onclick="sendHack('/etc/shadow')">/etc/shadow</button>
+          <button class="loc-chip" data-loc="database" onclick="sendHack('database')">database</button>
+          <button class="loc-chip" data-loc="server" onclick="sendHack('server')">server</button>
+          <button class="loc-chip" data-loc="network" onclick="sendHack('network')">network</button>
+          <button class="loc-chip" data-loc="evilcorp" onclick="sendHack('evilcorp')">evilcorp</button>
+        </div>
+
+        <!-- Attacks -->
+        <div class="cmd-row" id="attack-row">
+          <span class="cmd-label">Attack</span>
+          <span style="font-size:.68rem; color:var(--text-muted); letter-spacing:.08em;">
+            Move to a location to see available attacks
+          </span>
+        </div>
+
+        <!-- Available drops -->
+        <div class="cmd-row" id="drops-row">
+          <span class="cmd-label">Grab</span>
+          <span class="no-drops" id="no-drops-msg">No active drops</span>
+        </div>
+
+        <!-- Utilities -->
+        <div class="cmd-row">
+          <span class="cmd-label">Info</span>
+          <button class="util-btn" onclick="sendCmd('status')">!status</button>
+          <button class="util-btn" onclick="sendCmd('points')">!points</button>
+          <button class="util-btn" onclick="sendCmd('leaderboard')">!leaderboard</button>
+          <button class="util-btn" onclick="sendCmd('items')">!items</button>
+          <button class="util-btn" onclick="sendCmd('jail')">!jail</button>
+          <button class="util-btn" onclick="sendCmd('treasury')">!treasury</button>
+        </div>
+
+        <!-- Inventory actions: shown when the player owns a usable item -->
+        <div class="cmd-row hidden" id="inv-row">
+          <span class="cmd-label">Items</span>
+          <button class="util-btn hidden" id="burner-btn" onclick="sendCmd('useburner')">💻🔥 !useburner</button>
+        </div>
+
+        <!-- PvP row — steal target (shown when a target is selected) -->
+        <div class="cmd-row hidden" id="pvp-row">
+          <span class="cmd-label">PvP</span>
+          <button class="pvp-btn" id="steal-btn" onclick="sendSteal()">!steal @—</button>
+          <!-- Owner-only: virus single target -->
+          <button class="owner-btn hidden" id="virus-target-btn" onclick="sendVirusTarget()">!virus @—</button>
+          <button class="pvp-btn" style="opacity:.45;font-size:.62rem;" onclick="clearTarget()">✕ deselect</button>
+        </div>
+
+        <!-- Owner panel -->
+        <div class="cmd-row hidden" id="owner-row">
+          <span class="cmd-label">Owner</span>
+          <button class="owner-btn" onclick="sendCmd('droprandom')">!droprandom</button>
+          <button class="owner-btn" onclick="sendCmd('patchtuesday')">!patchtuesday</button>
+          <button class="owner-btn" onclick="sendCmd('virus')">!virus all</button>
+          <button class="owner-btn" onclick="sendCmd('mvp')">!mvp</button>
+        </div>
+
+      </div><!-- /cmd-panel -->
+
+    </div><!-- /right-panel -->
+  </div><!-- /main -->
+</div><!-- /page -->
 
 <script src="/static/socket.io.min.js?v={{ v }}"></script>
 <script>
-  // ── Item emoji map ────────────────────────────────────────────────────────
+  // ── Constants ──────────────────────────────────────────────────────────────
   const ITEM_EMOJIS = {
     "John Hammond's Consciousness USB": '🧠',
     "Heath Adams' Lambo Keys":          '🏎️',
@@ -357,35 +911,175 @@
     "Tiny Browns Helmet": '🏈', "Root Beer Flask": '🧉',
     "Golden Cassette Tape": '📼', "Jet Black Hoodie": '🥷',
     "RGB Keyboard (Purple)": '🎹', "Mimikatz": '🐱',
+    "Burner Laptop": '💻',
+    "Snake's Cardboard Box": '📦',
+    "A Fresh Hot Cup of Black Coffee": '☕',
   };
+
+  // Tooltip data: short description + which attacks (and at which location)
+  // the item buffs. Kept here so hover help is independent of the bot
+  // round-trip — pure client-side rendering.
+  const ITEM_INFO = {
+    "Wireshark":           { desc: "Network packet analyzer.",       buffs: { 'server':   ['sniff','mitm'], 'network': ['sniff','mitm','ddos'] } },
+    "EvilGinx":            { desc: "Phishing attack framework.",     buffs: { 'email':    ['phish','spoof'] } },
+    "Metasploit":          { desc: "Penetration testing framework.", buffs: { 'server':   ['revshell','root'], 'website': ['burp','sqliw','xss'] } },
+    "O.MG Cable":          { desc: "Hardware attack tool.",          buffs: { 'evilcorp': ['drop','tailgate'] } },
+    "VX Underground HDD":  { desc: "Collection of malware samples.", buffs: { 'server':   ['ransom'] } },
+    "Cookies":             { desc: "Stored session data.",           buffs: { 'website':  ['burp','ffuf'] } },
+    "Nmap":                { desc: "Port scanner and enumerator.",   buffs: { 'server':   ['nmap','revshell','root'], 'network': ['nmap','sniff'] } },
+    "Hydra":               { desc: "Brute force toolkit.",           buffs: { '/etc/shadow': ['bruteforce','crack'] } },
+    "YubiKey":             { desc: "Hardware token; social flex.",   buffs: { 'evilcorp': ['tailgate','socialengineer'] } },
+    "Shodan API Key":      { desc: "External intel tooling.",        buffs: { 'server':   ['nmap'], 'network': ['ddos','sniff','nmap'] } },
+    "Kali ISO":            { desc: "Preloaded attack distro.",       buffs: { 'email':    ['phish'], 'website': ['ffuf','burp'], 'server': ['revshell'] } },
+    "NES":                 { desc: "Classic console power-up.",      buffs: { 'website':  ['xss'], 'network': ['ddos'] } },
+    "Contra Cartridge":    { desc: "Up,up,down,down → extra lives.", buffs: { 'network':  ['ddos'], 'server': ['ransom'] } },
+    "Mimikatz":            { desc: "Credential dumper.",             buffs: { 'email':    ['dump'] } },
+    "A Fresh Hot Cup of Black Coffee": { desc: "Keeps you hacking all night." },
+    "Tiny Browns Helmet":  { desc: "Mandatory fandom initiation." },
+    "Root Beer Flask":     { desc: "Soothing elixir after patch nights." },
+    "Burner Laptop":       { desc: "One-shot: !useburner fires 10 rapid attacks AND grants 60 min of UNCAPPED hacking (no strikes)." },
+    "Snake's Cardboard Box": { desc: "1h immunity from !steal. 24h cooldown per player." },
+    "Golden Cassette Tape":  { desc: "MVP loot: vintage gold vibes." },
+    "Jet Black Hoodie":      { desc: "MVP loot: stealthy drip." },
+    "RGB Keyboard (Purple)": { desc: "MVP loot: locked-to-purple gamer glow." },
+    "John Hammond's Consciousness USB": { desc: "Boss-battle drop. Burn once to save yourself from death." },
+    "Heath Adams' Lambo Keys":          { desc: "Boss-battle drop." },
+    "Kevin Mitnick's Password Cracker": { desc: "Boss-battle drop." },
+    "Elliot Alderson's Raspberry Pi":   { desc: "Boss-battle drop." },
+  };
+
+  function itemTooltipText(name) {
+    const info = ITEM_INFO[name];
+    if (!info) return name;
+    const lines = [name, info.desc || ''];
+    if (info.buffs) {
+      for (const [loc, attacks] of Object.entries(info.buffs)) {
+        lines.push(`Buffs ${loc}: ${attacks.map(a => '!' + a).join(', ')}`);
+      }
+    }
+    return lines.filter(Boolean).join('\n');
+  }
+
+  // location → [{cmd, label, minLvl, maxLvl}]
+  const LOCATION_ATTACKS = {
+    'email':       [{cmd:'phish', label:'phish', minLvl:0}, {cmd:'spoof', label:'spoof', minLvl:5}, {cmd:'dump', label:'dump', minLvl:10}],
+    '/etc/shadow': [{cmd:'crack', label:'crack', minLvl:15}, {cmd:'stealth', label:'stealth', minLvl:20}, {cmd:'bruteforce', label:'bruteforce', minLvl:25}],
+    'website':     [{cmd:'ffuf', label:'ffuf', minLvl:1, maxLvl:5}, {cmd:'burp', label:'burp', minLvl:30}, {cmd:'sqliw', label:'sqliw', minLvl:35}, {cmd:'xss', label:'xss', minLvl:40}],
+    'database':    [{cmd:'dumpdb', label:'dumpdb', minLvl:45}, {cmd:'sqlidb', label:'sqlidb', minLvl:50}, {cmd:'admin', label:'admin', minLvl:55}],
+    'server':      [{cmd:'nmap', label:'nmap', minLvl:0, maxLvl:5}, {cmd:'revshell', label:'revshell', minLvl:60}, {cmd:'root', label:'root', minLvl:65}, {cmd:'ransom', label:'ransom', minLvl:70}],
+    'network':     [{cmd:'nmap', label:'nmap', minLvl:0, maxLvl:5}, {cmd:'sniff', label:'sniff', minLvl:75}, {cmd:'mitm', label:'mitm', minLvl:80}, {cmd:'ddos', label:'ddos', minLvl:85}],
+    'evilcorp':    [{cmd:'drop', label:'drop', minLvl:90}, {cmd:'tailgate', label:'tailgate', minLvl:95}, {cmd:'socialengineer', label:'socialengineer', minLvl:100}],
+    'home':        [],
+  };
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let _players      = {};
+  let _eventCount   = 0;
+  let _drops        = [];
+  let _myUsername   = null;
+  let _myLevel      = 1;
+  let _myLocation   = 'home';
+  let _cmdBusy      = false;
+  let _isOwner      = false;
+  let _selectedTarget = null;   // username of clicked player card
+  const MAX_FEED    = 200;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  // Pure helpers for jail/strike chips. Both return safe HTML strings.
+  function jailInfo(p) {
+    // Returns { active: bool, minutes: int, offense: int } based on p.jail.
+    // Active = jail data present AND until is still in the future.
+    const j = p && p.jail;
+    if (!j || !j.until) return { active: false, minutes: 0, offense: 0 };
+    const untilMs = Date.parse(j.until);
+    if (!Number.isFinite(untilMs)) return { active: false, minutes: 0, offense: 0 };
+    const remainingMs = untilMs - Date.now();
+    if (remainingMs <= 0) return { active: false, minutes: 0, offense: 0 };
+    return {
+      active: true,
+      minutes: Math.max(1, Math.ceil(remainingMs / 60000)),
+      offense: j.offense_number || 1,
+    };
+  }
+  function jailBadgeHtml(p) {
+    const j = jailInfo(p);
+    if (!j.active) return '';
+    return `🚔 JAIL ${j.minutes}m · #${j.offense}`;
+  }
+  function strikeBadgeHtml(p) {
+    const s = (p && p.speed_strikes) | 0;
+    if (s <= 0) return '';
+    return `⚠ ${s}/3 strikes`;
+  }
+
+  function noCapBadgeHtml(p) {
+    if (!p || !p.no_cap_until) return '';
+    const untilMs = Date.parse(p.no_cap_until);
+    if (!Number.isFinite(untilMs)) return '';
+    const remainingMs = untilMs - Date.now();
+    if (remainingMs <= 0) return '';
+    const mins = Math.max(1, Math.ceil(remainingMs / 60000));
+    return `🔓 UNCAPPED ${mins}m`;
+  }
+
+  // Bail action chips for the player card. Returns HTML for whichever
+  // applies: "Request Bail" on my own jailed card; "Pay Bail" on a card
+  // belonging to someone who has nominated me as their bailer.
+  function bailActionsHtml(name, p) {
+    if (!p || !_myUsername) return '';
+    const j = jailInfo(p);
+    if (!j.active) return '';
+    if (name === _myUsername) {
+      const target = (p.bail_request_for || '').toLowerCase();
+      const label  = target ? `🔁 Change Bailer (@${escHtml(target)})` : '🆘 Request Bail';
+      return `<button class="pc-bail-btn bail-req" data-bail-req="${escHtml(name)}">${label}</button>`;
+    }
+    if ((p.bail_request_for || '').toLowerCase() === _myUsername) {
+      return `<button class="pc-bail-btn bail-pay" data-bail-pay="${escHtml(name)}">💸 Pay Bail @${escHtml(name)}</button>`;
+    }
+    return '';
+  }
+
+  function promptRequestBail() {
+    const target = (window.prompt(
+      'Request bail from which player? Enter their username:',
+      ''
+    ) || '').trim();
+    if (!target) return;
+    sendCmd('requestbail', target.replace(/^@/, ''));
+  }
 
   function itemBadges(items) {
     if (!items || !items.length) return '';
-    return items.map(i => ITEM_EMOJIS[i] || '').filter(Boolean).join(' ');
+    return items.map(i => {
+      const emoji = ITEM_EMOJIS[i];
+      if (!emoji) return '';
+      return `<span class="item-badge" title="${escHtml(itemTooltipText(i))}">${emoji}</span>`;
+    }).filter(Boolean).join(' ');
   }
-
   function hpColor(pct) {
     if (pct > 0.6) return 'var(--green)';
     if (pct > 0.3) return '#ffcc00';
     return 'var(--red)';
   }
-
   function escHtml(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+  function founderBadgeHtml(tier) {
+    if (!tier) return '';
+    const m = String(tier).match(/^FOUNDER::(.+)$/);
+    if (!m) return '';
+    const suffix = m[1];
+    const cls = 'tier-' + suffix.toLowerCase();
+    return `<span class="pc-founder ${cls}">${escHtml(tier)}</span>`;
+  }
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  let _players = {};
-  let _eventCount = 0;
-  const MAX_FEED = 200;
-
-  // ── Player list render ────────────────────────────────────────────────────
+  // ── Player list ────────────────────────────────────────────────────────────
   function renderPlayers(players) {
     _players = players || {};
-    const list = document.getElementById('player-list');
+    const list  = document.getElementById('player-list');
     const empty = document.getElementById('player-empty');
     const count = Object.keys(_players).length;
-
     document.getElementById('player-count').textContent = count;
 
     if (count === 0) {
@@ -393,44 +1087,68 @@
       list.appendChild(empty);
       return;
     }
-    if (empty.parentNode) empty.parentNode.removeChild(empty);
+    if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
 
-    // Sort by points desc
-    const sorted = Object.entries(_players).sort((a,b) => b[1].points - a[1].points);
-
-    // Update or create cards
+    const sorted   = Object.entries(_players).sort((a,b) => b[1].points - a[1].points);
     const existing = {};
-    list.querySelectorAll('.player-card').forEach(el => {
-      existing[el.dataset.user] = el;
-    });
+    list.querySelectorAll('.player-card').forEach(el => { existing[el.dataset.user] = el; });
 
     const seen = new Set();
     sorted.forEach(([name, p]) => {
       seen.add(name);
       const maxHp = 1000;
-      const pct = Math.max(0, Math.min(1, p.health / maxHp));
+      const pct   = Math.max(0, Math.min(1, p.health / maxHp));
       const badges = itemBadges(p.items);
 
+      const locText = p.location || 'home';
+
+      const founderHtml = founderBadgeHtml(p.founder_tier);
+
+      const jailHtml   = jailBadgeHtml(p);
+      const strikeHtml = strikeBadgeHtml(p);
+      const bailHtml   = bailActionsHtml(name, p);
+      const noCapHtml  = noCapBadgeHtml(p);
+
       if (existing[name]) {
-        // Update in place
         const card = existing[name];
         card.querySelector('.pc-level').textContent = `LVL ${p.level}`;
         card.querySelector('.pc-points span').textContent = p.points;
         const fill = card.querySelector('.pc-hp-fill');
-        fill.style.width = (pct * 100) + '%';
+        fill.style.width      = (pct * 100) + '%';
         fill.style.background = hpColor(pct);
         card.querySelector('.pc-hp-text').textContent = p.health + ' HP';
-        card.querySelector('.pc-items').textContent = badges;
+        card.querySelector('.pc-items').innerHTML = badges;
+        card.querySelector('.pc-location').textContent = locText;
+        const founderSlot = card.querySelector('.pc-founder-slot');
+        if (founderSlot) founderSlot.innerHTML = founderHtml;
+        const jailEl = card.querySelector('.pc-jail');
+        if (jailEl) {
+          jailEl.textContent = jailHtml;
+          jailEl.classList.toggle('is-jailed', !!jailHtml);
+        }
+        card.classList.toggle('is-jailed', !!jailHtml);
+        const strikeEl = card.querySelector('.pc-strikes');
+        if (strikeEl) {
+          strikeEl.textContent = strikeHtml;
+          strikeEl.classList.toggle('has-strikes', !!strikeHtml && !jailHtml);
+        }
+        const bailEl = card.querySelector('.pc-bail-actions');
+        if (bailEl) bailEl.innerHTML = bailHtml;
+        const noCapEl = card.querySelector('.pc-nocap');
+        if (noCapEl) {
+          noCapEl.textContent = noCapHtml;
+          noCapEl.classList.toggle('is-active', !!noCapHtml);
+        }
       } else {
-        // Create new card
         const card = document.createElement('div');
-        card.className = 'player-card';
+        card.className    = 'player-card' + (jailHtml ? ' is-jailed' : '');
         card.dataset.user = name;
         card.innerHTML = `
           <div class="pc-top">
             <div class="pc-name">@${escHtml(name)}</div>
             <div class="pc-level">LVL ${p.level}</div>
           </div>
+          <div class="pc-founder-slot">${founderHtml}</div>
           <div class="pc-points">pts: <span>${p.points}</span></div>
           <div class="pc-hp-wrap">
             <div class="pc-hp-bar">
@@ -439,48 +1157,204 @@
             <div class="pc-hp-text">${p.health} HP</div>
           </div>
           <div class="pc-items">${badges}</div>
+          <div class="pc-location">${escHtml(locText)}</div>
+          <div class="pc-jail${jailHtml ? ' is-jailed' : ''}">${jailHtml}</div>
+          <div class="pc-strikes${strikeHtml && !jailHtml ? ' has-strikes' : ''}">${strikeHtml}</div>
+          <div class="pc-nocap${noCapHtml ? ' is-active' : ''}">${noCapHtml}</div>
+          <div class="pc-bail-actions">${bailHtml}</div>
         `;
+        // Click to select as target (only for other players when authenticated)
+        card.addEventListener('click', (e) => {
+          // Bail buttons handle their own clicks; don't steal them as target.
+          if (e.target.closest('.pc-bail-btn')) return;
+          selectTarget(name);
+        });
         list.appendChild(card);
       }
     });
-
-    // Remove cards for players no longer in list
     Object.keys(existing).forEach(name => {
       if (!seen.has(name)) existing[name].remove();
     });
+
+    // If authenticated, sync my own stats from the player list
+    if (_myUsername && _players[_myUsername]) {
+      const me = _players[_myUsername];
+      syncMyStats(me);
+    }
   }
 
   function flashLevelUp(username) {
     const card = document.querySelector(`.player-card[data-user="${username}"]`);
     if (!card) return;
     card.classList.remove('level-up-flash');
-    void card.offsetWidth; // reflow
+    void card.offsetWidth;
     card.classList.add('level-up-flash');
     card.addEventListener('animationend', () => card.classList.remove('level-up-flash'), { once: true });
   }
 
-  // ── Event feed ────────────────────────────────────────────────────────────
+  // Refresh jail countdowns once a second so the minutes-remaining label
+  // stays current between server pushes. Auto-clears expired jails too,
+  // and removes bail-action buttons when the jail evaporates.
+  setInterval(() => {
+    if (!_players) return;
+    Object.entries(_players).forEach(([name, p]) => {
+      const card = document.querySelector(`.player-card[data-user="${CSS.escape(name)}"]`);
+      if (!card) return;
+      const jailHtml = jailBadgeHtml(p);
+      const jailEl   = card.querySelector('.pc-jail');
+      if (jailEl) {
+        jailEl.textContent = jailHtml;
+        jailEl.classList.toggle('is-jailed', !!jailHtml);
+      }
+      card.classList.toggle('is-jailed', !!jailHtml);
+      const strikeHtml = strikeBadgeHtml(p);
+      const strikeEl   = card.querySelector('.pc-strikes');
+      if (strikeEl) {
+        strikeEl.classList.toggle('has-strikes', !!strikeHtml && !jailHtml);
+      }
+      const bailEl = card.querySelector('.pc-bail-actions');
+      if (bailEl) bailEl.innerHTML = bailActionsHtml(name, p);
+      const noCapEl = card.querySelector('.pc-nocap');
+      if (noCapEl) {
+        const noCapHtml = noCapBadgeHtml(p);
+        noCapEl.textContent = noCapHtml;
+        noCapEl.classList.toggle('is-active', !!noCapHtml);
+      }
+    });
+  }, 1000);
+
+  // Event delegation for the bail action buttons on player cards. One
+  // listener on the list rather than per-button so it survives re-renders.
+  document.getElementById('player-list').addEventListener('click', (e) => {
+    const reqBtn = e.target.closest('.pc-bail-btn[data-bail-req]');
+    if (reqBtn) {
+      e.stopPropagation();
+      promptRequestBail();
+      return;
+    }
+    const payBtn = e.target.closest('.pc-bail-btn[data-bail-pay]');
+    if (payBtn) {
+      e.stopPropagation();
+      const target = payBtn.getAttribute('data-bail-pay');
+      if (target) sendCmd('bail', target);
+    }
+  });
+
+  // ── My stats strip ─────────────────────────────────────────────────────────
+  function syncMyStats(p) {
+    if (!p) return;
+    if (p.level  !== undefined) { _myLevel = p.level; document.getElementById('ss-level').textContent  = p.level; }
+    if (p.health  !== undefined) document.getElementById('ss-health').textContent = p.health;
+    if (p.points  !== undefined) document.getElementById('ss-points').textContent = p.points;
+    if (p.location !== undefined) {
+      _myLocation = p.location;
+      document.getElementById('ss-location').textContent = p.location;
+      renderAttackButtons();
+      updateLocationChips();
+    }
+    if (p.items !== undefined) {
+      document.getElementById('ss-items').innerHTML = itemBadges(p.items);
+      // Toggle inventory action buttons based on what we own.
+      const items = Array.isArray(p.items) ? p.items : [];
+      const hasBurner = items.some(n => String(n).toLowerCase() === 'burner laptop');
+      const invRow    = document.getElementById('inv-row');
+      const burnerBtn = document.getElementById('burner-btn');
+      if (burnerBtn) burnerBtn.classList.toggle('hidden', !hasBurner);
+      if (invRow)    invRow.classList.toggle('hidden', !hasBurner);
+    }
+  }
+
+  // ── Location chips ─────────────────────────────────────────────────────────
+  function updateLocationChips() {
+    document.querySelectorAll('.loc-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.loc === _myLocation);
+    });
+  }
+
+  // ── Attack buttons ─────────────────────────────────────────────────────────
+  function renderAttackButtons() {
+    const row     = document.getElementById('attack-row');
+    const attacks = LOCATION_ATTACKS[_myLocation] || [];
+
+    // Clear existing buttons (keep the label)
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+
+    if (attacks.length === 0) {
+      const msg = document.createElement('span');
+      msg.style.cssText = 'font-size:.68rem;color:var(--text-muted);letter-spacing:.08em;';
+      msg.textContent = _myLocation === 'home'
+        ? 'Move to a location to start attacking'
+        : 'No attacks here';
+      row.appendChild(msg);
+      return;
+    }
+
+    attacks.forEach(atk => {
+      const btn = document.createElement('button');
+      btn.className   = 'atk-btn';
+      btn.textContent = '!' + atk.label;
+
+      const tooLow  = _myLevel < atk.minLvl;
+      const tooHigh = atk.maxLvl !== undefined && _myLevel > atk.maxLvl;
+
+      if (tooLow || tooHigh) {
+        btn.classList.add('locked');
+        btn.disabled = true;
+        btn.title = tooLow
+          ? `Requires level ${atk.minLvl}`
+          : `Level ${atk.maxLvl} and below only`;
+      } else {
+        btn.onclick = () => sendCmd(atk.cmd);
+      }
+      row.appendChild(btn);
+    });
+  }
+
+  // ── Drops ──────────────────────────────────────────────────────────────────
+  function renderDrops(drops) {
+    _drops = drops || [];
+    const row   = document.getElementById('drops-row');
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+
+    if (_drops.length === 0) {
+      const msg = document.createElement('span');
+      msg.className   = 'no-drops';
+      msg.id          = 'no-drops-msg';
+      msg.textContent = 'No active drops';
+      row.appendChild(msg);
+      return;
+    }
+
+    _drops.forEach(d => {
+      const btn = document.createElement('button');
+      btn.className   = 'grab-btn';
+      const emoji = ITEM_EMOJIS[d.name] || '🎁';
+      btn.textContent = `${emoji} ${d.name}`;
+      btn.title       = `${itemTooltipText(d.name)}\n\nDropped at ${d.location} — click to grab.`;
+      btn.onclick     = () => sendCmd('grab', d.name);
+      row.appendChild(btn);
+    });
+  }
+
+  // ── Event feed ─────────────────────────────────────────────────────────────
   function prependEvent(e) {
     const feed = document.getElementById('feed-list');
-
-    const div = document.createElement('div');
+    const div  = document.createElement('div');
     div.className = `event-entry ev--${e.type || 'info'}`;
-
     const userClass = e.username ? '' : ' ev-user--empty';
     div.innerHTML = `
       <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
       <span class="ev-cmd">${escHtml(e.command || '')}</span>
       <span class="ev-result">${escHtml(e.result || '')}</span>
     `;
-
     feed.insertBefore(div, feed.firstChild);
     _eventCount++;
     document.getElementById('event-count').textContent = _eventCount;
-
-    // Trim overflow
     while (feed.children.length > MAX_FEED) feed.removeChild(feed.lastChild);
-
-    // Flash player card on level-up
     if (e.type === 'level-up' && e.username) flashLevelUp(e.username);
   }
 
@@ -489,7 +1363,6 @@
     feed.innerHTML = '';
     _eventCount = events.length;
     document.getElementById('event-count').textContent = _eventCount;
-    // Events are newest-first; render them all (newest at top)
     events.forEach(e => {
       const div = document.createElement('div');
       div.className = `event-entry ev--${e.type || 'info'}`;
@@ -503,11 +1376,85 @@
     });
   }
 
-  // ── Socket ────────────────────────────────────────────────────────────────
+  // ── Command submission ─────────────────────────────────────────────────────
+  let _cmdTimeout = null;
+
+  function sendCmd(command, args) {
+    if (_cmdBusy) return;
+    _cmdBusy = true;
+
+    const resultEl = document.getElementById('cmd-result');
+    resultEl.className   = 'cmd-result visible';
+    resultEl.textContent = '…';
+
+    socket.emit('web_command', { command, args: args || '' });
+
+    // Fallback: release lock after 8s in case web_result never arrives
+    clearTimeout(_cmdTimeout);
+    _cmdTimeout = setTimeout(() => { _cmdBusy = false; }, 8000);
+  }
+
+  function sendHack(location) {
+    // Optimistic update — show correct attack buttons and location badge immediately
+    _myLocation = location;
+    document.getElementById('ss-location').textContent = location;
+    updateLocationChips();
+    renderAttackButtons();
+    sendCmd('hack', location);
+  }
+
+  // ── Target selection (PvP) ─────────────────────────────────────────────────
+  function selectTarget(name) {
+    if (!_myUsername) return;          // not logged in — no-op
+    if (name === _myUsername) return;  // can't target yourself
+
+    if (_selectedTarget === name) {
+      clearTarget();
+      return;
+    }
+
+    _selectedTarget = name;
+
+    // Update card styles
+    document.querySelectorAll('.player-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.user === name);
+    });
+
+    // Update PvP row button labels
+    document.getElementById('steal-btn').textContent = `!steal @${name}`;
+    const virusBtn = document.getElementById('virus-target-btn');
+    virusBtn.textContent = `!virus @${name}`;
+
+    // Show PvP row
+    document.getElementById('pvp-row').classList.remove('hidden');
+    if (_isOwner) virusBtn.classList.remove('hidden');
+
+    // Update panel title hint
+    document.getElementById('player-panel-title').textContent = `Target: @${name}`;
+  }
+
+  function clearTarget() {
+    _selectedTarget = null;
+    document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('pvp-row').classList.add('hidden');
+    document.getElementById('player-panel-title').textContent = 'Active This Session';
+  }
+
+  function sendSteal() {
+    if (!_selectedTarget) return;
+    sendCmd('steal', _selectedTarget);
+  }
+
+  function sendVirusTarget() {
+    if (!_selectedTarget) return;
+    sendCmd('virus', _selectedTarget);
+  }
+
+  // ── Socket ─────────────────────────────────────────────────────────────────
   const socket = io({ transports: ['websocket'] });
 
   socket.on('connect', () => {
-    console.log('[socket] connected');
+    console.log('[socket] connected', socket.id);
     socket.emit('request_game_state');
   });
   socket.on('disconnect', () => console.log('[socket] disconnected'));
@@ -515,6 +1462,11 @@
   socket.on('game_state', st => {
     renderPlayers(st.players || {});
     renderFeed(st.events || []);
+    renderDrops(st.drops || []);
+    if (st.treasury !== undefined) {
+      const el = document.getElementById('treasury-balance');
+      if (el) el.textContent = Number(st.treasury).toLocaleString();
+    }
   });
 
   socket.on('game_event', e => {
@@ -524,6 +1476,162 @@
   socket.on('players_update', players => {
     renderPlayers(players);
   });
+
+  socket.on('drops_update', drops => {
+    renderDrops(drops);
+  });
+
+  socket.on('treasury_update', d => {
+    if (!d || d.balance === undefined) return;
+    const el = document.getElementById('treasury-balance');
+    if (el) el.textContent = Number(d.balance).toLocaleString();
+  });
+
+  // Direct result targeted at this client
+  socket.on('web_result', data => {
+    _cmdBusy = false;
+    clearTimeout(_cmdTimeout);
+    // Always refresh game state after any command — updates points, location, drops, player cards
+    socket.emit('request_game_state');
+    const result = data.result || '';
+    if (!result) return;
+
+    // Konami responses get the dramatic toast, not the standard cmd-result row
+    if (data.command === 'konami') {
+      const variant = /ACCESS GRANTED/i.test(result) ? 'ok'
+                    : /relocks/i.test(result)        ? 'warn'
+                    :                                 'denied';
+      showKonamiToast(result, variant);
+      return;
+    }
+
+    const resultEl = document.getElementById('cmd-result');
+    const isErr = /failed|error|invalid|not registered|not available|not found/i.test(result);
+    resultEl.className   = `cmd-result visible ${isErr ? 'err' : 'ok'}`;
+    resultEl.textContent = result;
+  });
+
+  // ── Konami easter egg ──────────────────────────────────────────────────────
+  // Use e.key (lowercased) instead of e.code — some keyboards / IME layouts
+  // produce junk codes (Convert/NonConvert/NumpadEnter) for arrow keys, but
+  // e.key reads them correctly across the board.
+  const KONAMI_SEQ = [
+    'arrowup','arrowup','arrowdown','arrowdown',
+    'arrowleft','arrowright','arrowleft','arrowright',
+    'b','a'
+  ];
+  let _konamiBuf = [];
+  let _konamiToastTimer = null;
+
+  document.addEventListener('keydown', (e) => {
+    // Don't capture if user is typing in an input
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const key = (e.key || '').toLowerCase();
+    if (!key) return;
+    _konamiBuf.push(key);
+    if (_konamiBuf.length > KONAMI_SEQ.length) _konamiBuf.shift();
+    if (_konamiBuf.length === KONAMI_SEQ.length &&
+        _konamiBuf.every((k, i) => k === KONAMI_SEQ[i])) {
+      _konamiBuf = [];
+      triggerKonami();
+    }
+  });
+
+  function triggerKonami() {
+    if (!_myUsername) {
+      showKonamiToast(
+        'ACCESS DENIED // log in with Twitch to claim the backdoor reward.',
+        'denied'
+      );
+      return;
+    }
+    sendCmd('konami');
+  }
+
+  function showKonamiToast(text, variant) {
+    // Remove any existing toast
+    const existing = document.getElementById('konami-toast');
+    if (existing) existing.remove();
+    if (_konamiToastTimer) { clearTimeout(_konamiToastTimer); _konamiToastTimer = null; }
+
+    const toast = document.createElement('div');
+    toast.id = 'konami-toast';
+    if (variant === 'denied') toast.classList.add('denied');
+    else if (variant === 'warn') toast.classList.add('warn');
+
+    // Split on " // " for visual layout
+    const parts = String(text).split(/\s*\/\/\s*/);
+    const title = parts.shift() || text;
+
+    let bodyHtml = '';
+    if (parts.length) {
+      const items = parts.map(p => {
+        let cls = '';
+        if (/Cardboard Box/i.test(p)) cls = 'box';
+        else if (/^\+\d/.test(p))     cls = 'hl';
+        return `<div class="${cls}">${escHtml(p)}</div>`;
+      }).join('');
+      bodyHtml = `<div class="ktoast-body">${items}</div>`;
+    }
+
+    toast.innerHTML = `
+      <div class="ktoast-title">${escHtml(title)}</div>
+      ${bodyHtml}
+      <div class="ktoast-dismiss">click to dismiss</div>
+    `;
+    toast.addEventListener('click', dismissKonamiToast);
+    document.body.appendChild(toast);
+
+    // Auto-dismiss after 8s
+    _konamiToastTimer = setTimeout(dismissKonamiToast, 8000);
+  }
+
+  function dismissKonamiToast() {
+    const toast = document.getElementById('konami-toast');
+    if (!toast) return;
+    if (_konamiToastTimer) { clearTimeout(_konamiToastTimer); _konamiToastTimer = null; }
+    toast.classList.add('hiding');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  }
+
+  // ── Init: check auth ───────────────────────────────────────────────────────
+  async function initAuth() {
+    try {
+      const resp = await fetch('/api/game/me');
+      const data = await resp.json();
+
+      if (data.username) {
+        _myUsername = data.username;
+        _isOwner    = (data.username === 'b7h30');
+
+        // Show stats strip, hide login banner, show cmd panel
+        document.getElementById('login-banner').classList.add('hidden');
+        document.getElementById('stats-strip').classList.remove('hidden');
+        document.getElementById('cmd-panel').classList.remove('hidden');
+
+        document.getElementById('ss-username').textContent = '@' + data.username;
+
+        // Show owner panel if applicable
+        if (_isOwner) {
+          document.getElementById('owner-row').classList.remove('hidden');
+        }
+
+        if (data.player && Object.keys(data.player).length) {
+          syncMyStats(data.player);
+        }
+
+        renderDrops(data.drops || []);
+        renderAttackButtons();
+        updateLocationChips();
+      }
+      // Else: leave login banner visible (default state)
+    } catch(e) {
+      console.warn('[auth] failed to fetch /api/game/me', e);
+    }
+  }
+
+  initAuth();
 </script>
 </body>
 </html>

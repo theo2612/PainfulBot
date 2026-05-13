@@ -94,6 +94,7 @@ game = {
     "events":  [],  # [{username, command, result, type, ts}] newest first
     "players": {},  # {username: {level, points, health, items, location}} session-active
     "drops":   [],  # [{name, location, ts}] active item drops
+    "treasury": 0,  # bot-pushed running treasury balance for the GUI widget
 }
 
 # SID → username for authenticated socket connections
@@ -103,9 +104,10 @@ _sid_username = {}
 def _game_snapshot():
     with game_lock:
         return {
-            "events":  list(game["events"]),
-            "players": dict(game["players"]),
-            "drops":   list(game["drops"]),
+            "events":   list(game["events"]),
+            "players":  dict(game["players"]),
+            "drops":    list(game["drops"]),
+            "treasury": int(game.get("treasury", 0)),
         }
 
 
@@ -526,6 +528,10 @@ def api_game_player():
             "items":        data.get("items", []),
             "location":     data.get("location", "home"),
             "founder_tier": data.get("founder_tier"),
+            "jail":         data.get("jail"),
+            "speed_strikes": data.get("speed_strikes", 0),
+            "bail_request_for": data.get("bail_request_for"),
+            "no_cap_until": data.get("no_cap_until"),
         }
         players_snapshot = dict(game["players"])
     socketio.emit("players_update", players_snapshot)
@@ -561,6 +567,20 @@ def api_game_drop_taken():
         game["drops"] = [d for d in game["drops"] if d["name"].lower() != name.lower()]
         drops_snapshot = list(game["drops"])
     socketio.emit("drops_update", drops_snapshot)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/treasury", methods=["POST"])
+def api_game_treasury():
+    """Bot pushes the current Treasury balance; we mirror to all clients."""
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        balance = int(data.get("balance", 0))
+    except (TypeError, ValueError):
+        balance = 0
+    with game_lock:
+        game["treasury"] = balance
+    socketio.emit("treasury_update", {"balance": balance})
     return jsonify({"ok": True})
 
 
@@ -606,7 +626,13 @@ def on_web_command(data):
         return
 
     cmd  = (data.get("command") or "").strip()
-    args = (data.get("args")    or "").strip()
+    # `args` is usually a string from sendCmd(), but accept list-of-strings too
+    # (web clients have been seen sending arrays — defensive normalization).
+    args_raw = data.get("args") or ""
+    if isinstance(args_raw, list):
+        args = " ".join(str(a) for a in args_raw if a is not None).strip()
+    else:
+        args = str(args_raw).strip()
     ip   = request.environ.get("HTTP_X_FORWARDED_FOR",
            request.environ.get("REMOTE_ADDR", "?")).split(",")[0].strip()
 
