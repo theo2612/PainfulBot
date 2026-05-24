@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Control</title>
+  <link rel="stylesheet" href="/static/todo_style.css?v={{ v }}">
+  <style>
+    html, body {
+      height: 100%;
+      overflow: auto;
+      min-width: 540px;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Control panel layout ── */
+    .ctrl-body {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      flex: 1;
+    }
+
+    /* ── Buttons ── */
+    .ctrl-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: var(--font-head);
+      font-size: .88rem;
+      font-weight: 400;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 10px 22px;
+      background: transparent;
+      border-radius: 3px;
+      border: 1px solid;
+      cursor: pointer;
+      transition: box-shadow .15s, background .15s, transform .1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn--primary {
+      border-color: var(--green);
+      background: rgba(0,255,65,.15);
+      color: var(--green);
+      box-shadow: 0 0 10px rgba(0,255,65,.2);
+    }
+    .btn--primary:hover {
+      background: rgba(0,255,65,.25);
+      box-shadow: 0 0 20px rgba(0,255,65,.4);
+    }
+    .btn--skip {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .btn--skip:hover {
+      background: rgba(0,180,255,.08);
+      box-shadow: 0 0 14px rgba(0,180,255,.25);
+    }
+    .btn--restart {
+      border-color: var(--purple-bright);
+      color: var(--purple-bright);
+    }
+    .btn--restart:hover {
+      background: rgba(192,132,252,.08);
+      box-shadow: 0 0 14px rgba(192,132,252,.25);
+    }
+    .btn--danger {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn--danger:hover {
+      background: rgba(255,34,68,.08);
+      box-shadow: 0 0 14px rgba(255,34,68,.25);
+    }
+
+    /* ── Keyboard hints ── */
+    .kbd-hints {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .kbd-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .76rem;
+      color: var(--text-muted);
+    }
+    kbd {
+      background: var(--panel);
+      border: 1px solid rgba(136,153,170,.3);
+      border-bottom: 2px solid rgba(136,153,170,.4);
+      border-radius: 2px;
+      padding: 2px 7px;
+      font-family: var(--font-head);
+      font-size: .76rem;
+      color: var(--text);
+    }
+
+    /* ── Info bar ── */
+    .ctrl-info {
+      display: flex;
+      gap: 32px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .ctrl-info__item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .ctrl-info__label {
+      font-size: .68rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-head);
+    }
+    .ctrl-info__value {
+      font-family: 'VT323', monospace;
+      font-size: 1.7rem;
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1;
+      text-shadow: 0 0 8px rgba(0,255,65,.2);
+    }
+
+    /* ── Item list ── */
+    .ctrl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .ctrl-row:hover       { background: rgba(0,255,65,.02); border-color: rgba(0,255,65,.15); }
+    .ctrl-row--active     { background: rgba(0,255,65,.03); border-color: rgba(0,255,65,.2); }
+    .ctrl-row--complete   { opacity: 0.38; }
+
+    .ctrl-row__num  { font-family: var(--font-head); color: var(--text-muted); min-width: 28px; text-align: right; font-size: .82rem; }
+    .ctrl-row__dot  { width: 8px; height: 8px; border-radius: 50%; background: rgba(136,153,170,.25); border: 1px solid rgba(136,153,170,.3); flex-shrink: 0; }
+    .ctrl-row--active  .ctrl-row__dot { background: var(--green); border-color: var(--green); box-shadow: 0 0 6px rgba(0,255,65,.7); }
+    .ctrl-row--complete .ctrl-row__dot { background: var(--dim-green); border-color: var(--dim-green); }
+
+    .ctrl-row__labels  { flex: 1; min-width: 0; }
+    .ctrl-row__label   { font-family: var(--font-head); font-size: .95rem; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+    .ctrl-row--active  .ctrl-row__label { color: var(--green); text-shadow: 0 0 8px rgba(0,255,65,.4); }
+    .ctrl-row__sublabel { font-size: .72rem; color: var(--text-muted); }
+
+    .ctrl-row__dur  { font-family: 'VT323', monospace; font-size: 1.2rem; color: var(--text-muted); min-width: 60px; text-align: right; }
+    .ctrl-row--active .ctrl-row__dur { color: var(--text); }
+
+    .ctrl-row__jump { font-size: .68rem; color: var(--purple-bright); text-transform: uppercase; letter-spacing: .1em; opacity: 0; transition: opacity .15s; }
+    .ctrl-row:hover .ctrl-row__jump { opacity: 1; }
+
+    /* ── Section divider ── */
+    .section-title {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    /* ── Edit mode ── */
+    .btn--edit { border-color: var(--orange); color: var(--orange); }
+    .btn--edit:hover { background: rgba(255,140,0,.08); box-shadow: 0 0 14px rgba(255,140,0,.25); }
+    .btn--edit.is-active { background: rgba(255,140,0,.18); box-shadow: 0 0 16px rgba(255,140,0,.35); }
+    .btn--save { border-color: var(--green); color: var(--green); background: rgba(0,255,65,.08); }
+    .btn--save:hover { background: rgba(0,255,65,.2); box-shadow: 0 0 14px rgba(0,255,65,.35); }
+    .btn--cancel { border-color: var(--text-muted); color: var(--text-muted); }
+    .btn--cancel:hover { background: rgba(136,153,170,.08); }
+    .ctrl-edit-bar {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      padding: 10px 14px; background: rgba(255,140,0,.04);
+      border: 1px solid rgba(255,140,0,.25); border-radius: 3px; margin-bottom: 8px;
+    }
+    .ctrl-edit-bar__hint {
+      font-family: var(--font-head); font-size: .72rem; letter-spacing: .15em;
+      text-transform: uppercase; color: var(--orange); flex: 1;
+    }
+    .ctrl-edit-error {
+      padding: 8px 12px; background: rgba(255,34,68,.1);
+      border: 1px solid rgba(255,34,68,.4); border-radius: 3px;
+      color: var(--red); font-family: var(--font-head); font-size: .82rem; margin-bottom: 8px;
+    }
+    .ctrl-row--edit {
+      cursor: default; align-items: flex-start; padding: 12px 14px;
+      background: rgba(255,140,0,.03); border-color: rgba(255,140,0,.18);
+    }
+    .ctrl-row--edit:hover { background: rgba(255,140,0,.05); border-color: rgba(255,140,0,.3); }
+    .ctrl-row__handle { display: flex; flex-direction: column; gap: 2px; }
+    .ctrl-row__handle button {
+      background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+      font-family: var(--font-head); font-size: .7rem; width: 22px; height: 18px;
+      cursor: pointer; padding: 0; line-height: 1; border-radius: 2px;
+    }
+    .ctrl-row__handle button:hover { color: var(--orange); border-color: var(--orange); }
+    .ctrl-row__handle button:disabled { opacity: .25; cursor: not-allowed; }
+    .ctrl-row__edit-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .ctrl-row__edit-fields input {
+      background: var(--panel); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--font-head); font-size: .9rem; padding: 6px 9px; border-radius: 2px; width: 100%;
+    }
+    .ctrl-row__edit-fields input:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 6px rgba(255,140,0,.35); }
+    .ctrl-row__edit-fields input.sublabel { font-size: .78rem; color: var(--text-muted); }
+    .ctrl-row__edit-fields input.duration {
+      width: 90px; font-family: 'VT323', monospace; font-size: 1.1rem; text-align: center;
+    }
+    .ctrl-row__edit-row { display: flex; gap: 8px; align-items: center; }
+    .ctrl-row__delete {
+      background: transparent; border: 1px solid rgba(255,34,68,.4); color: var(--red);
+      font-family: var(--font-head); font-size: 1rem; width: 30px; height: 30px;
+      cursor: pointer; border-radius: 2px; align-self: flex-start;
+    }
+    .ctrl-row__delete:hover { background: rgba(255,34,68,.15); box-shadow: 0 0 8px rgba(255,34,68,.3); }
+    .btn--add { border-color: var(--blue); color: var(--blue); width: 100%; margin-top: 8px; }
+    .btn--add:hover { background: rgba(0,180,255,.08); box-shadow: 0 0 14px rgba(0,180,255,.25); }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER (reused) -->
+  <header class="header" id="header">
+    <span class="header__title" id="show-title">PainfulIT Live</span>
+    <span class="header__label">CONTROL</span>
+    <span class="header__clock" id="show-clock">0:00:00</span>
+    <span class="header__status header__status--stopped" id="status-badge">STOPPED</span>
+  </header>
+
+  <div class="ctrl-body">
+
+    <!-- Info bar -->
+    <div class="ctrl-info">
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Show Remaining</span>
+        <span class="ctrl-info__value" id="info-remaining">—</span>
+      </div>
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Current Item</span>
+        <span class="ctrl-info__value" id="info-current">—</span>
+      </div>
+      <div class="ctrl-info__item">
+        <span class="ctrl-info__label">Item Time Left</span>
+        <span class="ctrl-info__value" id="info-item-time">—</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="ctrl-buttons">
+      <button class="btn btn--primary" id="btn-start-pause" onclick="cmd('cmd_start_pause')">▶ START</button>
+      <button class="btn btn--skip"    id="btn-skip" onclick="cmd('cmd_skip')">⏭ SKIP</button>
+      <button class="btn btn--restart" id="btn-restart-item" onclick="cmd('cmd_restart_item')">↺ RESTART ITEM</button>
+      <button class="btn btn--danger"  id="btn-restart-show" onclick="confirmRestartShow()">⟳ RESTART SHOW</button>
+      <button class="btn btn--edit"    id="btn-edit" onclick="toggleEdit()">✎ EDIT</button>
+    </div>
+
+    <!-- Keyboard shortcuts -->
+    <div class="kbd-hints">
+      <div class="kbd-hint"><kbd>Space</kbd> Start / Pause</div>
+      <div class="kbd-hint"><kbd>→</kbd><kbd>N</kbd> Skip</div>
+      <div class="kbd-hint"><kbd>←</kbd><kbd>P</kbd> Restart item</div>
+      <div class="kbd-hint"><kbd>R</kbd> Restart show</div>
+    </div>
+
+    <!-- Item list -->
+    <div>
+      <div class="section-title" id="rundown-title">Rundown — click any item to jump</div>
+
+      <div id="edit-bar" class="ctrl-edit-bar" style="display:none;">
+        <span class="ctrl-edit-bar__hint">Editing rundown — durations accept mm:ss or seconds</span>
+        <button class="btn btn--save"   onclick="saveDraft()">✓ SAVE</button>
+        <button class="btn btn--cancel" onclick="cancelEdit()">✕ CANCEL</button>
+      </div>
+
+      <div id="edit-error" class="ctrl-edit-error" style="display:none;"></div>
+
+      <div class="ctrl-list" id="ctrl-list">
+        <!-- rows injected by JS -->
+      </div>
+
+      <button id="btn-add-item" class="btn btn--add" onclick="addDraftItem()" style="display:none;">+ ADD ITEM</button>
+    </div>
+
+  </div>
+
+  <script src="/static/socket.io.min.js?v={{ v }}"></script>
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function fmtHMS(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+    function fmtMS(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return m + ':' + String(s).padStart(2,'0');
+    }
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── State ──────────────────────────────────────────────────────────────
+    let _state = null;
+    let _editMode = false;
+    let _draft = null;
+    const socket = io('/todo', { transports: ['websocket'] });
+
+    function parseDuration(str) {
+      if (str == null) return NaN;
+      const s = String(str).trim();
+      if (!s) return NaN;
+      if (s.includes(':')) {
+        const parts = s.split(':').map(p => p.trim());
+        if (parts.length !== 2) return NaN;
+        const m = parseInt(parts[0], 10);
+        const sec = parseInt(parts[1], 10);
+        if (isNaN(m) || isNaN(sec) || sec < 0 || sec > 59 || m < 0) return NaN;
+        return m * 60 + sec;
+      }
+      const n = parseInt(s, 10);
+      return isNaN(n) || n < 0 ? NaN : n;
+    }
+
+    function escAttr(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function cmd(event, data) {
+      socket.emit(event, data || {});
+    }
+
+    function confirmRestartShow() {
+      if (confirm('Restart entire show? This will reload config.json and reset all items.')) {
+        cmd('cmd_restart_show');
+      }
+    }
+
+    // ── Full render ────────────────────────────────────────────────────────
+    function render(st) {
+      _state = st;
+      document.getElementById('show-title').textContent = st.show_title;
+
+      // Status badge + start/pause button
+      const badge = document.getElementById('status-badge');
+      const btnSP = document.getElementById('btn-start-pause');
+      badge.className = 'header__status';
+
+      if (st.running) {
+        badge.classList.add('header__status--live');
+        badge.textContent = '● LIVE';
+        btnSP.textContent = '⏸ PAUSE';
+      } else if (st.current_index === -1) {
+        badge.classList.add('header__status--stopped');
+        badge.textContent = 'STOPPED';
+        btnSP.textContent = '▶ START';
+      } else if (st.current_index >= st.items.length) {
+        badge.classList.add('header__status--done');
+        badge.textContent = '✓ DONE';
+        btnSP.textContent = '▶ START';
+      } else {
+        badge.classList.add('header__status--paused');
+        badge.textContent = '⏸ PAUSED';
+        btnSP.textContent = '▶ RESUME';
+      }
+
+      // Info bar
+      updateInfoBar(st);
+
+      // Skip rundown rebuild during edit mode so user inputs aren't clobbered.
+      if (!_editMode) renderRundown();
+    }
+
+    // ── Edit mode ──────────────────────────────────────────────────────────
+    function toggleEdit() {
+      if (_editMode) {
+        cancelEdit();
+      } else {
+        if (!_state) return;
+        _draft = {
+          show_title: _state.show_title,
+          items: _state.items.map(it => ({
+            id: it.id, label: it.label, sublabel: it.sublabel || '',
+            duration: it.duration, color: it.color,
+          })),
+        };
+        _editMode = true;
+        applyEditModeUI();
+        renderRundown();
+      }
+    }
+
+    function cancelEdit() {
+      _editMode = false; _draft = null;
+      hideEditError(); applyEditModeUI();
+      if (_state) renderRundown();
+    }
+
+    function applyEditModeUI() {
+      const editBtn = document.getElementById('btn-edit');
+      editBtn.classList.toggle('is-active', _editMode);
+      editBtn.textContent = _editMode ? '✎ EDITING' : '✎ EDIT';
+      document.getElementById('edit-bar').style.display = _editMode ? 'flex' : 'none';
+      document.getElementById('btn-add-item').style.display = _editMode ? 'block' : 'none';
+      document.getElementById('rundown-title').textContent = _editMode
+        ? 'Rundown — edit labels, durations, order'
+        : 'Rundown — click any item to jump';
+      ['btn-start-pause','btn-skip','btn-restart-item','btn-restart-show'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = _editMode;
+        el.style.opacity = _editMode ? '0.4' : '';
+        el.style.pointerEvents = _editMode ? 'none' : '';
+      });
+    }
+
+    function showEditError(msg) {
+      const el = document.getElementById('edit-error');
+      el.textContent = msg; el.style.display = 'block';
+    }
+    function hideEditError() { document.getElementById('edit-error').style.display = 'none'; }
+
+    function readDraftFromInputs() {
+      if (!_draft) return;
+      _draft.items.forEach((item, idx) => {
+        const labelEl = document.getElementById(`edit-label-${idx}`);
+        const subEl   = document.getElementById(`edit-sub-${idx}`);
+        const durEl   = document.getElementById(`edit-dur-${idx}`);
+        if (labelEl) item.label = labelEl.value;
+        if (subEl)   item.sublabel = subEl.value;
+        if (durEl)   item._durStr = durEl.value;
+      });
+    }
+
+    function moveDraftItem(idx, delta) {
+      readDraftFromInputs();
+      const target = idx + delta;
+      if (target < 0 || target >= _draft.items.length) return;
+      const tmp = _draft.items[idx];
+      _draft.items[idx] = _draft.items[target];
+      _draft.items[target] = tmp;
+      renderRundown();
+    }
+
+    function deleteDraftItem(idx) {
+      readDraftFromInputs();
+      _draft.items.splice(idx, 1);
+      renderRundown();
+    }
+
+    function addDraftItem() {
+      readDraftFromInputs();
+      _draft.items.push({
+        id: 'new-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        label: '', sublabel: '', duration: 300,
+      });
+      renderRundown();
+      setTimeout(() => {
+        const el = document.getElementById(`edit-label-${_draft.items.length - 1}`);
+        if (el) el.focus();
+      }, 0);
+    }
+
+    function saveDraft() {
+      readDraftFromInputs();
+      hideEditError();
+      const items = [];
+      for (let i = 0; i < _draft.items.length; i++) {
+        const it = _draft.items[i];
+        if (!it.label || !it.label.trim()) {
+          showEditError(`Item ${i+1} needs a label`); return;
+        }
+        const durSrc = it._durStr != null ? it._durStr : it.duration;
+        const dur = parseDuration(durSrc);
+        if (isNaN(dur) || dur <= 0) {
+          showEditError(`Item ${i+1} has an invalid duration (use mm:ss or seconds)`); return;
+        }
+        items.push({
+          id: it.id, label: it.label.trim(),
+          sublabel: (it.sublabel || '').trim(),
+          duration: dur, color: it.color,
+        });
+      }
+      socket.emit('cmd_save_rundown', {
+        show_title: _draft.show_title || _state.show_title,
+        items: items,
+      });
+    }
+
+    // ── Rundown render (read-only or edit) ─────────────────────────────────
+    function renderRundown() {
+      const list = document.getElementById('ctrl-list');
+      list.innerHTML = '';
+
+      if (_editMode && _draft) {
+        _draft.items.forEach((item, idx) => {
+          const row = document.createElement('div');
+          row.className = 'ctrl-row ctrl-row--edit';
+          const durStr = item._durStr != null ? item._durStr : fmtMS(item.duration);
+          const isFirst = idx === 0;
+          const isLast  = idx === _draft.items.length - 1;
+          row.innerHTML = `
+            <span class="ctrl-row__num">${String(idx+1).padStart(2,'0')}</span>
+            <div class="ctrl-row__handle">
+              <button type="button" title="Move up"   ${isFirst ? 'disabled' : ''} onclick="moveDraftItem(${idx},-1)">▲</button>
+              <button type="button" title="Move down" ${isLast  ? 'disabled' : ''} onclick="moveDraftItem(${idx},1)">▼</button>
+            </div>
+            <div class="ctrl-row__edit-fields">
+              <input id="edit-label-${idx}" type="text" class="label" placeholder="Label" value="${escAttr(item.label)}">
+              <input id="edit-sub-${idx}" type="text" class="sublabel" placeholder="Sublabel (optional)" value="${escAttr(item.sublabel || '')}">
+              <div class="ctrl-row__edit-row">
+                <input id="edit-dur-${idx}" type="text" class="duration" placeholder="mm:ss" value="${escAttr(durStr)}">
+                <span class="ctrl-row__sublabel">duration</span>
+              </div>
+            </div>
+            <button type="button" class="ctrl-row__delete" title="Delete" onclick="deleteDraftItem(${idx})">×</button>
+          `;
+          list.appendChild(row);
+        });
+        return;
+      }
+
+      if (!_state) return;
+      _state.items.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'ctrl-row';
+        row.id = 'ctrl-row-' + idx;
+        if (item.status === 'active')   row.classList.add('ctrl-row--active');
+        if (item.status === 'complete') row.classList.add('ctrl-row--complete');
+        row.onclick = () => jumpTo(idx);
+        const rem = item.status === 'active' ? fmtMS(item.remaining) : fmtMS(item.duration);
+        row.innerHTML = `
+          <span class="ctrl-row__num">${String(idx+1).padStart(2,'0')}</span>
+          <span class="ctrl-row__dot"></span>
+          <div class="ctrl-row__labels">
+            <div class="ctrl-row__label">${escHtml(item.label)}</div>
+            ${item.sublabel ? `<div class="ctrl-row__sublabel">${escHtml(item.sublabel)}</div>` : ''}
+          </div>
+          <span class="ctrl-row__dur" id="ctrl-dur-${idx}">${rem}</span>
+          <span class="ctrl-row__jump">jump ↵</span>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function updateInfoBar(st) {
+      let total = 0;
+      st.items.forEach(item => {
+        if (item.status === 'pending') total += item.duration;
+        else if (item.status === 'active') total += item.remaining;
+      });
+      document.getElementById('show-clock').textContent = fmtHMS(total);
+      document.getElementById('info-remaining').textContent = fmtHMS(total);
+
+      const idx = st.current_index;
+      if (idx >= 0 && idx < st.items.length) {
+        const item = st.items[idx];
+        document.getElementById('info-current').textContent = item.label;
+        document.getElementById('info-item-time').textContent = fmtMS(item.remaining);
+      } else {
+        document.getElementById('info-current').textContent = '—';
+        document.getElementById('info-item-time').textContent = '—';
+      }
+    }
+
+    // ── Lightweight ticker ──────────────────────────────────────────────────
+    function applyTicker(data) {
+      if (!_state) return;
+      const idx = data.current_index;
+      const rem = data.remaining;
+
+      if (_state.items[idx]) _state.items[idx].remaining = rem;
+
+      // Update show clock
+      let total = 0;
+      _state.items.forEach(item => {
+        if (item.status === 'pending') total += item.duration;
+        else if (item.status === 'active') total += item.remaining;
+      });
+      document.getElementById('show-clock').textContent = fmtHMS(total);
+      document.getElementById('info-remaining').textContent = fmtHMS(total);
+      document.getElementById('info-item-time').textContent = fmtMS(rem);
+
+      const durEl = document.getElementById('ctrl-dur-' + idx);
+      if (durEl) durEl.textContent = fmtMS(rem);
+    }
+
+    function jumpTo(idx) {
+      if (!confirm(`Jump to item ${idx+1}: ${_state.items[idx].label}?`)) return;
+      cmd('cmd_jump', { index: idx });
+    }
+
+    // ── Keyboard shortcuts ──────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      // Ignore if focus is on an input/button
+      if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          cmd('cmd_start_pause');
+          break;
+        case 'ArrowRight':
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          cmd('cmd_skip');
+          break;
+        case 'ArrowLeft':
+        case 'p':
+        case 'P':
+          e.preventDefault();
+          cmd('cmd_restart_item');
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          confirmRestartShow();
+          break;
+      }
+    });
+
+    // ── Socket ────────────────────────────────────────────────────────────
+    socket.on('connect', () => {
+      console.log('[socket] connected');
+      socket.emit('request_state');
+    });
+    socket.on('disconnect', () => console.log('[socket] disconnected'));
+    socket.on('connect_error', (err) => console.log('[socket] error:', err));
+    socket.on('state_update', render);
+    socket.on('ticker', applyTicker);
+    socket.on('save_ok', () => {
+      _editMode = false; _draft = null;
+      hideEditError(); applyEditModeUI();
+      if (_state) renderRundown();
+    });
+    socket.on('save_error', (data) => {
+      showEditError((data && data.message) ? data.message : 'Save failed');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "show_title": "PainfulIT Live",
+  "default_duration": 300,
+  "items": [
+    {
+      "id": "intro",
+      "label": "INTRO",
+      "sublabel": "",
+      "duration": 60
+    },
+    {
+      "id": "new-1779658438712-574",
+      "label": "News",
+      "sublabel": "",
+      "duration": 300
+    }
+  ]
+}
