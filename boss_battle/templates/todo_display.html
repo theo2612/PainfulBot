@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Overlay</title>
+  <link rel="stylesheet" href="/static/todo_style.css?v={{ v }}">
+  <style>
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <span class="header__title" id="show-title">PainfulIT Live</span>
+    <span class="header__label">SHOW REMAINING</span>
+    <span class="header__clock" id="show-clock">0:00:00</span>
+  </header>
+
+  <!-- TOPIC LIST -->
+  <main class="topic-list" id="topic-list">
+    <!-- rows injected by JS -->
+  </main>
+
+  <script src="/static/socket.io.min.js?v={{ v }}"></script>
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function fmtHMS(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+    function fmtMS(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return m + ':' + String(s).padStart(2,'0');
+    }
+
+    // ── State ──────────────────────────────────────────────────────────────
+    let _state = null;
+
+    // ── Full render ────────────────────────────────────────────────────────
+    function render(st) {
+      _state = st;
+      document.getElementById('show-title').textContent = st.show_title;
+
+      // Show remaining clock
+      updateShowClock(st);
+
+      // Topic rows
+      const list = document.getElementById('topic-list');
+      list.innerHTML = '';
+      st.items.forEach((item, idx) => {
+        list.appendChild(buildRow(item, idx));
+      });
+    }
+
+    function updateShowClock(st) {
+      let total = 0;
+      st.items.forEach((item, idx) => {
+        if (item.status === 'pending') total += item.duration;
+        else if (item.status === 'active') total += item.remaining;
+      });
+      document.getElementById('show-clock').textContent = fmtHMS(total);
+    }
+
+    // Client-side defense-in-depth: only accept #RRGGBB hex colors. The server
+    // already validates, but never trust style strings on the wire.
+    const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+    function safeColor(c) {
+      return (typeof c === 'string' && COLOR_RE.test(c)) ? c : '#E8A020';
+    }
+
+    function buildRow(item, idx) {
+      const div = document.createElement('div');
+      div.className = 'row';
+      div.id = 'row-' + idx;
+      if (item.status === 'active')    div.classList.add('row--active');
+      if (item.status === 'complete')  div.classList.add('row--complete');
+
+      const accentColor = safeColor(item.color);
+      if (item.status === 'active') {
+        div.style.borderLeftColor = accentColor;
+      }
+
+      const urgent = item.status === 'active' && item.remaining < 30;
+
+      const num = document.createElement('span');
+      num.className = 'row__num';
+      num.textContent = String(idx + 1).padStart(2, '0');
+
+      const arrow = document.createElement('span');
+      arrow.className = 'row__arrow';
+      arrow.textContent = '▶';
+
+      const labels = document.createElement('div');
+      labels.className = 'row__labels';
+
+      const label = document.createElement('span');
+      label.className = 'row__label';
+      label.textContent = item.label;  // textContent — no HTML interpretation
+      if (item.status === 'active') {
+        label.style.color = accentColor;  // setProperty path, not string concat
+      }
+      labels.appendChild(label);
+
+      if (item.sublabel) {
+        const sub = document.createElement('span');
+        sub.className = 'row__sublabel';
+        sub.textContent = item.sublabel;
+        labels.appendChild(sub);
+      }
+
+      const cd = document.createElement('span');
+      cd.id = 'cd-' + idx;
+      cd.className = 'row__countdown' + (urgent ? ' row__countdown--urgent' : '');
+      if (item.status === 'active')      cd.textContent = fmtMS(item.remaining);
+      else if (item.status === 'pending') cd.textContent = fmtMS(item.duration);
+      else                                cd.textContent = '';
+
+      const check = document.createElement('span');
+      check.className = 'row__check';
+      check.textContent = '✓';
+
+      div.append(num, arrow, labels, cd, check);
+      return div;
+    }
+
+    // ── Lightweight ticker update ───────────────────────────────────────────
+    function applyTicker(data) {
+      if (!_state) return;
+      const idx = data.current_index;
+      const rem = data.remaining;
+
+      // Update item in local state
+      if (_state.items[idx]) {
+        _state.items[idx].remaining = rem;
+      }
+
+      // Update clock
+      updateShowClock(_state);
+
+      // Update active row's countdown
+      const cdEl = document.getElementById('cd-' + idx);
+      if (cdEl) {
+        const urgent = rem < 30;
+        cdEl.textContent = fmtMS(rem);
+        cdEl.className = 'row__countdown' + (urgent ? ' row__countdown--urgent' : '');
+      }
+    }
+
+    // ── Socket ────────────────────────────────────────────────────────────
+    const socket = io('/todo', { transports: ['websocket'] });
+    socket.on('connect', () => {
+      console.log('[socket] connected');
+      socket.emit('request_state');
+    });
+    socket.on('disconnect', () => console.log('[socket] disconnected'));
+    socket.on('connect_error', (err) => console.log('[socket] error:', err));
+    socket.on('state_update', render);
+    socket.on('ticker', applyTicker);
+  </script>
+</body>
+</html>

@@ -5,3 +5,4 @@ gevent-websocket
 gunicorn
 requests
 python-dotenv
+PyJWT[crypto]>=2.8

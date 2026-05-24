@@ -4,6 +4,7 @@ monkey.patch_all()
 import json
 import logging
 import os
+import re
 import secrets
 import threading
 import time as _time
@@ -16,6 +17,8 @@ from urllib.parse import urlencode
 
 from flask import Flask, render_template, request, jsonify, redirect, session, send_from_directory
 from flask_socketio import SocketIO
+
+from cf_access import CFAccessVerifier
 
 logging.getLogger('engineio').setLevel(logging.CRITICAL)
 logging.getLogger('engineio.server').setLevel(logging.CRITICAL)
@@ -42,6 +45,47 @@ app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET", "painfulit-bossbattle-
 socketio = SocketIO(app, async_mode="gevent", cors_allowed_origins="*",
                     logger=False, engineio_logger=False,
                     ping_interval=10, ping_timeout=5)
+
+# ---------------------------------------------------------------------------
+# Cloudflare Access (operator auth for /todo/control)
+# ---------------------------------------------------------------------------
+
+CF_ACCESS_TEAM_DOMAIN = os.environ.get('CF_ACCESS_TEAM_DOMAIN', '').strip()
+CF_ACCESS_AUD         = os.environ.get('CF_ACCESS_AUD', '').strip()
+
+if CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD:
+    cf_verifier = CFAccessVerifier(CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUD)
+    print(f'  [cf-access] enabled — team={CF_ACCESS_TEAM_DOMAIN}')
+else:
+    cf_verifier = None
+    print('  [cf-access] DISABLED — set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD in .env for prod')
+
+
+def _request_came_through_cloudflare():
+    return bool(request.headers.get('Cf-Ray') or request.headers.get('Cf-Connecting-Ip'))
+
+
+def _identify_operator():
+    """Return an identity string if this request is allowed to operate the
+    todo control, or None if it must be rejected.
+
+    - Requests that came through Cloudflare must present a valid CF Access JWT.
+    - Requests that did NOT come through Cloudflare are assumed to be direct
+      localhost dev access (cloudflared runs on the same host, so any tunnel
+      traffic will carry Cf-* headers). They are allowed as 'localhost-dev'.
+    """
+    came_through_cf = _request_came_through_cloudflare()
+    if came_through_cf:
+        if not cf_verifier:
+            return None  # fail-closed: configured to be public but no verifier
+        token = (request.headers.get('Cf-Access-Jwt-Assertion')
+                 or request.cookies.get('CF_Authorization', ''))
+        claims = cf_verifier.verify(token)
+        if not claims:
+            return None
+        return claims.get('email') or claims.get('common_name') or 'cf-authed'
+    return 'localhost-dev'
+
 
 # ---------------------------------------------------------------------------
 # Twitch OAuth config
@@ -125,6 +169,24 @@ todo_state = {
 }
 
 TODO_CONFIG_PATH = os.path.join(BASE_DIR, "todo_config.json")
+DEFAULT_TODO_COLOR = "#E8A020"
+_VALID_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _validate_color(c):
+    """Return c if it is a safe 6-digit hex color, else the default. This is
+    the only sanitization for the `color` field, which is interpolated into
+    CSS on the display overlay."""
+    if isinstance(c, str) and _VALID_COLOR_RE.match(c):
+        return c
+    return DEFAULT_TODO_COLOR
+
+
+# Authorized control-page SIDs on the /todo namespace. A SID lands here only
+# if its WebSocket upgrade carried a valid Cloudflare Access JWT (or came
+# directly from localhost in dev). Public display clients connect to the same
+# namespace but are not added — they can read state but cannot run cmd_*.
+_todo_authorized = {}  # sid -> operator identity string
 
 
 def _load_todo_config():
@@ -138,7 +200,7 @@ def _load_todo_config():
             "label": item.get("label", ""),
             "sublabel": item.get("sublabel", ""),
             "duration": item.get("duration", default_duration),
-            "color": item.get("color", "#E8A020"),
+            "color": _validate_color(item.get("color")),
             "remaining": item.get("duration", default_duration),
             "status": "pending",
         })
@@ -192,8 +254,8 @@ def _save_todo_config(show_title, items):
             "sublabel": it.get("sublabel", ""),
             "duration": int(it["duration"]),
         }
-        color = it.get("color")
-        if color and color != "#E8A020":
+        color = _validate_color(it.get("color"))
+        if color != DEFAULT_TODO_COLOR:
             entry["color"] = color
         serialized.append(entry)
 
@@ -226,12 +288,13 @@ def _merge_todo_items(new_items):
         old = old_by_id.get(iid)
         if old:
             remaining = min(old["remaining"], duration)
+            color = _validate_color(item.get("color") or old.get("color"))
             merged.append({
                 "id": iid,
                 "label": item["label"],
                 "sublabel": item.get("sublabel", ""),
                 "duration": duration,
-                "color": item.get("color", old.get("color", "#E8A020")),
+                "color": color,
                 "remaining": remaining,
                 "status": old["status"],
             })
@@ -241,7 +304,7 @@ def _merge_todo_items(new_items):
                 "label": item["label"],
                 "sublabel": item.get("sublabel", ""),
                 "duration": duration,
-                "color": item.get("color", "#E8A020"),
+                "color": _validate_color(item.get("color")),
                 "remaining": duration,
                 "status": "pending",
             })
@@ -328,6 +391,9 @@ def todo_display():
 
 @app.route("/todo/control")
 def todo_control():
+    operator = _identify_operator()
+    if not operator:
+        return 'Unauthorized — sign in via Cloudflare Access.', 403
     return render_template("todo_control.html", v=BOOT_TS)
 
 
@@ -662,13 +728,38 @@ def on_request_game_state():
 
 @socketio.on("connect", namespace="/todo")
 def on_todo_connect():
+    # Public display clients are allowed to connect (they only read state),
+    # but only operators who passed Cloudflare Access (or local dev) land in
+    # the authorized set and can fire cmd_* events.
+    operator = _identify_operator()
+    if operator:
+        _todo_authorized[request.sid] = operator
+        _cmd_logger.info("todo authorize | %s | sid=%s", operator, request.sid)
     socketio.emit("state_update", _build_todo_payload(),
                   to=request.sid, namespace="/todo")
 
 
 @socketio.on("disconnect", namespace="/todo")
 def on_todo_disconnect():
-    pass
+    _todo_authorized.pop(request.sid, None)
+
+
+def _require_todo_operator(cmd_name):
+    """Guard for /todo cmd_* events. Returns operator identity or None.
+    On rejection, emits an auth_error to the requesting SID and logs the
+    attempt for auditing."""
+    operator = _todo_authorized.get(request.sid)
+    if not operator:
+        ip = (request.headers.get('Cf-Connecting-Ip')
+              or request.environ.get('HTTP_X_FORWARDED_FOR',
+                 request.environ.get('REMOTE_ADDR', '?')).split(',')[0].strip())
+        _cmd_logger.warning("todo REJECT %s | sid=%s | ip=%s", cmd_name, request.sid, ip)
+        socketio.emit("auth_error",
+                      {"message": "Not authorized — operator login required."},
+                      to=request.sid, namespace="/todo")
+        return None
+    _cmd_logger.info("todo %s | %s", cmd_name, operator)
+    return operator
 
 
 @socketio.on("request_state", namespace="/todo")
@@ -679,6 +770,8 @@ def on_todo_request_state():
 
 @socketio.on("cmd_start_pause", namespace="/todo")
 def on_todo_start_pause(_data=None):
+    if not _require_todo_operator("cmd_start_pause"):
+        return
     with todo_lock:
         if todo_state["current_index"] == -1:
             if todo_state["items"]:
@@ -695,6 +788,8 @@ def on_todo_start_pause(_data=None):
 
 @socketio.on("cmd_skip", namespace="/todo")
 def on_todo_skip(_data=None):
+    if not _require_todo_operator("cmd_skip"):
+        return
     with todo_lock:
         if todo_state["current_index"] < 0:
             return
@@ -706,6 +801,8 @@ def on_todo_skip(_data=None):
 
 @socketio.on("cmd_restart_item", namespace="/todo")
 def on_todo_restart_item(_data=None):
+    if not _require_todo_operator("cmd_restart_item"):
+        return
     with todo_lock:
         idx = todo_state["current_index"]
         if 0 <= idx < len(todo_state["items"]):
@@ -715,6 +812,8 @@ def on_todo_restart_item(_data=None):
 
 @socketio.on("cmd_restart_show", namespace="/todo")
 def on_todo_restart_show(_data=None):
+    if not _require_todo_operator("cmd_restart_show"):
+        return
     try:
         show_title, items = _load_todo_config()
     except Exception as e:
@@ -730,6 +829,8 @@ def on_todo_restart_show(_data=None):
 
 @socketio.on("cmd_save_rundown", namespace="/todo")
 def on_todo_save_rundown(data):
+    if not _require_todo_operator("cmd_save_rundown"):
+        return
     sid = request.sid
 
     def err(msg):
@@ -779,7 +880,7 @@ def on_todo_save_rundown(data):
             "label": label.strip(),
             "sublabel": sublabel,
             "duration": dur,
-            "color": it.get("color") if isinstance(it.get("color"), str) else None,
+            "color": _validate_color(it.get("color")),
         })
 
     try:
@@ -798,6 +899,8 @@ def on_todo_save_rundown(data):
 
 @socketio.on("cmd_jump", namespace="/todo")
 def on_todo_jump(data):
+    if not _require_todo_operator("cmd_jump"):
+        return
     target = data.get("index", 0)
     with todo_lock:
         if target < 0 or target >= len(todo_state["items"]):
