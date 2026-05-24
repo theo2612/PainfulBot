@@ -6,3 +6,19 @@ player_data.json
 session_flags.json
 *.log
 boss_battle/.venv/
+
+# additional virtualenvs
+stream_todo/.venv/
+
+# local Claude Code settings
+.claude/
+
+# pre-refactor snapshots and ad-hoc backups
+PainfulBot.py.backup
+PainfulBot_original.py
+*.backup
+
+# runtime state — never commit live user data
+game_state.json
+player_data.s1_backup.json
+attack_log.jsonl
