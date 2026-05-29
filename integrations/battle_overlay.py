@@ -6,9 +6,10 @@ it never affects the bot.
 
 import asyncio
 import json
+import os
 import urllib.request
 
-OVERLAY_URL = "http://localhost:3003"
+OVERLAY_URL = os.environ.get("OVERLAY_URL", "http://localhost:3003")
 _TIMEOUT = 0.5  # tight so the bot never stalls waiting on this
 
 

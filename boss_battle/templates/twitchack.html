@@ -311,6 +311,25 @@
     .pc-founder.tier-1337   { color: #c084fc; border-color: rgba(192,132,252,.55); background: rgba(192,132,252,.06); }
     .pc-founder.tier-h4ck3r { color: #00b4ff; border-color: rgba(0,180,255,.55);   background: rgba(0,180,255,.06); }
     .pc-founder.tier-0p3r4t0r { color: #00ff41; border-color: rgba(0,255,65,.45);  background: rgba(0,255,65,.05); }
+    /* One-off bug-bounty crown — issued to CypherEnigma for the 2026-05-24 /todo/control disclosure */
+    .pc-founder.tier-qu33n0fth3ca5tl3 {
+      color: #ffd166;
+      border-color: rgba(255,209,102,.65);
+      background: rgba(255,209,102,.08);
+      animation: queen-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes queen-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(255,209,102,.30); }
+      50%      { box-shadow: 0 0 12px rgba(255,209,102,.60); }
+    }
+    /* Channel creator / dev badge — for b7h30. White-cyan, steady glow. */
+    .pc-founder.tier-theo {
+      color: #e8faff;
+      border-color: rgba(140,220,255,.75);
+      background: rgba(140,220,255,.08);
+      text-shadow: 0 0 6px rgba(140,220,255,.55);
+      box-shadow: 0 0 8px rgba(140,220,255,.25);
+    }
     .pc-points {
       font-family: var(--font-vt);
       font-size: .95rem;
@@ -765,6 +784,393 @@
       box-shadow: 0 0 18px rgba(240,192,64,.35);
     }
     #konami-toast.warn .ktoast-title { color: var(--gold, #f0c040); text-shadow: 0 0 10px rgba(240,192,64,.5); }
+
+    /* ── Drawer toggle (mobile-only player panel collapse) ─────────────────
+       Hidden on desktop. The @media block below reveals it and stacks the
+       player panel into a collapsible drawer. */
+    .drawer-toggle { display: none; }
+
+    /* ── Info toast (mobile tap-to-show for title= tooltips) ────────────── */
+    @keyframes info-toast-in {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+    #info-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9998;
+      max-width: min(560px, 92vw);
+      padding: 12px 18px 12px 16px;
+      background: rgba(5,5,8,.97);
+      border: 1px solid rgba(0,255,65,.55);
+      color: var(--text);
+      font-family: var(--font-head);
+      font-size: .82rem;
+      letter-spacing: .04em;
+      line-height: 1.5;
+      white-space: pre-line;
+      text-align: left;
+      border-radius: 2px;
+      box-shadow: 0 0 18px rgba(0,255,65,.25), 0 6px 28px rgba(0,0,0,.65);
+      cursor: pointer;
+      animation: info-toast-in .22s ease-out;
+    }
+    #info-toast::before {
+      content: '> ';
+      color: var(--green);
+      font-weight: bold;
+      text-shadow: 0 0 6px rgba(0,255,65,.5);
+    }
+
+    /* ── Boss-battle alert popup (MGS "!" cardboard-box vibe) ──────────────
+       Fires once per battle when a state_update reports active=true having
+       previously been inactive. Player clicks through to / to fight, or
+       dismisses with the X. */
+    @keyframes mgs-alert-pop {
+      0%   { transform: translate(-50%, -50%) scale(.6); opacity: 0; }
+      55%  { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @keyframes mgs-bang {
+      0%, 100% { transform: scale(1); }
+      45%      { transform: scale(1.18) rotate(-3deg); text-shadow: 0 0 16px var(--red), 0 0 32px var(--red); }
+      55%      { transform: scale(1.18) rotate(3deg);  text-shadow: 0 0 16px var(--red), 0 0 32px var(--red); }
+    }
+    @keyframes mgs-border-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px var(--red), 0 0 24px rgba(255,34,68,.4); }
+      50%      { box-shadow: 0 0 0 2px var(--red), 0 0 48px rgba(255,34,68,.85); }
+    }
+    #boss-alert-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(2px);
+      z-index: 9998;
+      display: none;
+    }
+    #boss-alert-backdrop.is-open { display: block; animation: pc-toast-in .2s ease-out; }
+    @keyframes pc-toast-in { from { opacity: 0; } to { opacity: 1; } }
+    #boss-alert {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      width: min(440px, 92vw);
+      background: var(--panel-dark, #07070e);
+      color: var(--green, #00ff41);
+      border: 2px solid var(--red, #ff2244);
+      padding: 28px 26px 22px;
+      font-family: var(--font-head, 'Share Tech Mono', monospace);
+      display: none;
+    }
+    #boss-alert.is-open {
+      display: block;
+      animation: mgs-alert-pop .35s cubic-bezier(.18,.89,.32,1.28),
+                 mgs-border-pulse 1.4s ease-in-out infinite .35s;
+    }
+    #boss-alert .ba-bang {
+      font-family: var(--font-vt, 'VT323', monospace);
+      font-size: 4.5rem;
+      line-height: 1;
+      color: var(--red, #ff2244);
+      text-align: center;
+      margin-bottom: 8px;
+      animation: mgs-bang 1.1s ease-in-out infinite;
+      text-shadow: 0 0 12px var(--red, #ff2244);
+    }
+    #boss-alert .ba-title {
+      font-family: var(--font-vt, 'VT323', monospace);
+      font-size: 1.8rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--red, #ff2244);
+      text-shadow: 0 0 10px rgba(255,34,68,.6);
+      margin-bottom: 6px;
+    }
+    #boss-alert .ba-sub {
+      font-size: .82rem;
+      letter-spacing: .04em;
+      text-align: center;
+      color: var(--text, #d0dce8);
+      opacity: .9;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+    #boss-alert .ba-sub .ba-boss { color: var(--red); font-weight: bold; }
+    #boss-alert .ba-cta {
+      display: block;
+      width: 100%;
+      background: var(--red, #ff2244);
+      color: #fff;
+      border: none;
+      padding: 13px 16px;
+      font-family: var(--font-head, monospace);
+      font-size: .95rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .15s, box-shadow .15s, transform .1s;
+      box-sizing: border-box;
+    }
+    #boss-alert .ba-cta:hover {
+      background: #ff4d6a;
+      box-shadow: 0 0 18px rgba(255,34,68,.6);
+    }
+    #boss-alert .ba-cta:active { transform: scale(.98); }
+    #boss-alert .ba-dismiss {
+      position: absolute;
+      top: 6px; right: 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      font-family: var(--font-head, monospace);
+      cursor: pointer;
+      padding: 4px 8px;
+      line-height: 1;
+      transition: color .15s;
+    }
+    #boss-alert .ba-dismiss:hover { color: var(--red); }
+    #boss-alert .ba-foot {
+      margin-top: 10px;
+      text-align: center;
+      font-size: .7rem;
+      letter-spacing: .14em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────
+       MOBILE PASS — single breakpoint below 720px.
+       Desktop layout above is untouched. Below the breakpoint:
+         · document scrolls vertically (was overflow:hidden)
+         · header wraps to multiple rows; title shrinks
+         · main split goes row → column
+         · player panel collapses behind a "Players (N)" drawer toggle
+         · tap targets meet the 44px minimum
+         · item badges & treasury widget tap-to-show tooltips
+       ────────────────────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      html, body {
+        height: auto;
+        overflow: visible;
+        overflow-x: hidden;
+      }
+      .page {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .login-banner {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 16px;
+        text-align: center;
+      }
+
+      .stats-strip {
+        gap: 6px 12px;
+        padding: 8px 12px;
+        font-size: .7rem;
+      }
+      .ss-logout { margin-left: 0; }
+
+      .header {
+        height: auto;
+        min-height: 56px;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+      .header__title { font-size: 1.35rem; flex-shrink: 0; }
+      .header__label { display: none; }
+      /* Player count is shown in the drawer toggle, no need in header */
+      .header__count { display: none; }
+      .header__treasury {
+        font-size: .82rem;
+        padding: 3px 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .header__manual {
+        margin-left: 0;
+        margin-right: 0;
+        font-size: .6rem;
+        padding: 6px 9px;
+        letter-spacing: .1em;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .main {
+        flex-direction: column;
+        overflow: visible;
+        gap: 0;
+      }
+
+      .player-panel {
+        width: 100%;
+        flex-shrink: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow: visible;
+      }
+      .player-panel > .panel-title { display: none; }
+
+      .drawer-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        background: linear-gradient(180deg, rgba(0,255,65,.05) 0%, rgba(0,255,65,.01) 100%);
+        border: none;
+        border-bottom: 1px solid rgba(0,255,65,.2);
+        color: var(--text-muted);
+        font-family: var(--font-head);
+        font-size: .72rem;
+        letter-spacing: .22em;
+        text-transform: uppercase;
+        padding: 13px 16px;
+        cursor: pointer;
+        text-align: left;
+        transition: color .15s, background .2s;
+      }
+      .drawer-toggle:hover,
+      .drawer-toggle:focus-visible { color: var(--green); outline: none; }
+      .player-panel.is-open .drawer-toggle {
+        color: var(--green);
+        background: linear-gradient(180deg, rgba(0,255,65,.1) 0%, rgba(0,255,65,.02) 100%);
+      }
+      .drawer-toggle .drawer-label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .drawer-toggle .drawer-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .drawer-toggle .drawer-count {
+        font-family: var(--font-vt);
+        font-size: 1.15rem;
+        color: var(--green);
+        letter-spacing: .04em;
+        text-shadow: 0 0 8px rgba(0,255,65,.5);
+        padding: 1px 8px;
+        border: 1px solid rgba(0,255,65,.3);
+        border-radius: 2px;
+        background: rgba(0,255,65,.06);
+        text-transform: none;
+        min-width: 32px;
+        text-align: center;
+      }
+      .drawer-toggle .drawer-caret {
+        display: inline-block;
+        transition: transform .25s ease;
+        color: var(--green);
+        font-size: .85rem;
+        text-shadow: 0 0 6px rgba(0,255,65,.55);
+      }
+      .player-panel.is-open .drawer-toggle .drawer-caret {
+        transform: rotate(180deg);
+      }
+
+      .player-list {
+        display: none;
+        max-height: 58vh;
+        overflow-y: auto;
+        padding: 10px 10px 14px;
+      }
+      .player-panel.is-open .player-list { display: flex; }
+
+      .pc-name { max-width: none; font-size: .85rem; }
+      .pc-items { font-size: 1rem; line-height: 1.4; padding: 2px 0; }
+      .pc-bail-btn {
+        min-height: 36px;
+        padding: 6px 12px;
+        font-size: .75rem;
+      }
+
+      .right-panel { overflow: visible; flex: none; }
+
+      .feed-panel {
+        overflow: visible;
+        border-bottom: 1px solid var(--border);
+        flex: none;
+      }
+      .feed-list {
+        max-height: 32vh;
+        overflow-y: auto;
+      }
+
+      .event-entry {
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        padding: 7px 14px;
+      }
+      .ev-user, .ev-cmd {
+        min-width: 0;
+        font-size: .78rem;
+      }
+      .ev-result {
+        flex: 1 1 100%;
+        font-size: .82rem;
+        padding-left: 2px;
+      }
+
+      .cmd-panel {
+        max-height: none;
+        overflow-y: visible;
+        padding: 12px 14px 22px;
+        gap: 12px;
+      }
+      .cmd-row {
+        gap: 8px;
+      }
+      .cmd-label {
+        min-width: 100%;
+        padding-bottom: 2px;
+        font-size: .62rem;
+        letter-spacing: .24em;
+      }
+
+      .atk-btn,
+      .util-btn,
+      .loc-chip,
+      .grab-btn,
+      .owner-btn,
+      .pvp-btn {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .72rem;
+        letter-spacing: .03em;
+      }
+
+      .item-badge {
+        cursor: pointer;
+        display: inline-block;
+        padding: 2px 4px;
+        margin: 0 1px;
+        border-radius: 3px;
+        transition: background .15s;
+      }
+      .item-badge:active { background: rgba(0,255,65,.18); }
+
+      #konami-toast { top: auto; bottom: 24px; }
+    }
   </style>
 </head>
 <body>
@@ -804,8 +1210,15 @@
   <div class="main">
 
     <!-- Player panel -->
-    <div class="player-panel">
-      <div class="panel-title" id="player-panel-title">Active This Session</div>
+    <div class="player-panel" id="player-panel">
+      <button class="drawer-toggle" id="drawer-toggle" type="button" aria-expanded="false" aria-controls="player-list">
+        <span class="drawer-label">Active Players This Session</span>
+        <span class="drawer-meta">
+          <span class="drawer-count">0</span>
+          <span class="drawer-caret" aria-hidden="true">▾</span>
+        </span>
+      </button>
+      <div class="panel-title" id="player-panel-title">Active Players This Session</div>
       <div class="player-list" id="player-list">
         <div class="player-empty" id="player-empty">Waiting for players</div>
       </div>
@@ -1067,7 +1480,10 @@
   }
   function founderBadgeHtml(tier) {
     if (!tier) return '';
-    const m = String(tier).match(/^FOUNDER::(.+)$/);
+    // Accepts FOUNDER::* (S1-migrated tiers + one-off QU33N0FTH3CA5TL3) and
+    // CREATOR::* (channel-owner / dev tiers). Class is derived from suffix only,
+    // so CSS rules stay short (.tier-theo, .tier-31337, ...).
+    const m = String(tier).match(/^(?:FOUNDER|CREATOR)::(.+)$/);
     if (!m) return '';
     const suffix = m[1];
     const cls = 'tier-' + suffix.toLowerCase();
@@ -1116,7 +1532,7 @@
         const fill = card.querySelector('.pc-hp-fill');
         fill.style.width      = (pct * 100) + '%';
         fill.style.background = hpColor(pct);
-        card.querySelector('.pc-hp-text').textContent = p.health + ' HP';
+        card.querySelector('.pc-hp-text').textContent = `${p.health}/${p.max_health || p.health} HP`;
         card.querySelector('.pc-items').innerHTML = badges;
         card.querySelector('.pc-location').textContent = locText;
         const founderSlot = card.querySelector('.pc-founder-slot');
@@ -1154,7 +1570,7 @@
             <div class="pc-hp-bar">
               <div class="pc-hp-fill" style="width:${pct*100}%;background:${hpColor(pct)}"></div>
             </div>
-            <div class="pc-hp-text">${p.health} HP</div>
+            <div class="pc-hp-text">${p.health}/${p.max_health || p.health} HP</div>
           </div>
           <div class="pc-items">${badges}</div>
           <div class="pc-location">${escHtml(locText)}</div>
@@ -1167,6 +1583,8 @@
         card.addEventListener('click', (e) => {
           // Bail buttons handle their own clicks; don't steal them as target.
           if (e.target.closest('.pc-bail-btn')) return;
+          // On mobile, an item-badge tap shows its tooltip instead of selecting.
+          if (_isMobileVP() && e.target.closest('.item-badge')) return;
           selectTarget(name);
         });
         list.appendChild(card);
@@ -1240,11 +1658,20 @@
     }
   });
 
+  // True while a boss battle is active and the player is on the team — set by
+  // the state_update listener below. While set, syncMyStats skips its HP write
+  // so the header keeps showing the live battle HP (which the state_update
+  // listener mirrors directly).
+  let _battleHPLocked = false;
+
   // ── My stats strip ─────────────────────────────────────────────────────────
   function syncMyStats(p) {
     if (!p) return;
     if (p.level  !== undefined) { _myLevel = p.level; document.getElementById('ss-level').textContent  = p.level; }
-    if (p.health  !== undefined) document.getElementById('ss-health').textContent = p.health;
+    if (p.health !== undefined && !_battleHPLocked) {
+      const maxHp = (p.max_health !== undefined) ? p.max_health : p.health;
+      document.getElementById('ss-health').textContent = `${p.health}/${maxHp}`;
+    }
     if (p.points  !== undefined) document.getElementById('ss-points').textContent = p.points;
     if (p.location !== undefined) {
       _myLocation = p.location;
@@ -1437,7 +1864,7 @@
     _selectedTarget = null;
     document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('pvp-row').classList.add('hidden');
-    document.getElementById('player-panel-title').textContent = 'Active This Session';
+    document.getElementById('player-panel-title').textContent = 'Active Players This Session';
   }
 
   function sendSteal() {
@@ -1595,6 +2022,66 @@
     toast.addEventListener('animationend', () => toast.remove(), { once: true });
   }
 
+  // ── Mobile: drawer toggle + tap-to-show tooltips ───────────────────────────
+  // The drawer toggle is only visible below 720px (see @media block); on
+  // desktop the player panel is always-open and these handlers no-op.
+  const _MOBILE_MQ = window.matchMedia('(max-width: 720px)');
+  function _isMobileVP() { return _MOBILE_MQ.matches; }
+
+  (function wireDrawer() {
+    const panel  = document.getElementById('player-panel');
+    const toggle = document.getElementById('drawer-toggle');
+    if (!panel || !toggle) return;
+    toggle.addEventListener('click', () => {
+      const open = panel.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    // Mirror the panel-title text and player count into the drawer toggle so
+    // collapsed users still see "Target: @name" when they pick a PvP target.
+    const titleSrc = document.getElementById('player-panel-title');
+    const countSrc = document.getElementById('player-count');
+    const labelDst = toggle.querySelector('.drawer-label');
+    const countDst = toggle.querySelector('.drawer-count');
+    function sync() {
+      if (labelDst && titleSrc) labelDst.textContent = titleSrc.textContent;
+      if (countDst && countSrc) countDst.textContent = countSrc.textContent;
+    }
+    const obs = new MutationObserver(sync);
+    if (titleSrc) obs.observe(titleSrc, { childList: true, characterData: true, subtree: true });
+    if (countSrc) obs.observe(countSrc, { childList: true, characterData: true, subtree: true });
+    sync();
+  })();
+
+  let _infoToastTimer = null;
+  function showInfoToast(text) {
+    const existing = document.getElementById('info-toast');
+    if (existing) existing.remove();
+    if (_infoToastTimer) { clearTimeout(_infoToastTimer); _infoToastTimer = null; }
+    const toast = document.createElement('div');
+    toast.id = 'info-toast';
+    toast.textContent = text;
+    toast.addEventListener('click', () => {
+      toast.remove();
+      if (_infoToastTimer) { clearTimeout(_infoToastTimer); _infoToastTimer = null; }
+    });
+    document.body.appendChild(toast);
+    _infoToastTimer = setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+      _infoToastTimer = null;
+    }, 4000);
+  }
+
+  // Mobile-only delegation: surfaces title= tooltips as tap toasts. Desktop
+  // still shows them via native hover, so this no-ops above the breakpoint.
+  document.addEventListener('click', (e) => {
+    if (!_isMobileVP()) return;
+    const badge = e.target.closest('.item-badge');
+    if (badge && badge.title) { showInfoToast(badge.title); return; }
+    const treasury = e.target.closest('.header__treasury');
+    if (treasury && treasury.title) { showInfoToast(treasury.title); return; }
+  });
+
   // ── Init: check auth ───────────────────────────────────────────────────────
   async function initAuth() {
     try {
@@ -1632,6 +2119,87 @@
   }
 
   initAuth();
+
+  // ── Boss-battle alert popup ────────────────────────────────────────────
+  // Fires once per battle when the spectator state_update transitions from
+  // active=false → active=true. Click-through goes to / (the boss-battle page).
+  (function wireBossAlert() {
+    // Initialize as false so the first state_update with active=true also
+    // triggers the alert (i.e. when a player opens /twitchack mid-battle).
+    let lastActive = false;
+    let alertedFor = null;       // boss_name we've already alerted for this battle
+    const backdrop = document.createElement('div');
+    backdrop.id = 'boss-alert-backdrop';
+    const dialog = document.createElement('div');
+    dialog.id = 'boss-alert';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'boss-alert-title');
+    dialog.innerHTML = `
+      <button class="ba-dismiss" type="button" aria-label="Dismiss">×</button>
+      <div class="ba-bang" aria-hidden="true">!</div>
+      <div class="ba-title" id="boss-alert-title">Boss Battle</div>
+      <div class="ba-sub">
+        <span class="ba-boss" id="boss-alert-name">Theo</span> is in the system.
+        <br>Sign in, suit up, and land your hacks.
+      </div>
+      <a class="ba-cta" id="boss-alert-go" href="/">→ Go fight Theo</a>
+      <div class="ba-foot">bossbattle.b7h30.com</div>
+    `;
+    document.body.appendChild(backdrop);
+    document.body.appendChild(dialog);
+
+    function open(bossName) {
+      document.getElementById('boss-alert-name').textContent = bossName || 'Theo';
+      backdrop.classList.add('is-open');
+      dialog.classList.add('is-open');
+    }
+    function close() {
+      backdrop.classList.remove('is-open');
+      dialog.classList.remove('is-open');
+    }
+    dialog.querySelector('.ba-dismiss').addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+    // Boss-battle state lives on the same socket as the /twitchack game state
+    // (overlay server emits both). Pull it on connect and on every update.
+    socket.on('connect', () => socket.emit('request_state'));
+    socket.on('state_update', (st) => {
+      const nowActive = !!(st && st.active);
+      // Transition false → true: open alert (once per boss_name).
+      if (lastActive === false && nowActive && alertedFor !== st.boss_name) {
+        alertedFor = st.boss_name;
+        open(st.boss_name);
+      }
+      // Battle ended: reset the per-battle flag and auto-dismiss any open alert.
+      // Also refresh game_state so the header HP snaps back to the open-world
+      // value (which may have changed: +5 max HP from a victory survival).
+      if (lastActive === true && !nowActive) {
+        alertedFor = null;
+        close();
+        socket.emit('request_game_state');
+      }
+      lastActive = nowActive;
+
+      // Mirror battle HP into the /twitchack header so the player sees their
+      // current battle HP, not their stale open-world HP, while a raid is on.
+      // _battleHPLocked tells syncMyStats to skip its HP write so a stray
+      // game_state event can't clobber the battle value mid-fight.
+      const meInBattle = nowActive && _myUsername && st.players && st.players[_myUsername];
+      if (meInBattle) {
+        _battleHPLocked = true;
+        const me = st.players[_myUsername];
+        const hpEl = document.getElementById('ss-health');
+        if (hpEl && me.health !== undefined) {
+          const maxHp = me.max_health || me.health;
+          hpEl.textContent = me.alive ? `${me.health}/${maxHp}` : '0';
+        }
+      } else {
+        _battleHPLocked = false;
+      }
+    });
+  })();
 </script>
 </body>
 </html>

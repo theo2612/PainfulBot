@@ -17,3 +17,10 @@ class BossBattle:
         self.fallen = []                # ordered list of players who died (for summary)
         self.consciousness_used = set() # players who've burned their Consciousness USB save
         self.player_max_health = {}     # {username: hp at join time} for overlay HP bars
+
+        # Round 2 — item-effect state (consumed by run_team_battle's boss turn):
+        self.skip_boss_turns = 0           # # of upcoming boss turns to skip entirely
+        self.weakness_next_turn = 0        # dmg reduction applied to boss's NEXT attack only
+        self.bonus_points = {}             # {username: extra pts} added at reward time
+        self.next_boss_damage = None       # pre-rolled by reveal_boss_damage so reveal is honest
+        self.next_boss_target = None       # pre-rolled by reveal_boss_target

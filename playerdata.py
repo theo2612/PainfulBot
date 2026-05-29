@@ -4,10 +4,19 @@ class Player:
                  founder_tier=None, konami_last_at=None, cardboard_box_until=None,
                  last_attack_at=None, speed_strikes=0, last_strike_at=None,
                  jail=None, last_jail_released_at=None, offense_count=0,
-                 bail_request_for=None, no_cap_until=None):
+                 bail_request_for=None, no_cap_until=None,
+                 max_health=None, last_regen_at=None):
         self.username = username
         self.level = level
-        self.health = health
+        # health == current HP; max_health == personal cap (50 start, +5/win, cap 1000).
+        # Legacy records pre-dating the split stored only `health` which doubled as
+        # the max — when max_health is omitted, treat the incoming health as the max
+        # and start the player at full so the migration is non-punitive.
+        if max_health is None:
+            max_health = health
+        self.max_health = max_health
+        self.health = min(health, max_health)
+        self.last_regen_at = last_regen_at  # ISO timestamp; drives 30s regen cooldown
         self.items = items if items else []
         self.location = location
         self.points = points
@@ -54,11 +63,14 @@ class Player:
             'username': self.username,
             'level': self.level,
             'health': self.health,
+            'max_health': self.max_health,
             'items': self.items,
             'location': self.location,
             'points': self.points,
             'started': self.started,
         }
+        if self.last_regen_at:
+            d['last_regen_at'] = self.last_regen_at
         if self.founder_tier:
             d['founder_tier'] = self.founder_tier
         if self.konami_last_at:
@@ -90,6 +102,8 @@ class Player:
             username=username,
             level=data.get('level', 1),
             health=data.get('health', 10),
+            max_health=data.get('max_health'),
+            last_regen_at=data.get('last_regen_at'),
             items=data.get('items', []),
             location=data.get('location', 'home'),
             points=data.get('points', 0),

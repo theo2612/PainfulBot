@@ -3,6 +3,7 @@ import os
 import random
 import json
 import asyncio
+import math
 import time
 import re
 import inspect
@@ -44,6 +45,56 @@ BATTLE_DROPS = [
     "Kevin Mitnick's Password Cracker",
     "Elliot Alderson's Raspberry Pi",
 ]
+
+
+# ── Boss-battle item effects (Round 2) ───────────────────────────────────────
+# Each entry: {tier, attack_name, damage_range, effect}.
+# `effect` is either None (pure damage) or a discriminated-union dict:
+#   {"type": "max_roll"}                                       — deal top of range
+#   {"type": "crit", "mult": float}                            — multiply rolled damage
+#   {"type": "skip_boss_next_turn", "chance": float}           — chance to skip boss's next attack
+#   {"type": "weakness_next_turn", "reduction": int}           — boss next attack does -N dmg
+#   {"type": "heal_self", "amount": int}                       — heal user
+#   {"type": "heal_random_teammate", "amount": int}            — heal random ally
+#   {"type": "bonus_points", "amount": int}                    — extra points at battle end
+#   {"type": "reveal_boss_damage"}                             — log boss's pre-rolled next dmg
+#   {"type": "reveal_boss_target"}                             — log boss's pre-rolled next target
+#   {"type": "browns_punt"}                                    — cosmetic chance for log gag
+#   {"type": "burner_volley", "shots": N, "per_shot": (lo,hi)} — multi-shot, overrides damage_range
+# BATTLE_DROPS items (Consciousness USB, Raspberry Pi, etc.) are intentionally
+# absent — they remain passive auto-triggers in run_team_battle.
+ITEM_EFFECTS = {
+    # ── Tier 1 — common, damage stamps ───────────────────────────────
+    "Cookies":              {"tier": 1, "attack_name": "Session hijack",       "damage_range": (15, 25),  "effect": None},
+    "Mimikatz":             {"tier": 1, "attack_name": "Credential dump",      "damage_range": (20, 35),  "effect": None},
+    "VX Underground HDD":   {"tier": 1, "attack_name": "Ransomware payload",   "damage_range": (25, 40),  "effect": None},
+
+    # ── Tier 2 — mid-tier, light effects ─────────────────────────────
+    "EvilGinx":             {"tier": 2, "attack_name": "Spear-phish Theo",     "damage_range": (45, 65),  "effect": None},
+    "Nmap":                 {"tier": 2, "attack_name": "Recon scan",           "damage_range": (35, 55),  "effect": {"type": "reveal_boss_damage"}},
+    "Hydra":                {"tier": 2, "attack_name": "Brute force creds",    "damage_range": (45, 65),  "effect": {"type": "max_roll"}},
+    "Shodan API Key":       {"tier": 2, "attack_name": "Banner grab",          "damage_range": (40, 60),  "effect": {"type": "skip_boss_next_turn", "chance": 0.25}},
+    "Kali ISO":             {"tier": 2, "attack_name": "Full toolkit barrage", "damage_range": (55, 75),  "effect": None},
+
+    # ── Tier 3 — marquee, meaningful effects ─────────────────────────
+    "Wireshark":            {"tier": 3, "attack_name": "Packet sniff + inject","damage_range": (50, 80),  "effect": {"type": "reveal_boss_target"}},
+    "Metasploit":           {"tier": 3, "attack_name": "Exploit chain",        "damage_range": (70, 100), "effect": {"type": "crit", "mult": 1.5}},
+    "O.MG Cable":           {"tier": 3, "attack_name": "Hardware backdoor",    "damage_range": (60, 90),  "effect": {"type": "weakness_next_turn", "reduction": 15}},
+    "YubiKey":              {"tier": 3, "attack_name": "Auth bypass",          "damage_range": (65, 95),  "effect": {"type": "skip_boss_next_turn", "chance": 1.0}},
+    "Burner Laptop":        {"tier": 3, "attack_name": "Rapid-fire barrage",   "damage_range": (0, 0),    "effect": {"type": "burner_volley", "shots": 10, "per_shot": (8, 15)}},
+
+    # ── Tier 4 — rare/event, powerful effects ────────────────────────
+    "NES":                  {"tier": 4, "attack_name": "Konami code DDoS",     "damage_range": (85, 115), "effect": {"type": "skip_boss_next_turn", "chance": 0.5}},
+    "Contra Cartridge":     {"tier": 4, "attack_name": "30 lives barrage",     "damage_range": (100, 130),"effect": None},
+    "Golden Cassette Tape": {"tier": 4, "attack_name": "Mixtape mind-fuck",    "damage_range": (90, 110), "effect": {"type": "bonus_points", "amount": 50}},
+    "Jet Black Hoodie":     {"tier": 4, "attack_name": "Vanish + strike",     "damage_range": (90, 120), "effect": {"type": "heal_self", "amount": 30}},
+    "RGB Keyboard (Purple)":{"tier": 4, "attack_name": "Mechanical frenzy",    "damage_range": (100, 140),"effect": None},
+
+    # ── Flavor — low damage, support effects ─────────────────────────
+    "A Fresh Hot Cup of Black Coffee": {"tier": 0, "attack_name": "Caffeinate",        "damage_range": (5, 15),  "effect": {"type": "heal_self", "amount": 15}},
+    "Tiny Browns Helmet":              {"tier": 0, "attack_name": "We punt!",          "damage_range": (8, 18),  "effect": {"type": "browns_punt"}},
+    "Root Beer Flask":                 {"tier": 0, "attack_name": "Patch Tuesday brew","damage_range": (15, 30), "effect": {"type": "heal_random_teammate", "amount": 20}},
+}
 
 JOIN_TAUNTS = [
     "Scanning @{username}... threat level: negligible.",
@@ -94,6 +145,26 @@ class WebCtx:
 
     def result(self):
         return ' | '.join(self._messages) if self._messages else ''
+
+
+class _ChannelCtx:
+    """Stand-in ctx whose .send() goes directly to the bot's first Twitch channel.
+
+    Used to route long-running multi-message flows (e.g. a boss battle) to
+    actual chat regardless of whether the command originated from chat or
+    from the /web button — a WebCtx would buffer messages into the void
+    after the HTTP request returned.
+    """
+    def __init__(self, bot, original_author_name):
+        self._bot = bot
+        self.author = type('_A', (), {'name': original_author_name, 'is_mod': False})()
+        self.command = None
+
+    async def send(self, msg):
+        try:
+            await self._bot.connected_channels[0].send(str(msg))
+        except Exception:
+            pass  # If the bot is between reconnects, drop the message rather than crash the task.
 
 
 class Bot(commands.Bot):
@@ -341,6 +412,9 @@ class Bot(commands.Bot):
         """Push attack result to game overlay (no chat send). Handle level-up chat notification."""
         username = ctx.author.name.lower()
         event_type = 'attack-success' if success else 'attack-fail'
+        # World regen: every /twitchack action ticks +1 HP (30s per-user cooldown).
+        # Damage outside boss battle persists, so chat engagement is the recovery path.
+        helpers.regen_tick(player)
         leveled_up = helpers.check_level_up(self.player_data, username)
         helpers.save_player_data(self.player_data)
         await game_overlay.event(username, command, result_msg, event_type)
@@ -386,24 +460,36 @@ class Bot(commands.Bot):
     def _ov_state(self, result=None):
         """Build overlay state dict from current battle for push()."""
         battle = self.ongoing_battle
+        # Cooldown is set when a battle STARTS, so the player-facing overlay can show
+        # a Start button only when (last_start + cooldown) is in the past.
+        if self.last_battle_time == datetime.min:
+            cooldown_until_ms = 0
+        else:
+            cooldown_until_ms = int(
+                (self.last_battle_time + self.boss_battle_cooldown).timestamp() * 1000
+            )
         if not battle:
-            return {"active": False}
+            return {"active": False, "cooldown_until": cooldown_until_ms}
         players = {}
         for name, hp in battle.challenger_team.items():
             p = self.player_data.get(name)
+            all_items = list(p.items) if p else []
             players[name] = {
                 "health": hp,
                 "max_health": battle.player_max_health.get(name, hp),
-                "items": [i for i in (p.items if p else []) if i in BATTLE_DROPS],
+                "items": [i for i in all_items if i in BATTLE_DROPS],
+                "inventory": [i for i in all_items if i in ITEM_EFFECTS],
                 "alive": True,
                 "jail": getattr(p, "jail", None) if p else None,
             }
         for name in battle.fallen:
             p = self.player_data.get(name)
+            all_items = list(p.items) if p else []
             players[name] = {
                 "health": 0,
                 "max_health": battle.player_max_health.get(name, 100),
-                "items": [i for i in (p.items if p else []) if i in BATTLE_DROPS],
+                "items": [i for i in all_items if i in BATTLE_DROPS],
+                "inventory": [i for i in all_items if i in ITEM_EFFECTS],
                 "alive": False,
                 "jail": getattr(p, "jail", None) if p else None,
             }
@@ -413,6 +499,9 @@ class Bot(commands.Bot):
             "boss_health": battle.boss_health,
             "boss_max_health": battle.boss_max_health,
             "players": players,
+            "join_phase": battle.join_phase,
+            "hack_used": sorted(battle.hack_used),
+            "cooldown_until": cooldown_until_ms,
         }
         if result is not None:
             state["result"] = result
@@ -1164,11 +1253,12 @@ class Bot(commands.Bot):
 
     @commands.command(name='useburner')
     async def useburner(self, ctx):
-        """Consume a Burner Laptop: fire 10 auto-attacks at your current
-        location, bypassing the speed-penalty rate limit. Item vanishes."""
+        """Consume a Burner Laptop. In a boss battle: 10 rapid hits on the
+        boss via the unified item-effect path. Otherwise: 10 auto-attacks at
+        the player's current TwitcHack location."""
         username = ctx.author.name.lower()
         if username not in self.player_data:
-            await ctx.send(f"@{ctx.author.name}, please register using !start before playing.")
+            await ctx.send(f"@{ctx.author.name}, sign in at bossbattle.b7h30.com/twitchack to play.")
             return
 
         player = self.player_data[username]
@@ -1181,6 +1271,14 @@ class Bot(commands.Bot):
 
         if "Burner Laptop" not in player.items:
             await ctx.send(f"@{ctx.author.name}, you don't have a Burner Laptop. Find one in a drop first.")
+            return
+
+        # Round 2: in an active boss battle, the Burner Laptop hits the boss
+        # instead of the open-world location. Route through web_useitem so the
+        # consumption + damage + chat-quiet logging all happen in one place.
+        battle = self.ongoing_battle
+        if battle and not battle.join_phase and username in battle.challenger_team:
+            await self.web_useitem(ctx, "Burner Laptop")
             return
 
         max_reward = self._BURNER_REWARD.get(player.location)
@@ -1595,12 +1693,14 @@ class Bot(commands.Bot):
             battle.hack_used.add(username)
             battle.team_damage += damage
             battle.per_player_damage[username] = battle.per_player_damage.get(username, 0) + damage
-            await ctx.send(msg)
+            # Route to the GUI feed + spectator overlay only — chat stays quiet.
+            await overlay.log(msg, "hack")
+            await overlay.push(**self._ov_state())
             return
 
         # Outside of battle: move to a TwitcHack location
         if username not in self.player_data:
-            await ctx.send(f'@{ctx.author.name}, please register using !start before playing.')
+            await ctx.send(f'@{ctx.author.name}, sign in at bossbattle.b7h30.com/twitchack to play.')
             return
 
         player = self.player_data[username]
@@ -1712,7 +1812,7 @@ class Bot(commands.Bot):
                 f"@{ctx.author.name}, here is your current status: "
                 f"{badge}"
                 f"Level: {player.level} | \n"
-                f"Health: {player.health} | \n"
+                f"Health: {player.health}/{player.max_health} | \n"
                 f"Points: {player.points} | \n"
                 f"Location: {player.location} | \n"
                 f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
@@ -1736,7 +1836,7 @@ class Bot(commands.Bot):
                 f"@{ctx.author.name}, here is {target_player}'s status: "
                 f"{badge}"
                 f"Level: {player.level} | \n"
-                f"Health: {player.health} | \n"
+                f"Health: {player.health}/{player.max_health} | \n"
                 f"Points: {player.points} | \n"
                 f"Location: {player.location} | \n"
                 f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
@@ -2664,11 +2764,146 @@ class Bot(commands.Bot):
     # BOSS BATTLE #
     ###################################################################
 
+    async def _grant_bonus_points(self, battle):
+        """Apply any item-effect bonus points accumulated during the battle.
+        Awarded to survivors AND fallen alike (e.g. Golden Cassette Tape:
+        '+50 bonus points at battle end, win or lose')."""
+        if not battle or not battle.bonus_points:
+            return
+        for username, amt in battle.bonus_points.items():
+            player = self.player_data.get(username)
+            if not player:
+                continue
+            player.points += amt
+            self.session_points_earned[username] = self.session_points_earned.get(username, 0) + amt
+            helpers.check_level_up(self.player_data, username)
+            await overlay.log(f"@{username} pockets +{amt} item-effect bonus pts.", "reward")
+
+    async def web_useitem(self, ctx, item_name):
+        """Use an inventory item as a boss-battle attack. Web-only handler.
+
+        Resolves the item against ITEM_EFFECTS, deducts HP from the boss,
+        applies any side-effect (skip/heal/reveal/etc), removes one copy of
+        the item from the player's inventory, and pushes the new state to
+        the overlay. Chat stays quiet (per Round 1B); the GUI feed gets the
+        combat log entry.
+        """
+        username = ctx.author.name.lower()
+        battle = self.ongoing_battle
+
+        # Precondition checks — feedback flows back to the web toast via ctx.
+        if not battle or battle.join_phase:
+            await ctx.send("No active battle to use an item in.")
+            return
+        if username not in battle.challenger_team:
+            await ctx.send("Join the battle before using items.")
+            return
+        if battle.challenger_team[username] <= 0:
+            await ctx.send("You've fallen — items can't be used while down.")
+            return
+        player = self.player_data.get(username)
+        if not player:
+            await ctx.send(f"@{ctx.author.name}, sign in at bossbattle.b7h30.com/twitchack to play.")
+            return
+
+        item_name = (item_name or "").strip()
+        if not item_name or item_name not in player.items:
+            await ctx.send(f"You don't have a {item_name or 'that item'}.")
+            return
+        spec = ITEM_EFFECTS.get(item_name)
+        if not spec:
+            # Likely a BATTLE_DROPS passive (Consciousness USB, Raspberry Pi, etc.) — not button-usable.
+            await ctx.send(f"{item_name} auto-triggers — it doesn't take a manual button.")
+            return
+
+        # Roll damage
+        lo, hi = spec["damage_range"]
+        effect = spec.get("effect")
+        damage = random.randint(lo, hi) if lo or hi else 0
+        crit_note = ""
+
+        # Apply pre-damage effect modifiers
+        if effect and effect.get("type") == "max_roll":
+            damage = hi
+        elif effect and effect.get("type") == "crit":
+            damage = int(damage * effect.get("mult", 1.5))
+            crit_note = " — CRIT!"
+        elif effect and effect.get("type") == "burner_volley":
+            shots = effect["shots"]
+            plo, phi = effect["per_shot"]
+            shot_rolls = [random.randint(plo, phi) for _ in range(shots)]
+            damage = sum(shot_rolls)
+            crit_note = f" ({shots} hits)"
+
+        # Apply damage to boss
+        emoji = self.item_emojis.get(item_name, "📦")
+        battle.boss_health = max(0, battle.boss_health - damage)
+        battle.team_damage += damage
+        battle.per_player_damage[username] = battle.per_player_damage.get(username, 0) + damage
+
+        # Consume the item (one copy)
+        try:
+            player.items.remove(item_name)
+        except ValueError:
+            pass  # Race condition guard — shouldn't happen given the check above.
+
+        # Apply side-effects + build a flavor message for the log
+        attack_name = spec["attack_name"]
+        msg = f"{emoji} @{username} → {attack_name}{crit_note} — {damage} dmg to {battle.boss_name}!"
+        await overlay.log(msg, "item")
+
+        if effect:
+            etype = effect["type"]
+            if etype == "skip_boss_next_turn":
+                if random.random() < effect.get("chance", 1.0):
+                    battle.skip_boss_turns += 1
+                    await overlay.log(f"  ⤷ {battle.boss_name} is stunned — skipping their next turn!", "buff")
+            elif etype == "weakness_next_turn":
+                battle.weakness_next_turn += effect["reduction"]
+                await overlay.log(f"  ⤷ {battle.boss_name} weakened — next attack does -{effect['reduction']} dmg.", "buff")
+            elif etype == "heal_self":
+                amt = effect["amount"]
+                max_hp = battle.player_max_health.get(username, battle.challenger_team[username])
+                new_hp = min(max_hp, battle.challenger_team[username] + amt)
+                healed = new_hp - battle.challenger_team[username]
+                battle.challenger_team[username] = new_hp
+                await overlay.log(f"  ⤷ @{username} heals +{healed} HP ({new_hp}/{max_hp}).", "heal")
+            elif etype == "heal_random_teammate":
+                alive_others = [u for u in battle.challenger_team if u != username and battle.challenger_team[u] > 0]
+                if alive_others:
+                    target = random.choice(alive_others)
+                    amt = effect["amount"]
+                    max_hp = battle.player_max_health.get(target, battle.challenger_team[target])
+                    new_hp = min(max_hp, battle.challenger_team[target] + amt)
+                    healed = new_hp - battle.challenger_team[target]
+                    battle.challenger_team[target] = new_hp
+                    await overlay.log(f"  ⤷ @{target} healed for +{healed} HP ({new_hp}/{max_hp}).", "heal")
+                else:
+                    await overlay.log("  ⤷ No teammates left to heal.", "info")
+            elif etype == "bonus_points":
+                amt = effect["amount"]
+                battle.bonus_points[username] = battle.bonus_points.get(username, 0) + amt
+                await overlay.log(f"  ⤷ @{username} pockets +{amt} bonus pts at battle end.", "buff")
+            elif etype == "reveal_boss_damage":
+                # Pre-roll the boss's next-turn damage so the reveal is honest.
+                battle.next_boss_damage = random.randint(20, 70)
+                await overlay.log(f"  ⤷ Recon: {battle.boss_name}'s next attack will hit for {battle.next_boss_damage} dmg.", "reveal")
+            elif etype == "reveal_boss_target":
+                alive = [u for u in battle.challenger_team if battle.challenger_team[u] > 0]
+                if alive:
+                    battle.next_boss_target = random.choice(alive)
+                    await overlay.log(f"  ⤷ Sniff: {battle.boss_name} is targeting @{battle.next_boss_target} next turn.", "reveal")
+            elif etype == "browns_punt":
+                if random.random() < 0.3:
+                    await overlay.log(f"  ⤷ {battle.boss_name} laughs at the tiny helmet. The Browns punt.", "gag")
+
+        await overlay.push(**self._ov_state())
+        # Quick ack for the web toast.
+        await ctx.send(f"Used {item_name}: {damage} dmg.")
+
     @commands.command(name='bossbattle')
     async def bossbattle(self, ctx):
         try:
-            username = ctx.author.name.lower()
-            
             if self.ongoing_battle:
                 await ctx.send("A boss battle is already in progress!")
                 return
@@ -2687,40 +2922,80 @@ class Bot(commands.Bot):
 
             self.ongoing_battle = BossBattle(
                 boss_name='b7h30',
-                boss_health=min(boss_player.health, 1000)  # Cap boss health
+                # Round 3 — HP cap raised from 1000 → 1500 to compensate for the
+                # per-item button damage that landed in Round 2.
+                # Use max_health so a wounded boss-record (impossible today but
+                # cheap to be honest about) doesn't weaken the fight.
+                boss_health=min(boss_player.max_health, 1500)
             )
             self.last_battle_time = current_time
-            
+
+            # Immediate state push so the / player console + /twitchack popup react
+            # right now, instead of waiting 30s for the join phase to end.
+            await overlay.push(**self._ov_state())
+
+            # Always broadcast battle messages to actual Twitch chat regardless of
+            # whether !bossbattle came from chat or the /web Start button. (WebCtx
+            # buffers messages into the void after the HTTP request returns.)
+            chat_ctx = _ChannelCtx(self, ctx.author.name)
             await self.send_clamped(
-                ctx,
+                chat_ctx,
                 f"⚔️ BOSS BATTLE INITIATED! ⚔️\n"
                 f"💀 Boss: 1337haxxor Theo (HP: {self.ongoing_battle.boss_health})\n"
-                f"👥 Type !joinbattle in the next 30 seconds to join the raid team!\n"
+                f"👥 Tap JOIN at bossbattle.b7h30.com — 30 seconds to enlist!\n"
                 f"💪 Max 5 members | Smaller teams get bigger rewards!\n"
                 f"⚔️ Survivors get points and +5 permanent max HP!"
             )
-            
-            await asyncio.sleep(30)
-            
-            if not self.ongoing_battle:
-                return
-                
-            self.ongoing_battle.join_phase = False
-            
-            if not self.ongoing_battle.challenger_team:
-                await ctx.send("No challengers joined! Battle cancelled.")
-                self.ongoing_battle = None
-                return
 
-            team_members = ", ".join(self.ongoing_battle.challenger_team.keys())
-            await ctx.send(f"Join phase ended! Battle beginning with team: {team_members}")
-            
-            await self.run_team_battle(ctx)
-            
+            # Quick toast for the web caller (chat caller would see this redundantly
+            # since their ctx is also the channel — only respond to web callers).
+            if isinstance(ctx, WebCtx):
+                await ctx.send("Boss battle started — gather the team!")
+
+            # Run the join wait + actual battle in the background so this handler
+            # returns immediately. Web HTTP timeout is 5s; the join phase alone
+            # takes 30s so a synchronous await here always times out the toast.
+            asyncio.create_task(self._run_bossbattle_after_init(chat_ctx))
+
         except Exception as e:
             print(f"Error in bossbattle: {str(e)}")
             await ctx.send("An error occurred while starting the boss battle.")
             self.ongoing_battle = None
+
+    async def _run_bossbattle_after_init(self, chat_ctx):
+        """Background half of !bossbattle: wait out the join window, then run
+        the battle. Split out so the caller can return immediately and the web
+        HTTP request doesn't hit its 5s timeout while we're sleeping."""
+        try:
+            await asyncio.sleep(30)
+
+            if not self.ongoing_battle:
+                return
+
+            self.ongoing_battle.join_phase = False
+            # Push the join_phase=False transition so the GUI swaps Join → Hack/Burner.
+            await overlay.push(**self._ov_state())
+
+            if not self.ongoing_battle.challenger_team:
+                await chat_ctx.send("No challengers joined! Battle cancelled.")
+                self.ongoing_battle = None
+                await overlay.clear()
+                # Re-push so the player console knows cooldown_until and active=false.
+                await overlay.push(**self._ov_state())
+                return
+
+            # Team roster is visible in the spectator overlay; no chat message needed.
+            team_members = ", ".join(self.ongoing_battle.challenger_team.keys())
+            await overlay.log(f"Join phase ended — Team: {team_members}", "info")
+            await self.run_team_battle(chat_ctx)
+
+        except Exception as e:
+            print(f"Error in _run_bossbattle_after_init: {e}")
+            self.ongoing_battle = None
+            try:
+                await overlay.clear()
+            except Exception:
+                pass
 
     async def run_team_battle(self, ctx):
         try:
@@ -2745,6 +3020,13 @@ class Bot(commands.Bot):
                 await overlay.push(**self._ov_state())
                 await asyncio.sleep(1)
 
+                # Round 2: item-triggered skip (YubiKey / NES / Shodan procs).
+                if battle.skip_boss_turns > 0:
+                    battle.skip_boss_turns -= 1
+                    await overlay.log(f"⏭️ {battle.boss_name}'s turn skipped — too dazed to attack.", "buff")
+                    await asyncio.sleep(0.5)
+                    continue
+
                 # Boss turn taunt (50% chance)
                 if random.random() < 0.5:
                     taunt_text = random.choice(TURN_TAUNTS)
@@ -2762,9 +3044,28 @@ class Bot(commands.Bot):
                     )
                     await overlay.log(pi_msg, "pi")
                 else:
-                    # Boss targets one random player
-                    target = random.choice(list(battle.challenger_team.keys()))
-                    damage = random.randint(10, 30)
+                    # Boss targets one random player — honor any Wireshark-revealed target.
+                    if battle.next_boss_target and battle.next_boss_target in battle.challenger_team:
+                        target = battle.next_boss_target
+                    else:
+                        target = random.choice(list(battle.challenger_team.keys()))
+                    battle.next_boss_target = None
+                    # Round 3 — base damage roll widened from (10,30) to (15,40)
+                    # to compensate for Round 2's team damage buffs.
+                    # Use Nmap-revealed damage if pre-rolled, otherwise standard roll.
+                    if battle.next_boss_damage is not None:
+                        damage = battle.next_boss_damage
+                        battle.next_boss_damage = None
+                    else:
+                        damage = random.randint(15, 40)
+                    # Round 3 — soft enrage when boss drops below 25% HP: +25% damage.
+                    # Lets the boss get a few "I'm not done yet" moments before dying.
+                    if battle.boss_health > 0 and battle.boss_health < battle.boss_max_health * 0.25:
+                        damage = int(damage * 1.25)
+                    # O.MG Cable weakness debuff applies to THIS turn's attack, then resets.
+                    if battle.weakness_next_turn > 0:
+                        damage = max(0, damage - battle.weakness_next_turn)
+                        battle.weakness_next_turn = 0
                     boss_action = random.choice([
                         f"launches a targeted DDoS at @{target}!",
                         f"deploys ransomware on @{target}'s rig!",
@@ -2806,6 +3107,12 @@ class Bot(commands.Bot):
                                 death_taunt = random.choice(DEATH_TAUNTS)
                                 death_msg = f"☠️ @{target} has fallen! | 💀 {battle.boss_name}: {death_taunt}"
                                 await overlay.log(death_msg, "death")
+                                # Stream-worthy KO moment — broadcast a short version to chat.
+                                # (Taunt stays GUI-only to keep chat from spamming.)
+                                try:
+                                    await self.connected_channels[0].send(f"☠️ @{target} has fallen!")
+                                except Exception:
+                                    pass
                                 del battle.challenger_team[target]
                                 battle.fallen.append(target)
                                 await overlay.push(**self._ov_state())
@@ -2877,9 +3184,27 @@ class Bot(commands.Bot):
                 await overlay.clear()
             else:
                 self.session_battles["lost"] += 1
+                # Loss penalty — everyone who joined exits at 1 HP. World regen
+                # then owns the recovery curve and gates the next attempt via
+                # the 50% entry floor.
+                losers = list(set(battle.challenger_team.keys()) | set(battle.fallen))
+                for username in losers:
+                    if username in self.player_data:
+                        self.player_data[username].health = 1
+                helpers.save_player_data(self.player_data)
                 await overlay.push(**self._ov_state(result="defeat"))
                 await overlay.log("☠ DEFEAT — all challengers have fallen.", "defeat")
                 await self.battle_summary(ctx, victory=False)
+                # Round 2 — item-effect bonus pts (e.g. Golden Cassette Tape) still pay on defeat.
+                await self._grant_bonus_points(battle)
+                # Defeat broadcast — short, points back to the GUI for a rematch.
+                try:
+                    await self.connected_channels[0].send(
+                        f"💀 {battle.boss_name} survived — no winners this round. "
+                        f"Challenge him at bossbattle.b7h30.com"
+                    )
+                except Exception:
+                    pass
                 await asyncio.sleep(20)
                 await overlay.clear()
             
@@ -2906,19 +3231,33 @@ class Bot(commands.Bot):
             return
 
         if username not in self.player_data:
-            await ctx.send(f"@{ctx.author.name}, please register first with !start")
+            await ctx.send(f"@{ctx.author.name}, sign in at bossbattle.b7h30.com/twitchack to play.")
             return
 
         player = self.player_data[username]
+
+        # 50% entry gate — must be at least half HP to risk a boss battle.
+        # Persistent wounds carry over from /twitchack, so showing up battered
+        # locks you out until world regen brings you back up.
+        entry_floor = math.ceil(player.max_health / 2)
+        if player.health < entry_floor:
+            await ctx.send(
+                f"@{ctx.author.name}, you're too wounded to fight "
+                f"({player.health}/{player.max_health} HP). "
+                f"Patch yourself up — need at least {entry_floor}."
+            )
+            return
+
         self.ongoing_battle.challenger_team[username] = player.health
-        self.ongoing_battle.player_max_health[username] = player.health
+        # True max (not join-time HP) so the overlay shows wounded entry as
+        # a partial-fill bar rather than a deceptively full one.
+        self.ongoing_battle.player_max_health[username] = player.max_health
         join_msg = f"@{ctx.author.name} has joined the raid! ({len(self.ongoing_battle.challenger_team)}/5 members)"
-        await ctx.send(join_msg)
+        # GUI feed + spectator overlay only — chat stays quiet during the raid.
         await overlay.log(join_msg, "info")
         await overlay.push(**self._ov_state())
         taunt = random.choice(JOIN_TAUNTS).format(username=ctx.author.name, level=player.level)
         taunt_msg = f"💀 {self.ongoing_battle.boss_name}: {taunt}"
-        await ctx.send(taunt_msg)
         await overlay.log(taunt_msg, "taunt")
 
     async def battle_summary(self, ctx, victory: bool):
@@ -2940,37 +3279,85 @@ class Bot(commands.Bot):
         if mvp:
             parts.append(f"MVP: @{mvp} ({battle.per_player_damage[mvp]} dmg)")
         summary, _ = helpers.clamp_chat_message(" | ".join(parts))
-        await ctx.send(summary)
+        # Spectator overlay's result panel already shows survivors/fallen/MVP/damage.
+        # reward_team broadcasts the winner-focused chat message on victory; on
+        # defeat, the run_team_battle defeat path posts a short chat note.
+        await overlay.log(summary, "victory" if victory else "defeat")
 
     async def reward_team(self, ctx):
         try:
             battle = self.ongoing_battle
             if not battle:
                 return
-                
-            # Calculate rewards with caps
-            base_reward = 200
-            team_size_bonus = min((5 - len(battle.challenger_team)) * 50, 200)  # Cap at 200
-            damage_bonus = min(battle.team_damage // 50, 100)  # Cap at 100
-            
+
+            # Round 3 — rewards roughly 2× their Round 1 values. Boss is harder
+            # now (Round 3 HP/dmg buff) so the team's effort warrants more.
+            base_reward = 400                                                # was 200
+            team_size_bonus = min((5 - len(battle.challenger_team)) * 100, 400)  # was * 50, cap 200
+            damage_bonus = min(battle.team_damage // 25, 200)                # was // 50, cap 100
+
             total_reward = base_reward + team_size_bonus + damage_bonus
-            
+
+            # Round 3 — treasury bounty. Scales with team damage so big fights
+            # fund big bail-payouts. Multiplier is the single tuning knob here.
+            treasury_bounty = int(battle.team_damage * 1.5)
+            new_treasury = 0
+            if treasury_bounty > 0:
+                try:
+                    new_treasury = jail._credit_treasury(treasury_bounty)
+                    await game_overlay.treasury(new_treasury)
+                except Exception as e:
+                    print(f"Error crediting treasury bounty: {e}")
+                    new_treasury = jail.get_treasury_balance()
+
             await self.battle_summary(ctx, victory=True)
 
-            for username in battle.challenger_team:
+            survivor_names = list(battle.challenger_team.keys())
+            for username in survivor_names:
                 if username not in self.player_data:
                     continue
 
                 player = self.player_data[username]
                 player.points += total_reward
                 self.session_points_earned[username] = self.session_points_earned.get(username, 0) + total_reward
-                player.health = min(player.health + 5, 1000)  # Cap health at 1000
                 helpers.check_level_up(self.player_data, username)
-                await self.send_result(ctx, f"@{username} earned {total_reward} points and +5 max HP!")
+                # Per-player reward goes to the GUI player card / feed, not chat.
+                await overlay.log(f"@{username} earned {total_reward} points and +5 max HP!", "reward")
 
-            await ctx.send(f"The team has defeated {battle.boss_name}! Each survivor earned {total_reward} points!")
+            # Victory heals the whole team — survivors AND fallen. The +5 max
+            # bump goes to every participant (it was always a per-fight reward
+            # for showing up, not a survival reward), and current HP is set to
+            # the new max so the next battle attempt isn't immediately wound-gated.
+            participants = list(set(survivor_names) | set(battle.fallen))
+            for username in participants:
+                if username not in self.player_data:
+                    continue
+                player = self.player_data[username]
+                player.max_health = min(player.max_health + 5, 1000)
+                player.health = player.max_health
 
-            # Victory drop — one random battle-exclusive item, first to !grab it wins
+            # Round 2 — Golden Cassette Tape (and any other bonus_points effects)
+            # grant their pts to participants regardless of survival outcome.
+            await self._grant_bonus_points(battle)
+
+            # The one winner-focused chat broadcast — name the survivors and
+            # call out the treasury bounty (Round 3) so chat sees the inflow.
+            survivors_str = ", ".join(f"@{s}" for s in survivor_names) if survivor_names else "the team"
+            bounty_part = (
+                f" Treasury +{treasury_bounty} pts (balance: {new_treasury})."
+                if treasury_bounty > 0 else ""
+            )
+            try:
+                await self.connected_channels[0].send(
+                    f"🏆 VICTORY! {survivors_str} defeated {battle.boss_name} "
+                    f"— each earned {total_reward} pts.{bounty_part} "
+                    f"Replay or rematch at bossbattle.b7h30.com"
+                )
+            except Exception:
+                pass
+
+            # Victory drop — added to the drops list so the /twitchack drops widget
+            # surfaces it. No chat broadcast: drops live in the GUI now.
             self.prune_expired_drops()
             drop_item = random.choice(BATTLE_DROPS)
             existing_names = {d['name'].lower() for d in self.dropped_items}
@@ -2980,10 +3367,9 @@ class Bot(commands.Bot):
                     'location': 'the arena',
                     'ts': datetime.now().timestamp()
                 })
-                await ctx.send(
-                    f"🏆 VICTORY DROP! The battle left behind "
-                    f"{self.format_item(drop_item)}! "
-                    f"Type !grab {drop_item} to claim it before it's gone!"
+                await overlay.log(
+                    f"🏆 VICTORY DROP — {self.format_item(drop_item)} dropped in the arena.",
+                    "drop"
                 )
 
         except Exception as e:
@@ -3076,7 +3462,8 @@ class Bot(commands.Bot):
     # Web-only handlers that aren't registered as twitchio commands.
     # Add new entries here to expose extra web-side endpoints without polluting chat.
     _WEB_ONLY_HANDLERS = {
-        'konami': lambda self, ctx, args: self.web_konami(ctx),
+        'konami':  lambda self, ctx, args: self.web_konami(ctx),
+        'useitem': lambda self, ctx, args: self.web_useitem(ctx, args),
     }
 
     async def execute_web_command(self, username, command, args=''):

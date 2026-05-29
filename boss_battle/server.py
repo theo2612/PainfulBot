@@ -111,6 +111,9 @@ state = {
     "players": {},   # {username: {health, max_health, items: [], alive: bool}}
     "log": [],       # [{msg, type}] — newest first
     "result": None,  # None | "victory" | "defeat"
+    "join_phase": False,
+    "hack_used": [],          # list of usernames who've used their !hack nuke this battle
+    "cooldown_until": 0,      # epoch ms; bossbattle Start button enables once Date.now() > this
 }
 
 
@@ -124,6 +127,9 @@ def _snapshot():
             "players": dict(state["players"]),
             "log": list(state["log"]),
             "result": state["result"],
+            "join_phase": state["join_phase"],
+            "hack_used": list(state["hack_used"]),
+            "cooldown_until": state["cooldown_until"],
         }
 
 
@@ -376,7 +382,11 @@ def no_cache(response):
 
 @app.route("/")
 def spectator():
-    return render_template("spectator.html", v=BOOT_TS)
+    return render_template(
+        "spectator.html",
+        v=BOOT_TS,
+        username=session.get('twitch_username'),
+    )
 
 
 @app.route("/twitchack")
@@ -417,6 +427,12 @@ def guide_twitchack():
 def twitchack_login():
     state_token = secrets.token_hex(16)
     session['oauth_state'] = state_token
+    # Optional ?next=/path so callers (e.g. the spectator page at /) can be
+    # bounced back to where they came from. Only same-origin paths are allowed.
+    next_url = request.args.get('next', '/twitchack')
+    if not next_url.startswith('/') or next_url.startswith('//'):
+        next_url = '/twitchack'
+    session['post_login_redirect'] = next_url
     params = {
         'client_id':     TWITCH_CLIENT_ID,
         'redirect_uri':  REDIRECT_URI,
@@ -471,7 +487,7 @@ def twitchack_callback():
     except Exception:
         pass  # Bot may be offline — player can register via chat later
 
-    return redirect('/twitchack')
+    return redirect(session.pop('post_login_redirect', '/twitchack'))
 
 
 # ── Game web command API ──────────────────────────────────────────────────────
@@ -503,7 +519,7 @@ def api_push():
     data = request.get_json(force=True, silent=True) or {}
     with state_lock:
         for key in ("active", "boss_name", "boss_health", "boss_max_health",
-                    "players", "result"):
+                    "players", "result", "join_phase", "hack_used", "cooldown_until"):
             if key in data:
                 state[key] = data[key]
     socketio.emit("state_update", _snapshot())
@@ -542,7 +558,11 @@ def api_log():
 
 @app.route("/api/clear", methods=["POST"])
 def api_clear():
-    """Reset boss battle overlay to idle state."""
+    """Reset boss battle overlay to idle state.
+
+    Preserves `cooldown_until` so the player overlay knows when the next battle
+    can be started (the bot pushes the post-battle cooldown via the same field).
+    """
     with state_lock:
         state["active"] = False
         state["boss_name"] = ""
@@ -551,6 +571,8 @@ def api_clear():
         state["players"] = {}
         state["log"] = []
         state["result"] = None
+        state["join_phase"] = False
+        state["hack_used"] = []
     socketio.emit("state_update", _snapshot())
     return jsonify({"ok": True})
 
@@ -591,6 +613,7 @@ def api_game_player():
             "level":        data.get("level", 1),
             "points":       data.get("points", 0),
             "health":       data.get("health", 100),
+            "max_health":   data.get("max_health", data.get("health", 100)),
             "items":        data.get("items", []),
             "location":     data.get("location", "home"),
             "founder_tier": data.get("founder_tier"),

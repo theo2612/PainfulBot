@@ -52,6 +52,7 @@ async def player(username: str, player_obj) -> None:
             "level":        getattr(player_obj, "level", 1),
             "points":       getattr(player_obj, "points", 0),
             "health":       getattr(player_obj, "health", 100),
+            "max_health":   getattr(player_obj, "max_health", getattr(player_obj, "health", 100)),
             "items":        getattr(player_obj, "items", []),
             "location":     getattr(player_obj, "location", "home"),
             "founder_tier": getattr(player_obj, "founder_tier", None),
