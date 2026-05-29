@@ -120,7 +120,7 @@ class UtilityCommands(commands.Cog):
         await ctx.send(
             'Start now. Start where you are. Start with fear. Start with pain. Start with doubt. '
             'Start with hands shaking. Start with voice trembling but start. Start and don\'t stop. '
-            'Start where you are, with what you have. Just... Start.'
+            'Start where you are, with what you have. Just... Start. -Ijeoma Umebinyuo '
         )
 
     @commands.command(name='secret')
@@ -243,10 +243,9 @@ class UtilityCommands(commands.Cog):
         await ctx.send(
             "PainfulBot cmds | Utility: !hello, !coinflip, !roll/!d6/!d20/etc, !juststart, !secret, "
             "!boxstatus (HTB progress), !monday [prompt] (AI), !mondayinsulttheo | "
-            "TwitcHack: !start, !status, !points, !leaderboard, !hack <location>, "
-            "!attacks, !bossbattle, !joinbattle, !grab, !items, !useburner | "
-            "PvP & jail: !steal @user, !requestbail @user, !bail @user, !jail [@user], !treasury | "
-            "Game info: !help, !twitchackguide, !bossbattleguide, !battlecam | "
+            "TwitcHack — play in your browser: https://bossbattle.b7h30.com/twitchack | "
+            "Stats: !status, !points, !leaderboard, !items, !treasury | "
+            "Guides: !twitchackguide, !bossbattleguide, !battlecam | "
             "Gear & links: !links, !gear, !lab, !setup, !training, !merch"
         )
 

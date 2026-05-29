@@ -4,15 +4,15 @@
   "items": [
     {
       "id": "intro",
-      "label": "INTRO",
+      "label": "Wakey wakey",
       "sublabel": "",
-      "duration": 60
+      "duration": 900
     },
     {
-      "id": "new-1779658438712-574",
-      "label": "News",
-      "sublabel": "",
-      "duration": 300
+      "id": "new-1779875399423-825",
+      "label": "HTB - overpass",
+      "sublabel": "...still...",
+      "duration": 3600
     }
   ]
 }

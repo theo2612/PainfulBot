@@ -32,6 +32,8 @@ services:
     volumes:
       # Live code mount for fast iteration; remove for immutable production builds.
       - .:/app
+      # HTB pentest-coach notes (read-only) so !boxstatus can summarize progress.
+      - /home/b7h30/Documents/obsidian/docs/CTF/HTB:/root/Documents/obsidian/docs/CTF/HTB:ro
     expose:
       - "3004"
     ulimits:

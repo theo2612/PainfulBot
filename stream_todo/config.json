@@ -1,0 +1,37 @@
+{
+  "show_title": "PainfulIT",
+  "default_duration": 300,
+  "items": [
+    {
+      "id": "intro",
+      "label": "HELLOS - TTS",
+      "sublabel": "Welcome & housekeeping",
+      "duration": 900
+    },
+    {
+      "id": "news",
+      "label": "NEWS - TTS",
+      "sublabel": "What's going on",
+      "duration": 1800
+    },
+    {
+      "id": "htb",
+      "label": "HTB TARTAR SAUCE",
+      "sublabel": "HackTheBox walkthrough",
+      "duration": 7200
+    },
+    {
+      "id": "break",
+      "label": "BREAK \u2014 TTS",
+      "sublabel": "Chill time",
+      "duration": 600
+    },
+    {
+      "id": "outro",
+      "label": "GOODBYE",
+      "sublabel": "Raid + socials",
+      "duration": 300,
+      "color": "#E82020"
+    }
+  ]
+}

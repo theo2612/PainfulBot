@@ -179,10 +179,28 @@
       border: 1px solid rgba(255,34,68,.3);
       border-radius: 4px;
       padding: 14px 20px;
+      margin: 16px 16px 0;   /* stand-alone margin since panel lives outside .battle now */
       display: flex;
       align-items: center;
       gap: 20px;
       flex-shrink: 0;
+    }
+    .boss-panel--idle {
+      border-color: rgba(255,34,68,.18);
+      opacity: .85;
+    }
+    .boss-tagline {
+      font-family: var(--font-head);
+      font-size: .68rem;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .boss-tagline__caret {
+      display: inline-block;
+      animation: blink 1s step-end infinite;
+      margin-left: 2px;
     }
     .boss-panel--urgent {
       animation: boss-pulse 1.2s ease-in-out infinite;
@@ -457,6 +475,182 @@
     }
 
     .hidden { display: none !important; }
+    /* ── Player console (bottom bar) ─────────────────────────────────────
+       Sits at the bottom of the viewport on /. Shows a sign-in prompt for
+       anonymous viewers; shows action buttons for logged-in players.
+       The OBS-facing /todo route is unaffected — this is only on /. */
+    .player-console {
+      flex-shrink: 0;
+      background: linear-gradient(180deg, rgba(0,255,65,.04) 0%, rgba(0,0,0,.6) 100%);
+      border-top: 1px solid rgba(0,255,65,.25);
+      box-shadow: 0 -4px 24px rgba(0,255,65,.08);
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-height: 64px;
+      flex-wrap: wrap;
+    }
+    .player-console__label {
+      font-size: .68rem;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .player-console__you {
+      font-family: var(--font-vt);
+      font-size: 1.15rem;
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(0,255,65,.5);
+      letter-spacing: .04em;
+    }
+    .player-console__hp {
+      font-family: var(--font-vt);
+      font-size: 1rem;
+      color: var(--text-muted);
+      letter-spacing: .04em;
+    }
+    .player-console__hp .pc-hp-val { color: var(--green); }
+    .player-console__hp.is-critical .pc-hp-val { color: var(--red); animation: blink 1s step-end infinite; }
+    .player-console__hp.is-dead .pc-hp-val { color: var(--text-muted); }
+    .player-console__actions {
+      margin-left: auto;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pc-btn {
+      font-family: var(--font-head);
+      font-size: .78rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+      background: rgba(0,255,65,.06);
+      border: 1px solid rgba(0,255,65,.4);
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+      min-height: 40px;
+    }
+    .pc-btn:hover:not(:disabled) {
+      background: rgba(0,255,65,.18);
+      border-color: var(--green);
+      box-shadow: 0 0 12px rgba(0,255,65,.4);
+    }
+    .pc-btn:disabled {
+      color: var(--text-muted);
+      border-color: rgba(136,153,170,.2);
+      background: rgba(0,0,0,.3);
+      cursor: not-allowed;
+      opacity: .55;
+    }
+    .pc-btn--danger {
+      color: var(--red);
+      border-color: rgba(255,34,68,.5);
+      background: rgba(255,34,68,.06);
+    }
+    .pc-btn--danger:hover:not(:disabled) {
+      background: rgba(255,34,68,.18);
+      border-color: var(--red);
+      box-shadow: 0 0 12px rgba(255,34,68,.4);
+    }
+    .pc-btn--gold {
+      color: var(--gold);
+      border-color: rgba(255,215,0,.5);
+      background: rgba(255,215,0,.04);
+    }
+    .pc-btn--gold:hover:not(:disabled) {
+      background: rgba(255,215,0,.16);
+      border-color: var(--gold);
+      box-shadow: 0 0 12px rgba(255,215,0,.4);
+    }
+
+    /* ── Item inventory buttons (Round 2) ─────────────────────────────
+       Per-item buttons that appear when a player has usable items during
+       an active boss battle. Tier-colored borders make rarity glanceable. */
+    .player-console__items {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex-basis: 100%;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(0,255,65,.18);
+    }
+    .pc-item-btn {
+      font-family: var(--font-head);
+      font-size: .72rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, box-shadow .15s, transform .1s;
+      min-height: 36px;
+      background: rgba(0,0,0,.3);
+      border: 1px solid;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pc-item-btn:hover:not(:disabled) { box-shadow: 0 0 10px currentColor; }
+    .pc-item-btn:active:not(:disabled) { transform: scale(.97); }
+    .pc-item-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .pc-item-btn .pc-item-emoji { font-size: 1rem; }
+    .pc-item-btn--t0 { color: var(--purple-bright); border-color: rgba(192,132,252,.45); }
+    .pc-item-btn--t1 { color: var(--text-muted);   border-color: rgba(136,153,170,.45); }
+    .pc-item-btn--t2 { color: var(--green);        border-color: rgba(0,255,65,.45); }
+    .pc-item-btn--t3 { color: var(--blue);         border-color: rgba(0,180,255,.55); }
+    .pc-item-btn--t4 { color: var(--gold);         border-color: rgba(255,215,0,.6); background: rgba(255,215,0,.05); }
+    @media (max-width: 720px) {
+      .pc-item-btn { font-size: .65rem; padding: 6px 9px; }
+    }
+    .pc-signin-btn {
+      font-family: var(--font-head);
+      font-size: .78rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #fff;
+      background: #9146ff;
+      border: 1px solid #9146ff;
+      padding: 9px 18px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .15s, box-shadow .15s;
+    }
+    .pc-signin-btn:hover {
+      background: #a065ff;
+      box-shadow: 0 0 14px rgba(145,70,255,.5);
+    }
+    .pc-toast {
+      position: fixed;
+      bottom: 88px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-dark);
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 10px 18px;
+      font-family: var(--font-head);
+      font-size: .85rem;
+      letter-spacing: .04em;
+      box-shadow: 0 0 18px rgba(0,255,65,.3);
+      z-index: 10000;
+      animation: pc-toast-in .2s ease-out;
+      max-width: 80vw;
+    }
+    .pc-toast::before { content: '> '; opacity: .6; }
+    .pc-toast.is-error { border-color: var(--red); color: var(--red); box-shadow: 0 0 18px rgba(255,34,68,.3); }
+    @keyframes pc-toast-in {
+      from { opacity: 0; transform: translate(-50%, 12px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+    @media (max-width: 720px) {
+      .player-console { padding: 10px 12px; gap: 10px; }
+      .player-console__actions { margin-left: 0; width: 100%; }
+      .pc-btn { flex: 1 1 auto; min-width: 0; font-size: .72rem; padding: 8px 10px; letter-spacing: .08em; }
+      .player-console__label { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -470,30 +664,24 @@
     <span class="header__status status--idle" id="status-badge">IDLE</span>
   </header>
 
-  <!-- Idle screen -->
-  <div class="idle-screen" id="idle-screen">
-    <div class="idle-screen__text">No Active Battle</div>
-    <div class="idle-screen__sub">Waiting for raid to begin</div>
+  <!-- Boss panel — always visible. Shows Theo's full HP + READY when idle,
+       and live HP / urgent pulse / DEFEATED state when a battle is active. -->
+  <div class="boss-panel" id="boss-panel">
+    <div class="boss-skull">💀</div>
+    <div class="boss-info">
+      <div class="boss-name" id="boss-name">1337haxxor Theo</div>
+      <div class="boss-hp-wrap">
+        <div class="boss-hp-bar">
+          <div class="boss-hp-fill" id="boss-hp-fill" style="width:100%"></div>
+        </div>
+        <div class="boss-hp-text" id="boss-hp-text">1500 / 1500 HP</div>
+      </div>
+      <div class="boss-tagline" id="boss-tagline">AWAITING CHALLENGERS<span class="boss-tagline__caret">_</span></div>
+    </div>
   </div>
 
-  <!-- Battle view -->
+  <!-- Battle view — challengers + log. Hidden when no battle is active. -->
   <div class="battle hidden" id="battle-view">
-
-    <!-- Boss panel -->
-    <div class="boss-panel" id="boss-panel">
-      <div class="boss-skull">💀</div>
-      <div class="boss-info">
-        <div class="boss-name" id="boss-name">BOSS</div>
-        <div class="boss-hp-wrap">
-          <div class="boss-hp-bar">
-            <div class="boss-hp-fill" id="boss-hp-fill" style="width:100%"></div>
-          </div>
-          <div class="boss-hp-text" id="boss-hp-text">— / —</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Challengers + Log -->
     <div class="bottom">
 
       <div class="challengers">
@@ -517,16 +705,88 @@
     </div>
   </div>
 
+  <!-- Player console (bottom bar) -->
+  <div class="player-console" id="player-console">
+    {% if username %}
+      <span class="player-console__label">You</span>
+      <span class="player-console__you">@{{ username }}</span>
+      <span class="player-console__hp" id="pc-hp" style="display:none">HP <span class="pc-hp-val" id="pc-hp-val">—</span></span>
+      <span class="player-console__actions" id="pc-actions">
+        <button class="pc-btn" id="pc-start" type="button" style="display:none">⚔️ Start Battle</button>
+        <button class="pc-btn" id="pc-join" type="button" style="display:none">⚔️ Join Battle</button>
+        <button class="pc-btn pc-btn--danger" id="pc-hack" type="button" style="display:none">💥 Hack Nuke</button>
+        <button class="pc-btn pc-btn--gold" id="pc-burner" type="button" style="display:none">🔋 Burner Laptop</button>
+        <span class="player-console__label" id="pc-hint" style="display:none">Waiting for next battle…</span>
+      </span>
+      <!-- Item inventory buttons — populated dynamically when in active battle. -->
+      <span class="player-console__items" id="pc-items" style="display:none"></span>
+    {% else %}
+      <span class="player-console__label">Watching as guest</span>
+      <span class="player-console__hp" style="flex:1;">Sign in with Twitch to fight Theo — pop in to land hacks, use a Burner Laptop, or kick off a fresh battle.</span>
+      <a class="pc-signin-btn" href="/twitchack/login?next=/" rel="nofollow">Sign in with Twitch →</a>
+    {% endif %}
+  </div>
+
 </div>
 
 <script src="/static/socket.io.min.js?v={{ v }}"></script>
 <script>
   // ── Item emoji map ─────────────────────────────────────────────────────
   const ITEM_EMOJIS = {
+    // BATTLE_DROPS — passive items shown on player cards.
     "John Hammond's Consciousness USB": '🧠',
     "Heath Adams' Lambo Keys":          '🏎️',
     "Kevin Mitnick's Password Cracker": '🔓',
     "Elliot Alderson's Raspberry Pi":   '🫐',
+    // Round 2 button-usable items — used by the per-item inventory buttons.
+    "Cookies":                          '🍪',
+    "Mimikatz":                         '🧾',
+    "VX Underground HDD":               '💿',
+    "EvilGinx":                         '🕷️',
+    "Nmap":                             '📡',
+    "Hydra":                            '🗝️',
+    "Shodan API Key":                   '🔍',
+    "Kali ISO":                         '🐉',
+    "Wireshark":                        '🦈',
+    "Metasploit":                       '💥',
+    "O.MG Cable":                       '🔌',
+    "YubiKey":                          '🪫',
+    "Burner Laptop":                    '🔋',
+    "NES":                              '🎮',
+    "Contra Cartridge":                 '🔫',
+    "Golden Cassette Tape":             '📼',
+    "Jet Black Hoodie":                 '🥷',
+    "RGB Keyboard (Purple)":            '🎹',
+    "A Fresh Hot Cup of Black Coffee":  '☕',
+    "Tiny Browns Helmet":               '🏈',
+    "Root Beer Flask":                  '🧉',
+  };
+
+  // ── Item catalog mirror (kept in sync with ITEM_EFFECTS in PainfulBot.py) ──
+  // Used for tier-coloring buttons and showing the effect hint in the tooltip.
+  // If you add an item in the Python catalog, add it here too.
+  const ITEM_META = {
+    "Cookies":              {tier: 1, name: "Session hijack",        hint: "15–25 dmg"},
+    "Mimikatz":             {tier: 1, name: "Credential dump",       hint: "20–35 dmg"},
+    "VX Underground HDD":   {tier: 1, name: "Ransomware payload",    hint: "25–40 dmg"},
+    "EvilGinx":             {tier: 2, name: "Spear-phish Theo",      hint: "45–65 dmg"},
+    "Nmap":                 {tier: 2, name: "Recon scan",            hint: "35–55 dmg + reveals boss next dmg"},
+    "Hydra":                {tier: 2, name: "Brute force creds",     hint: "max-roll 65 dmg"},
+    "Shodan API Key":       {tier: 2, name: "Banner grab",           hint: "40–60 dmg + 25% skip boss turn"},
+    "Kali ISO":             {tier: 2, name: "Full toolkit barrage",  hint: "55–75 dmg"},
+    "Wireshark":            {tier: 3, name: "Packet sniff + inject", hint: "50–80 dmg + reveals boss target"},
+    "Metasploit":           {tier: 3, name: "Exploit chain",         hint: "70–100 dmg + guaranteed crit"},
+    "O.MG Cable":           {tier: 3, name: "Hardware backdoor",     hint: "60–90 dmg + boss -15 dmg next turn"},
+    "YubiKey":              {tier: 3, name: "Auth bypass",           hint: "65–95 dmg + skip boss turn"},
+    "Burner Laptop":        {tier: 3, name: "Rapid-fire barrage",    hint: "10 hits × 8–15 dmg (~115 avg)"},
+    "NES":                  {tier: 4, name: "Konami code DDoS",      hint: "85–115 dmg + 50% skip boss turn"},
+    "Contra Cartridge":     {tier: 4, name: "30 lives barrage",      hint: "100–130 dmg"},
+    "Golden Cassette Tape": {tier: 4, name: "Mixtape mind-fuck",     hint: "90–110 dmg + +50 bonus pts"},
+    "Jet Black Hoodie":     {tier: 4, name: "Vanish + strike",       hint: "90–120 dmg + heal 30 HP"},
+    "RGB Keyboard (Purple)":{tier: 4, name: "Mechanical frenzy",     hint: "100–140 dmg"},
+    "A Fresh Hot Cup of Black Coffee": {tier: 0, name: "Caffeinate",  hint: "5–15 dmg + heal 15 HP"},
+    "Tiny Browns Helmet":              {tier: 0, name: "We punt!",    hint: "8–18 dmg + 30% Theo laughs"},
+    "Root Beer Flask":                 {tier: 0, name: "Patch Tuesday brew", hint: "15–30 dmg + heal random teammate 20 HP"},
   };
 
   // ── HP bar color ───────────────────────────────────────────────────────
@@ -537,17 +797,21 @@
   }
 
   // ── Render state ───────────────────────────────────────────────────────
+  // Idle defaults — used when no battle is active so the boss card stays up.
+  const IDLE_BOSS_NAME = '1337haxxor Theo';
+  const IDLE_BOSS_MAX  = 1500;
+
   function render(st) {
-    const badge       = document.getElementById('status-badge');
-    const idleScreen  = document.getElementById('idle-screen');
-    const battleView  = document.getElementById('battle-view');
-    const resultOv    = document.getElementById('result-overlay');
+    const badge      = document.getElementById('status-badge');
+    const battleView = document.getElementById('battle-view');
+    const resultOv   = document.getElementById('result-overlay');
+    const tagline    = document.getElementById('boss-tagline');
 
     // Status badge
     badge.className = 'header__status';
     if (!st.active) {
       badge.classList.add('status--idle');
-      badge.textContent = 'IDLE';
+      badge.textContent = 'READY';
     } else if (st.result === 'victory') {
       badge.classList.add('status--victory');
       badge.textContent = '✓ VICTORY';
@@ -559,27 +823,40 @@
       badge.textContent = '● LIVE';
     }
 
-    // Idle vs battle
+    // Boss panel — always visible. Idle = full HP defaults; active = live values.
+    const bossPanel  = document.getElementById('boss-panel');
+    const bossHpFill = document.getElementById('boss-hp-fill');
+    const bossName   = st.active ? (st.boss_name || IDLE_BOSS_NAME) : IDLE_BOSS_NAME;
+    const bossMax    = st.active ? (st.boss_max_health || IDLE_BOSS_MAX) : IDLE_BOSS_MAX;
+    const bossHp     = st.active ? (st.boss_health || 0) : bossMax;
+    const bossPct    = Math.max(0, Math.min(1, bossHp / (bossMax || 1)));
+
+    document.getElementById('boss-name').textContent = bossName;
+    bossHpFill.style.width = (bossPct * 100) + '%';
+    bossHpFill.className = 'boss-hp-fill' + (st.active && bossPct < 0.25 ? ' boss-hp-fill--urgent' : '');
+    document.getElementById('boss-hp-text').textContent = `${bossHp} / ${bossMax} HP`;
+    bossPanel.className = 'boss-panel'
+      + (st.active && bossPct < 0.25 ? ' boss-panel--urgent' : '')
+      + (!st.active ? ' boss-panel--idle' : '');
+
+    // Tagline below boss HP: contextual nudge.
     if (!st.active) {
-      idleScreen.classList.remove('hidden');
+      tagline.style.display = '';
+      tagline.innerHTML = 'AWAITING CHALLENGERS<span class="boss-tagline__caret">_</span>';
+    } else if (st.join_phase) {
+      tagline.style.display = '';
+      tagline.innerHTML = 'JOIN PHASE — 30 seconds<span class="boss-tagline__caret">_</span>';
+    } else {
+      tagline.style.display = 'none';
+    }
+
+    // Battle view (challengers + log) only when a battle is active.
+    if (!st.active) {
       battleView.classList.add('hidden');
       resultOv.classList.add('hidden');
       return;
     }
-    idleScreen.classList.add('hidden');
     battleView.classList.remove('hidden');
-
-    // Boss
-    document.getElementById('boss-name').textContent = st.boss_name;
-    const bossMax = st.boss_max_health || 1;
-    const bossPct = Math.max(0, Math.min(1, st.boss_health / bossMax));
-    const bossHpFill = document.getElementById('boss-hp-fill');
-    bossHpFill.style.width = (bossPct * 100) + '%';
-    bossHpFill.className = 'boss-hp-fill' + (bossPct < 0.25 ? ' boss-hp-fill--urgent' : '');
-    document.getElementById('boss-hp-text').textContent =
-      st.boss_health + ' / ' + st.boss_max_health + ' HP';
-    const bossPanel = document.getElementById('boss-panel');
-    bossPanel.className = 'boss-panel' + (bossPct < 0.25 ? ' boss-panel--urgent' : '');
 
     // Players
     const list = document.getElementById('player-list');
@@ -683,6 +960,135 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Player console ────────────────────────────────────────────────────
+  // Jinja-injected: null for anonymous viewers, lowercase username if signed in.
+  const ME = {{ username|tojson }};
+
+  let _lastState = null;
+
+  function renderConsole(st) {
+    _lastState = st;
+    if (!ME) return;  // anonymous viewers see the static sign-in banner only
+
+    const startBtn  = document.getElementById('pc-start');
+    const joinBtn   = document.getElementById('pc-join');
+    const hackBtn   = document.getElementById('pc-hack');
+    const burnerBtn = document.getElementById('pc-burner');
+    const hint      = document.getElementById('pc-hint');
+    const hpWrap    = document.getElementById('pc-hp');
+    const hpVal     = document.getElementById('pc-hp-val');
+
+    const active     = !!st.active;
+    const joinPhase  = !!st.join_phase;
+    const me         = (st.players || {})[ME];
+    const isInBattle = !!me;
+    const hackUsedByMe = (st.hack_used || []).includes(ME);
+    const now        = Date.now();
+    const cooldownLeft = Math.max(0, (st.cooldown_until || 0) - now);
+
+    // Player HP — only show during active battle while we're in the team.
+    if (active && me) {
+      hpWrap.style.display = '';
+      hpVal.textContent = me.alive ? `${me.health}/${me.max_health}` : 'FALLEN';
+      hpWrap.classList.toggle('is-critical', me.alive && me.health / (me.max_health || 1) < 0.25);
+      hpWrap.classList.toggle('is-dead', !me.alive);
+    } else {
+      hpWrap.style.display = 'none';
+    }
+
+    // Button visibility cascade:
+    //   no battle → [Start] (or cooldown hint)
+    //   join phase → [Join]
+    //   active fight → [Hack] (if not used) + [Burner] (always allowed; bot checks inventory)
+    startBtn.style.display  = (!active) ? '' : 'none';
+    joinBtn.style.display   = (active && joinPhase && !isInBattle) ? '' : 'none';
+    hackBtn.style.display   = (active && !joinPhase && isInBattle && me && me.alive) ? '' : 'none';
+    burnerBtn.style.display = (active && !joinPhase && isInBattle && me && me.alive) ? '' : 'none';
+    hint.style.display      = 'none';
+
+    if (!active) {
+      if (cooldownLeft > 0) {
+        const secs = Math.ceil(cooldownLeft / 1000);
+        const mm = Math.floor(secs / 60), ss = secs % 60;
+        startBtn.disabled = true;
+        startBtn.textContent = `⚔️ Cooldown ${mm}:${String(ss).padStart(2,'0')}`;
+      } else {
+        startBtn.disabled = false;
+        startBtn.textContent = '⚔️ Start Battle';
+      }
+    }
+
+    if (active && joinPhase && isInBattle) {
+      // Already joined; show a hint instead of the button.
+      hint.style.display = '';
+      hint.textContent = 'Joined — waiting for fight to begin…';
+    }
+
+    hackBtn.disabled = hackUsedByMe;
+    if (hackUsedByMe) hackBtn.textContent = '💥 Hack Used';
+    else              hackBtn.textContent = '💥 Hack Nuke';
+
+    // ── Item inventory buttons ──
+    renderItemButtons(active, joinPhase, isInBattle, me);
+  }
+
+  function renderItemButtons(active, joinPhase, isInBattle, me) {
+    const wrap = document.getElementById('pc-items');
+    if (!wrap) return;
+    const inventory = (me && me.inventory) ? me.inventory : [];
+    const showButtons = active && !joinPhase && isInBattle && me && me.alive && inventory.length > 0;
+
+    if (!showButtons) {
+      wrap.style.display = 'none';
+      wrap.innerHTML = '';
+      return;
+    }
+
+    wrap.style.display = '';
+    // Sort inventory by tier desc so marquee/rare buttons land on the left.
+    const sorted = [...inventory].sort((a, b) => {
+      const ta = (ITEM_META[a]||{}).tier || 0;
+      const tb = (ITEM_META[b]||{}).tier || 0;
+      return tb - ta;
+    });
+
+    // Build only buttons that don't already exist (avoid wholesale re-render
+    // every state push — keeps focus and prevents button-flash on hover).
+    const existing = new Set();
+    wrap.querySelectorAll('.pc-item-btn').forEach(b => existing.add(b.dataset.item));
+    const desired = new Set(sorted);
+
+    // Remove buttons for items the player no longer has (consumed or stolen).
+    wrap.querySelectorAll('.pc-item-btn').forEach(btn => {
+      if (!desired.has(btn.dataset.item)) btn.remove();
+    });
+
+    // Append buttons for new items, in tier-sorted order.
+    sorted.forEach(item => {
+      if (existing.has(item)) return;
+      const meta = ITEM_META[item] || {tier: 1, name: item, hint: ''};
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `pc-item-btn pc-item-btn--t${meta.tier}`;
+      btn.dataset.item = item;
+      btn.title = `${item} — ${meta.hint}`;
+      btn.innerHTML = `<span class="pc-item-emoji">${ITEM_EMOJIS[item] || '📦'}</span><span class="pc-item-label">${meta.name}</span>`;
+      btn.addEventListener('click', () => {
+        btn.disabled = true;  // optimistic; will be removed next state_update
+        socket.emit('web_command', { command: 'useitem', args: item });
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function showToast(msg, isError) {
+    const t = document.createElement('div');
+    t.className = 'pc-toast' + (isError ? ' is-error' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 4500);
+  }
+
   // ── Socket ────────────────────────────────────────────────────────────
   const socket = io({ transports: ['websocket'] });
 
@@ -691,8 +1097,27 @@
     socket.emit('request_state');
   });
   socket.on('disconnect', () => console.log('[socket] disconnected'));
-  socket.on('state_update', render);
+  socket.on('state_update', (st) => {
+    render(st);
+    renderConsole(st);
+  });
   socket.on('log_entry', prependLogEntry);
+  socket.on('web_result', (d) => {
+    if (d && d.result) showToast(d.result, /error|already|please|fail|invalid|no battle|cooldown/i.test(d.result));
+  });
+
+  // Wire button clicks (only relevant when signed in).
+  if (ME) {
+    const send = (command, args = '') => socket.emit('web_command', { command, args });
+    document.getElementById('pc-start') ?.addEventListener('click', () => send('bossbattle'));
+    document.getElementById('pc-join')  ?.addEventListener('click', () => send('joinbattle'));
+    document.getElementById('pc-hack')  ?.addEventListener('click', () => send('hack'));
+    document.getElementById('pc-burner')?.addEventListener('click', () => send('useburner'));
+
+    // Tick the cooldown countdown so the Start button re-enables once
+    // (last_battle_start + cooldown) passes Date.now() without a fresh push.
+    setInterval(() => { if (_lastState) renderConsole(_lastState); }, 1000);
+  }
 </script>
 </body>
 </html>
