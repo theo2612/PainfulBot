@@ -3110,14 +3110,10 @@ class Bot(commands.Bot):
                 await ctx.send("Error: Boss not registered.")
                 return
 
-            self.ongoing_battle = BossBattle(
-                boss_name='b7h30',
-                # Round 3 — HP cap raised from 1000 → 1500 to compensate for the
-                # per-item button damage that landed in Round 2.
-                # Use max_health so a wounded boss-record (impossible today but
-                # cheap to be honest about) doesn't weaken the fight.
-                boss_health=min(boss_player.max_health, 1500)
-            )
+            # Boss always starts at full BOSS_MAX_HEALTH — its HP is a property
+            # of the fight, never derived from the b7h30 player record (which is
+            # an ordinary 50-HP player and used to cap the boss at 50).
+            self.ongoing_battle = BossBattle(boss_name='b7h30')
             self.last_battle_time = current_time
 
             # Immediate state push so the / player console + /twitchack popup react

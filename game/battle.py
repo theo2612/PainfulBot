@@ -1,10 +1,19 @@
 """Boss battle game logic."""
 
+# The boss always starts every fight at full health. This is a property of the
+# fight, not of any player record — the boss (b7h30) happens to also exist as an
+# ordinary player whose max_health is the normal 50, so deriving the boss's HP
+# from that record would (and did) cap the fight at 50 HP.
+#
+# Round 3 — HP cap raised from 1000 → 1500 to compensate for the per-item button
+# damage that landed in Round 2.
+BOSS_MAX_HEALTH = 1500
+
 
 class BossBattle:
     """Represents an active boss battle with multiple challengers."""
 
-    def __init__(self, boss_name, boss_health):
+    def __init__(self, boss_name, boss_health=BOSS_MAX_HEALTH):
         self.boss_name = boss_name
         self.boss_health = boss_health
         self.boss_max_health = boss_health
