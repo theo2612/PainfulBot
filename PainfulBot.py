@@ -696,6 +696,13 @@ class Bot(commands.Bot):
         # Push the current Treasury balance so the widget shows the real
         # number on first paint, not 0.
         await game_overlay.treasury(jail.get_treasury_balance())
+        # Push the idle-hacking catalogs so the GUI renders buy/run buttons from
+        # the live source of truth (add hardware/hacks → buttons appear).
+        await game_overlay.catalog(
+            [{"id": c.id, "name": c.name, "cost": c.cost}
+             for c in hardware.COMPONENTS.values()],
+            [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
+        )
         self.loop.create_task(self.setup_eventsub())
         self.loop.create_task(self.eventsub_healthcheck())
         self.loop.create_task(self.start_internal_api())

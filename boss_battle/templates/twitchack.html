@@ -651,6 +651,37 @@
     }
     .grab-btn:active { transform: scale(.97); }
 
+    /* ── Idle hacking: buy (gold/cash) · run (cyan/compute) · job chips ── */
+    .buy-btn {
+      font-family: var(--font-head); font-size: .68rem; letter-spacing: .06em;
+      padding: 4px 10px; border-radius: 2px;
+      border: 1px solid rgba(255,207,77,.35);
+      background: rgba(255,207,77,.06); color: #ffcf4d;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .buy-btn:hover { border-color:#ffcf4d; background: rgba(255,207,77,.15); box-shadow:0 0 8px rgba(255,207,77,.2); }
+    .buy-btn:active { transform: scale(.97); }
+    .buy-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity:.5; }
+    .run-btn {
+      font-family: var(--font-head); font-size: .68rem; letter-spacing: .06em;
+      padding: 4px 10px; border-radius: 2px;
+      border: 1px solid rgba(140,220,255,.3);
+      background: rgba(140,220,255,.05); color: #8cdcff;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .run-btn:hover { border-color:#8cdcff; background: rgba(140,220,255,.14); box-shadow:0 0 8px rgba(140,220,255,.2); }
+    .run-btn:active { transform: scale(.97); }
+    .run-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity:.5; }
+    .job-chip {
+      font-family: var(--font-vt); font-size: .72rem;
+      padding: 3px 9px; border-radius: 2px;
+      border: 1px solid rgba(0,255,65,.25);
+      background: rgba(0,255,65,.04); color: var(--green); white-space: nowrap;
+    }
+    .job-chip .jc-time { color: var(--text-muted); }
+    .job-chip.done { border-color: rgba(255,207,77,.4); color:#ffcf4d; }
+    .idle-empty { font-size:.68rem; color: var(--text-muted); letter-spacing:.08em; }
+
     /* Util buttons (status, points, leaderboard) */
     .util-btn {
       font-family: var(--font-head);
@@ -1279,6 +1310,24 @@
           </span>
         </div>
 
+        <!-- Idle hacking: rig shop -->
+        <div class="cmd-row" id="rig-row">
+          <span class="cmd-label">Rig</span>
+          <span class="idle-empty" id="rig-empty">loading…</span>
+        </div>
+
+        <!-- Idle hacking: run hacks -->
+        <div class="cmd-row" id="run-row">
+          <span class="cmd-label">Run</span>
+          <span class="idle-empty" id="run-empty">Buy a rig to run hacks</span>
+        </div>
+
+        <!-- Idle hacking: running jobs (live countdowns) -->
+        <div class="cmd-row" id="jobs-row">
+          <span class="cmd-label">Jobs</span>
+          <span class="idle-empty" id="jobs-empty">No hacks running</span>
+        </div>
+
         <!-- Available drops -->
         <div class="cmd-row" id="drops-row">
           <span class="cmd-label">Grab</span>
@@ -1414,6 +1463,13 @@
   let _isOwner      = false;
   let _selectedTarget = null;   // username of clicked player card
   const MAX_FEED    = 200;
+
+  // ── Idle hacking state ──────────────────────────────────────────────────────
+  let _catalog    = { hardware: [], hacks: [] };  // pushed by the bot
+  let _myRig      = [];   // owned component ids
+  let _myCash     = 0;    // spendable wallet
+  let _myJobs     = [];   // [{hack_id, started_at, finishes_at}]
+  let _myJobSlots = 0;    // concurrent-job cap from the rig
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   // Pure helpers for jail/strike chips. Both return safe HTML strings.
@@ -1730,6 +1786,12 @@
       if (burnerBtn) burnerBtn.classList.toggle('hidden', !hasBurner);
       if (invRow)    invRow.classList.toggle('hidden', !hasBurner);
     }
+    // Idle hacking: rig / cash / running jobs / slot cap.
+    if (p.rig       !== undefined) _myRig      = Array.isArray(p.rig) ? p.rig : [];
+    if (p.cash      !== undefined) _myCash     = p.cash;
+    if (p.jobs      !== undefined) _myJobs     = Array.isArray(p.jobs) ? p.jobs : [];
+    if (p.job_slots !== undefined) _myJobSlots = p.job_slots;
+    renderIdlePanel();
   }
 
   // ── Location chips ─────────────────────────────────────────────────────────
@@ -1779,6 +1841,125 @@
       row.appendChild(btn);
     });
   }
+
+  // ── Idle hacking panel (rig shop · run · jobs) ──────────────────────────────
+  function idleEmptySpan(text) {
+    const s = document.createElement('span');
+    s.className = 'idle-empty';
+    s.textContent = text;
+    return s;
+  }
+
+  function idleFmtSecs(s) {
+    s = Math.max(0, Math.floor(s));
+    if (s < 60) return s + 's';
+    return Math.floor(s / 60) + 'm' + String(s % 60).padStart(2, '0') + 's';
+  }
+
+  function hackName(id) {
+    const h = (_catalog.hacks || []).find(x => x.id === id);
+    return h ? h.name : id;
+  }
+
+  function renderIdlePanel() {
+    renderRigShop();
+    renderRunButtons();
+    renderJobs();
+  }
+
+  // Buy buttons, rendered from the bot-pushed hardware catalog. Add a component
+  // in game/hardware.py and a button appears here with no front-end change.
+  function renderRigShop() {
+    const row = document.getElementById('rig-row');
+    if (!row) return;
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+    const hw = _catalog.hardware || [];
+    if (!hw.length) { row.appendChild(idleEmptySpan('loading…')); return; }
+    hw.forEach(c => {
+      const owned = _myRig.includes(c.id);
+      const btn = document.createElement('button');
+      btn.className = 'buy-btn';
+      if (owned) {
+        btn.textContent = `✓ ${c.name}`;
+        btn.disabled = true;
+        btn.title = 'Owned';
+      } else {
+        btn.textContent = `🖥 ${c.name} (${c.cost})`;
+        btn.disabled = _myCash < c.cost;
+        btn.title = _myCash < c.cost ? `Need ${c.cost} cash` : `Buy for ${c.cost} cash`;
+        btn.onclick = () => sendCmd('buy', c.id);
+      }
+      row.appendChild(btn);
+    });
+  }
+
+  // Run buttons, from the bot-pushed hack catalog. Disabled when all job slots
+  // are busy (you can't start another until one finishes).
+  function renderRunButtons() {
+    const row = document.getElementById('run-row');
+    if (!row) return;
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+    if (_myJobSlots <= 0) { row.appendChild(idleEmptySpan('Buy a rig to run hacks')); return; }
+    const free = _myJobSlots - _myJobs.length;
+    (_catalog.hacks || []).forEach(h => {
+      const btn = document.createElement('button');
+      btn.className = 'run-btn';
+      btn.textContent = `▶ ${h.name}`;
+      btn.disabled = free <= 0;
+      btn.title = free <= 0 ? 'All job slots busy' : `Run ${h.name}`;
+      btn.onclick = () => sendCmd('run', h.id);
+      row.appendChild(btn);
+    });
+    if (free <= 0) row.appendChild(idleEmptySpan(`all ${_myJobSlots} slot(s) busy`));
+  }
+
+  // Running-job chips with live countdowns (ticked client-side once a second).
+  function renderJobs() {
+    const row = document.getElementById('jobs-row');
+    if (!row) return;
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+    if (!_myJobs.length) {
+      row.appendChild(idleEmptySpan(
+        _myJobSlots > 0 ? `idle — ${_myJobSlots}/${_myJobSlots} slots free` : 'No hacks running'));
+      return;
+    }
+    _myJobs.forEach(j => {
+      const chip = document.createElement('span');
+      chip.className = 'job-chip';
+      chip.dataset.finish = j.finishes_at || '';
+      chip.innerHTML = `${escHtml(hackName(j.hack_id))} <span class="jc-time"></span>`;
+      row.appendChild(chip);
+    });
+    updateJobTimes();
+  }
+
+  function updateJobTimes() {
+    const now = Date.now();
+    document.querySelectorAll('#jobs-row .job-chip').forEach(chip => {
+      const timeEl = chip.querySelector('.jc-time');
+      if (!timeEl) return;
+      const fin = Date.parse(chip.dataset.finish);
+      if (isNaN(fin)) { timeEl.textContent = ''; return; }
+      const left = Math.round((fin - now) / 1000);
+      if (left <= 0) {
+        timeEl.textContent = '· settling…';
+        chip.classList.add('done');
+      } else {
+        timeEl.textContent = `· ${idleFmtSecs(left)} left`;
+        chip.classList.remove('done');
+      }
+    });
+  }
+
+  // Live countdown tick for job chips (server pushes are coarse; this keeps the
+  // seconds ticking smoothly between them).
+  setInterval(updateJobTimes, 1000);
 
   // ── Drops ──────────────────────────────────────────────────────────────────
   function renderDrops(drops) {
@@ -1928,6 +2109,7 @@
   socket.on('disconnect', () => console.log('[socket] disconnected'));
 
   socket.on('game_state', st => {
+    if (st.catalog) { _catalog = st.catalog; renderIdlePanel(); }
     renderPlayers(st.players || {});
     renderFeed(st.events || []);
     renderDrops(st.drops || []);
@@ -2152,6 +2334,7 @@
         renderDrops(data.drops || []);
         renderAttackButtons();
         updateLocationChips();
+        renderIdlePanel();
       }
       // Else: leave login banner visible (default state)
     } catch(e) {

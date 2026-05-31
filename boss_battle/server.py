@@ -145,6 +145,10 @@ game = {
     "players": {},  # {username: {level, points, health, items, location}} session-active
     "drops":   [],  # [{name, location, ts}] active item drops
     "treasury": 0,  # bot-pushed running treasury balance for the GUI widget
+    # Idle-hacking catalogs, pushed by the bot on startup so the GUI renders
+    # buy/run buttons from the real source of truth (game/hardware.py,
+    # game/hacks.py) — add hardware/hacks there and the buttons appear here.
+    "catalog": {"hardware": [], "hacks": []},
 }
 
 # SID → username for authenticated socket connections
@@ -158,6 +162,7 @@ def _game_snapshot():
             "players":  dict(game["players"]),
             "drops":    list(game["drops"]),
             "treasury": int(game.get("treasury", 0)),
+            "catalog":  dict(game.get("catalog", {})),
         }
 
 
@@ -622,9 +627,29 @@ def api_game_player():
             "speed_strikes": data.get("speed_strikes", 0),
             "bail_request_for": data.get("bail_request_for"),
             "no_cap_until": data.get("no_cap_until"),
+            # Idle hacking: owned rig, running jobs, and concurrent-slot cap so
+            # the GUI can render buy/run/jobs buttons and disable run when full.
+            "rig":          data.get("rig", []),
+            "jobs":         data.get("jobs", []),
+            "job_slots":    data.get("job_slots", 0),
         }
         players_snapshot = dict(game["players"])
     socketio.emit("players_update", players_snapshot)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/game/catalog", methods=["POST"])
+def api_game_catalog():
+    """Bot pushes the idle-hacking catalogs (hardware + hacks) on startup so the
+    GUI renders buy/run buttons from the real source of truth."""
+    data = request.get_json(force=True, silent=True) or {}
+    catalog = {
+        "hardware": data.get("hardware", []),
+        "hacks":    data.get("hacks", []),
+    }
+    with game_lock:
+        game["catalog"] = catalog
+    socketio.emit("game_state", _game_snapshot())
     return jsonify({"ok": True})
 
 

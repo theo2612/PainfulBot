@@ -9,6 +9,8 @@ import json
 import os
 import urllib.request
 
+from game import hardware  # for job_slots() in the player push (no import cycle)
+
 OVERLAY_URL = os.environ.get("OVERLAY_URL", "http://localhost:3003")
 _TIMEOUT = 2.0
 
@@ -61,6 +63,22 @@ async def player(username: str, player_obj) -> None:
             "speed_strikes": getattr(player_obj, "speed_strikes", 0),
             "bail_request_for": getattr(player_obj, "bail_request_for", None),
             "no_cap_until": getattr(player_obj, "no_cap_until", None),
+            "rig":          getattr(player_obj, "rig", []),
+            "jobs":         getattr(player_obj, "jobs", []),
+            "job_slots":    hardware.job_slots(player_obj),
+        }))
+    except Exception:
+        pass
+
+
+async def catalog(hardware_list, hack_list) -> None:
+    """Push the idle-hacking catalogs (hardware + hacks) so the GUI can render
+    buy/run buttons from the real source of truth. Sent once on bot startup."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _post("/api/game/catalog", {
+            "hardware": hardware_list,
+            "hacks":    hack_list,
         }))
     except Exception:
         pass
