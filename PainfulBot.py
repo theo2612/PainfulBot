@@ -567,6 +567,18 @@ class Bot(commands.Bot):
     # list is tiny so scanning it costs nothing.
     IDLE_TICK_SECONDS = 5
 
+    async def _push_idle_catalog(self):
+        """Push the hardware + hack catalogs to the overlay so the GUI renders
+        buy/run buttons. Re-pushed periodically (see idle_ticker_loop) because
+        the overlay holds the catalog in memory only — an overlay restart, or
+        the overlay simply coming up after the bot's first push, would otherwise
+        leave the buttons stuck on 'loading…'."""
+        await game_overlay.catalog(
+            [{"id": c.id, "name": c.name, "cost": c.cost}
+             for c in hardware.COMPONENTS.values()],
+            [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
+        )
+
     async def idle_ticker_loop(self):
         """Settle finished idle hacks across all players and announce them on
         the feed the moment they complete — so the loop is actually idle (no
@@ -574,9 +586,16 @@ class Bot(commands.Bot):
         #4). Reuses the lazy per-player resolver, so resolution lives in one
         place. The command handlers still call it too, for instant settlement
         when a player interacts between ticks."""
+        ticks = 0
         while True:
             try:
                 await asyncio.sleep(self.IDLE_TICK_SECONDS)
+                ticks += 1
+                # Re-push the catalog every ~30s so the GUI self-heals if the
+                # overlay restarted (or started after our boot push). Tiny,
+                # static payload; the first re-push lands ~5s after startup.
+                if ticks % 6 == 1:
+                    await self._push_idle_catalog()
                 # Snapshot names first: _resolve_idle_jobs awaits feed pushes,
                 # and the player dict may be mutated during those awaits.
                 active = [name for name, p in self.player_data.items()
@@ -697,12 +716,9 @@ class Bot(commands.Bot):
         # number on first paint, not 0.
         await game_overlay.treasury(jail.get_treasury_balance())
         # Push the idle-hacking catalogs so the GUI renders buy/run buttons from
-        # the live source of truth (add hardware/hacks → buttons appear).
-        await game_overlay.catalog(
-            [{"id": c.id, "name": c.name, "cost": c.cost}
-             for c in hardware.COMPONENTS.values()],
-            [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
-        )
+        # the live source of truth (add hardware/hacks → buttons appear). Also
+        # re-pushed periodically by idle_ticker_loop so the GUI self-heals.
+        await self._push_idle_catalog()
         self.loop.create_task(self.setup_eventsub())
         self.loop.create_task(self.eventsub_healthcheck())
         self.loop.create_task(self.start_internal_api())
