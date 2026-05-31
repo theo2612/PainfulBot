@@ -325,6 +325,56 @@
     }
     .player-card__status--dead { color: var(--red); opacity: .7; }
 
+    /* Founder badge — mirrors the tiers on the /twitchack page so any founder
+       shows their badge on a battle card too. */
+    .pc-founder {
+      display: inline-block;
+      margin-top: 3px;
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+      font-size: .55rem;
+      letter-spacing: .12em;
+      color: var(--gold, #f0c040);
+      border: 1px solid rgba(240,192,64,.45);
+      padding: 1px 6px;
+      text-transform: uppercase;
+      background: rgba(240,192,64,.05);
+    }
+    .pc-founder.tier-31337  { color: #ff4d8d; border-color: rgba(255,77,141,.55);  background: rgba(255,77,141,.06); }
+    .pc-founder.tier-1337   { color: #c084fc; border-color: rgba(192,132,252,.55); background: rgba(192,132,252,.06); }
+    .pc-founder.tier-h4ck3r { color: #00b4ff; border-color: rgba(0,180,255,.55);   background: rgba(0,180,255,.06); }
+    .pc-founder.tier-0p3r4t0r { color: #00ff41; border-color: rgba(0,255,65,.45);  background: rgba(0,255,65,.05); }
+    /* One-off bug-bounty crown — CypherEnigma, 2026-05-24 /todo/control disclosure */
+    .pc-founder.tier-qu33n0fth3ca5tl3 {
+      color: #ffd166;
+      border-color: rgba(255,209,102,.65);
+      background: rgba(255,209,102,.08);
+      animation: queen-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes queen-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(255,209,102,.30); }
+      50%      { box-shadow: 0 0 12px rgba(255,209,102,.60); }
+    }
+    /* One-off spellcaster badge — britejess. Arcane violet, magic pulse. */
+    .pc-founder.tier-5p3llc45t {
+      color: #b98cff;
+      border-color: rgba(185,140,255,.65);
+      background: rgba(185,140,255,.08);
+      text-shadow: 0 0 6px rgba(185,140,255,.6);
+      animation: spell-pulse 2.2s ease-in-out infinite;
+    }
+    @keyframes spell-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(185,140,255,.30); }
+      50%      { box-shadow: 0 0 14px rgba(185,140,255,.70); }
+    }
+    /* Channel creator / dev badge — b7h30. White-cyan, steady glow. */
+    .pc-founder.tier-theo {
+      color: #e8faff;
+      border-color: rgba(140,220,255,.75);
+      background: rgba(140,220,255,.08);
+      text-shadow: 0 0 6px rgba(140,220,255,.55);
+      box-shadow: 0 0 8px rgba(140,220,255,.25);
+    }
+
     .player-hp-wrap {
       display: flex;
       align-items: center;
@@ -897,6 +947,7 @@
             ${p.alive ? 'ALIVE' : '☠ FALLEN'}
           </div>
         </div>
+        ${founderBadgeHtml(p.founder_tier)}
         <div class="player-hp-wrap">
           <div class="player-hp-bar">
             <div class="player-hp-fill" style="width:${pct*100}%; background:${p.alive ? hpColor(pct) : 'rgba(136,153,170,.2)'}; box-shadow: 0 0 6px ${p.alive ? hpColor(pct) : 'none'}"></div>
@@ -958,6 +1009,14 @@
 
   function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function founderBadgeHtml(tier) {
+    if (!tier) return '';
+    // Accepts FOUNDER::* and CREATOR::*; class derived from suffix only.
+    const m = String(tier).match(/^(?:FOUNDER|CREATOR)::(.+)$/);
+    if (!m) return '';
+    return `<span class="pc-founder tier-${m[1].toLowerCase()}">${escHtml(tier)}</span>`;
   }
 
   // ── Player console ────────────────────────────────────────────────────

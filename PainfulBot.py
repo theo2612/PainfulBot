@@ -481,6 +481,7 @@ class Bot(commands.Bot):
                 "inventory": [i for i in all_items if i in ITEM_EFFECTS],
                 "alive": True,
                 "jail": getattr(p, "jail", None) if p else None,
+                "founder_tier": getattr(p, "founder_tier", None) if p else None,
             }
         for name in battle.fallen:
             p = self.player_data.get(name)
@@ -492,6 +493,7 @@ class Bot(commands.Bot):
                 "inventory": [i for i in all_items if i in ITEM_EFFECTS],
                 "alive": False,
                 "jail": getattr(p, "jail", None) if p else None,
+                "founder_tier": getattr(p, "founder_tier", None) if p else None,
             }
         state = {
             "active": True,
