@@ -5,7 +5,8 @@ class Player:
                  last_attack_at=None, speed_strikes=0, last_strike_at=None,
                  jail=None, last_jail_released_at=None, offense_count=0,
                  bail_request_for=None, no_cap_until=None,
-                 max_health=None, last_regen_at=None):
+                 max_health=None, last_regen_at=None,
+                 cash=0, rig=None, jobs=None):
         self.username = username
         self.level = level
         # health == current HP; max_health == personal cap (50 start, +5/win, cap 1000).
@@ -33,6 +34,11 @@ class Player:
         self.offense_count = offense_count          # persistent ladder rung (0..5+)
         self.bail_request_for = bail_request_for    # username (lowercase) the jailed player has tagged to bail them; None = no open request
         self.no_cap_until = no_cap_until            # ISO timestamp; while in the future the player bypasses the speed-penalty cap (Burner Laptop reward)
+        # Idle hacking (see TWITCHACK_IDLE_HACKING_SPEC.md). cash == spendable
+        # wallet (hardware); points stays the monotonic level driver ("rep").
+        self.cash = cash
+        self.rig = rig if rig else []               # installed component ids
+        self.jobs = jobs if jobs else []            # running hacks: [{hack_id, started_at, finishes_at}]
 
     def add_item(self, item_name):
         """Add `item_name` to the player's inventory, case-insensitively
@@ -93,6 +99,12 @@ class Player:
             d['bail_request_for'] = self.bail_request_for
         if self.no_cap_until:
             d['no_cap_until'] = self.no_cap_until
+        if self.cash:
+            d['cash'] = self.cash
+        if self.rig:
+            d['rig'] = self.rig
+        if self.jobs:
+            d['jobs'] = self.jobs
         return d
 
     @classmethod
@@ -119,6 +131,9 @@ class Player:
             offense_count=data.get('offense_count', 0),
             bail_request_for=data.get('bail_request_for'),
             no_cap_until=data.get('no_cap_until'),
+            cash=data.get('cash', 0),
+            rig=data.get('rig', []),
+            jobs=data.get('jobs', []),
         )
         player.items = data.get('items', [])
         return player

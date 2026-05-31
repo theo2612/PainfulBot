@@ -32,6 +32,7 @@ from integrations import battle_overlay as overlay
 from integrations import game_overlay
 from game.battle import BossBattle
 from game import jail
+from game import hardware, hacks
 
 HACK_ITEMS = {
     "Wireshark", "Metasploit", "EvilGinx", "O.MG Cable",
@@ -415,6 +416,11 @@ class Bot(commands.Bot):
         # World regen: every /twitchack action ticks +1 HP (30s per-user cooldown).
         # Damage outside boss battle persists, so chat engagement is the recovery path.
         helpers.regen_tick(player)
+        # Bootstrap rule (idle hacking, spec §8): every successful click pays a
+        # little cash so a fresh player can afford their first rig before any
+        # idle hack exists. Clicks stay cash-light; idle hacks pay the bulk.
+        if success:
+            player.cash = getattr(player, 'cash', 0) + hacks.CLICK_CASH
         leveled_up = helpers.check_level_up(self.player_data, username)
         helpers.save_player_data(self.player_data)
         await game_overlay.event(username, command, result_msg, event_type)
@@ -425,6 +431,136 @@ class Bot(commands.Bot):
             lv_msg = f'@{ctx.author.name} reached level {player.level}! 🎉'
             await ctx.send(lv_msg)
             await game_overlay.event(username, 'LEVEL UP', lv_msg, 'level-up')
+
+    # ------------------------------------------------------------------
+    # Idle hacking (TWITCHACK_IDLE_HACKING_SPEC.md). Output goes to the
+    # TwitcHack feed, never Twitch chat — web players get it via WebCtx.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _fmt_secs(seconds):
+        """Human ETA: '15s', '3m00s'."""
+        seconds = max(0, int(seconds))
+        if seconds < 60:
+            return f"{seconds}s"
+        m, s = divmod(seconds, 60)
+        return f"{m}m{s:02d}s"
+
+    async def _idle_say(self, ctx, username, command, msg, event_type='info'):
+        """Surface an idle-hacking message on the feed (never Twitch chat)."""
+        await game_overlay.event(username, command, msg, event_type)
+        if isinstance(ctx, WebCtx):
+            await ctx.send(msg)
+
+    async def _resolve_idle_jobs(self, username):
+        """Bank any finished idle hacks and announce them on the feed. Lazy
+        resolution (Phase 1): called whenever the player next interacts."""
+        player = self.player_data.get(username)
+        if not player or not player.jobs:
+            return
+        results = hacks.resolve_due_jobs(player)
+        if not results:
+            return
+        for r in results:
+            if r['success']:
+                msg = (f"@{player.username} finished {r['name']} — "
+                       f"+{r['cash']} cash, +{r['rep']} rep.")
+                await game_overlay.event(username, 'HACK DONE', msg, 'attack-success')
+            else:
+                msg = f"@{player.username}'s {r['name']} failed — no payout."
+                await game_overlay.event(username, 'HACK FAIL', msg, 'attack-fail')
+        helpers.check_level_up(self.player_data, username)
+        helpers.save_player_data(self.player_data)
+        await game_overlay.player(username, player)
+
+    @commands.command(name='buy')
+    async def buy(self, ctx, *, component: str = None):
+        """Buy hardware with cash. No arg = show the shop."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!buy', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+
+        if not component:
+            items = []
+            for c in hardware.COMPONENTS.values():
+                owned = ' ✅' if c.id in player.rig else ''
+                items.append(f"{c.id} — {c.name} ({c.cost} cash){owned}")
+            shop = (f"🛒 Hardware shop: " + " | ".join(items) +
+                    f" // You have {player.cash} cash. Buy with !buy <id>.")
+            await self._idle_say(ctx, username, '!buy', shop)
+            return
+
+        comp, reason = hardware.buy_component(player, component.strip().lower())
+        if not comp:
+            await self._idle_say(ctx, username, '!buy', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        msg = (f"@{ctx.author.name} bought a {comp.name}! ({player.cash} cash left) "
+               f"Start hacking with !run.")
+        await self._idle_say(ctx, username, '!buy', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
+    @commands.command(name='run')
+    async def run_hack(self, ctx, *, hack: str = None):
+        """Start an idle hack (consumes a job slot). No arg = list hacks.
+
+        NOTE: the method must NOT be named `run` — that shadows twitchio's
+        Bot.run() (the entry point at module load), crashing startup. The
+        user-facing command stays `!run` via the decorator's name=.
+        """
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!run', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+
+        if not hack:
+            listing = " | ".join(f"{h.id} ({h.name})" for h in hacks.HACK_DEFS.values())
+            msg = f"🖧 Hacks: {listing} // Start with !run <id>, watch with !jobs."
+            await self._idle_say(ctx, username, '!run', msg)
+            return
+
+        job, info = hacks.start_hack(player, hack.strip().lower())
+        if not job:
+            await self._idle_say(ctx, username, '!run', f'@{ctx.author.name}, {info}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        hd = hacks.HACK_DEFS[job['hack_id']]
+        slots = hardware.job_slots(player)
+        msg = (f"@{ctx.author.name} started {hd.name} — ETA {self._fmt_secs(info)}. "
+               f"({len(player.jobs)}/{slots} slots in use)")
+        await self._idle_say(ctx, username, '!run', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
+    @commands.command(name='jobs')
+    async def jobs(self, ctx):
+        """Show the player's running idle hacks and time remaining."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!jobs', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+        slots = hardware.job_slots(player)
+
+        if not player.jobs:
+            if slots <= 0:
+                msg = f"@{ctx.author.name}, no rig yet — !buy rpi to get started."
+            else:
+                msg = f"@{ctx.author.name}, no hacks running. {slots} slot(s) free — !run <hack>."
+            await self._idle_say(ctx, username, '!jobs', msg)
+            return
+
+        parts = []
+        for j in player.jobs:
+            hd = hacks.HACK_DEFS.get(j['hack_id'])
+            name = hd.name if hd else j['hack_id']
+            parts.append(f"{name} ({self._fmt_secs(hacks.time_left(j))} left)")
+        msg = f"@{ctx.author.name}, running {len(player.jobs)}/{slots}: " + " | ".join(parts)
+        await self._idle_say(ctx, username, '!jobs', msg)
 
     async def _jail_speed_gate(self, ctx, player, base_reward):
         """Jail + speed-penalty preflight for attack commands.
@@ -1735,8 +1871,8 @@ class Bot(commands.Bot):
         # Retrieve the Player object
         player = self.player_data[username]
         # Send the player's current points to the chat
-        await ctx.send(f'@{ctx.author.name}, you have {player.points} points.')
-        await game_overlay.event(username, '!points', f'@{ctx.author.name} has {player.points} points.', 'info')
+        await ctx.send(f'@{ctx.author.name}, you have {player.points} points and {player.cash} cash.')
+        await game_overlay.event(username, '!points', f'@{ctx.author.name} has {player.points} points and {player.cash} cash.', 'info')
         await game_overlay.player(username, player)
 
     @commands.command(name='ownerpoints')
@@ -1755,6 +1891,22 @@ class Bot(commands.Bot):
         helpers.check_level_up(self.player_data, username)
         helpers.save_player_data(self.player_data)
         await ctx.send(f'@{ctx.author.name}, added {amount} points. Your new total is {player.points} points.')
+
+    @commands.command(name='ownercash')
+    async def ownercash(self, ctx, amount: int, target: str = None):
+        """Owner-only: grant idle-hacking cash to yourself or a target (testing/admin)."""
+        username = ctx.author.name.lower()
+        if not self.is_channel_owner(username):
+            await ctx.send(f'@{ctx.author.name}, this command is only for the channel owner.')
+            return
+        target_username = (target or username).lower()
+        if target_username not in self.player_data:
+            await ctx.send(f'@{ctx.author.name}, {target_username} is not registered.')
+            return
+        player = self.player_data[target_username]
+        player.cash = getattr(player, 'cash', 0) + amount
+        helpers.save_player_data(self.player_data)
+        await ctx.send(f'@{ctx.author.name}, gave {amount} cash to @{target_username}. New balance: {player.cash} cash.')
 
     @commands.command(name='assignpoints')
     async def assignpoints(self, ctx, target: str, amount: int):
@@ -1816,6 +1968,7 @@ class Bot(commands.Bot):
                 f"Level: {player.level} | \n"
                 f"Health: {player.health}/{player.max_health} | \n"
                 f"Points: {player.points} | \n"
+                f"Cash: {player.cash} | \n"
                 f"Location: {player.location} | \n"
                 f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
             )
@@ -1840,6 +1993,7 @@ class Bot(commands.Bot):
                 f"Level: {player.level} | \n"
                 f"Health: {player.health}/{player.max_health} | \n"
                 f"Points: {player.points} | \n"
+                f"Cash: {player.cash} | \n"
                 f"Location: {player.location} | \n"
                 f"Items: {', '.join(self.format_item(i) for i in player.items) if player.items else 'None'}"
             )
