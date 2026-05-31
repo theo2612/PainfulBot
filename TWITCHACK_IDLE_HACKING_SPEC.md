@@ -400,9 +400,11 @@ jobs skip it. (Open decision: keep jail as flavor for failed high-tier hacks?)
       `game/hacks.py` (4 starter hacks + lazy `resolve_due_jobs`). Commands
       `!buy` / `!run` / `!jobs` wired feed-only (WebCtx, never Twitch chat);
       click→cash bootstrap in `_attack_result`; cash shown in `!status`/`!points`.
-      **1 job slot, no concurrency yet.** 19 unit tests in
-      `tests/test_idle_hacking.py` (all green). Still TODO before deploy:
-      live-test buying + a full hack cycle in the running bot.
+      **1 job slot, no concurrency yet.** 20 unit tests in
+      `tests/test_idle_hacking.py` (incl. a regression for the `run` vs
+      `Bot.run()` startup-shadow crash hit during bring-up). ✅ Live-tested on
+      the running bot (buy → run → jobs cycle confirmed in the feed) and
+      committed (`0157c94`).
 - [ ] **Phase 2 — concurrency + collapse the clicker.** RigStats aggregation,
       `job_slots` formula, second prebuilt (laptop) for 2–3 slots. Reframe the
       existing clicker attacks as `HackDef` rows (Tier-0 instant variants),
@@ -427,10 +429,14 @@ jobs skip it. (Open decision: keep jail as flavor for failed high-tier hacks?)
    (lose the time, partial or zero payout). A failed high-tier hack may later
    "trace" you → cooldown (candidate repurpose for `jail.py`). Tune fail rates
    per tier `(tune)`.
-3. ✅ **Resolution — background ticker, feed-only.** A light background ticker in
-   the bot resolves jobs the moment their timer expires (same pattern as
-   `stream_todo`'s ticker thread). Phase 1 may stub with lazy resolution to
-   prove the loop, but the shipped model is the ticker.
+3. ✅ **Resolution — background ticker, feed-only.** BUILT 2026-05-30:
+   `Bot.idle_ticker_loop()` (launched in `event_ready`, `IDLE_TICK_SECONDS=5`)
+   scans players with running jobs and settles + announces finished hacks on the
+   feed the moment they complete — no need to poke `!jobs`. It reuses the lazy
+   per-player resolver (`_resolve_idle_jobs`), which the command handlers still
+   call too for instant settlement between ticks. Resolution logic lives in one
+   place; `resolve_due_jobs` is synchronous so ticker/command calls can't
+   double-resolve.
 4. ✅ **Output channel — TwitcHack feed, NEVER Twitch chat.** Hack starts,
    results, payouts, purchases all surface in the on-screen TwitcHack feed /
    ticker overlay. **No `ctx.send()` to Twitch chat for idle-hacking events.**

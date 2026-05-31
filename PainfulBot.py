@@ -562,6 +562,32 @@ class Bot(commands.Bot):
         msg = f"@{ctx.author.name}, running {len(player.jobs)}/{slots}: " + " | ".join(parts)
         await self._idle_say(ctx, username, '!jobs', msg)
 
+    # Background idle-job ticker cadence (seconds). Jobs settle within this of
+    # finishing; small enough that a 15s hack feels responsive, and the player
+    # list is tiny so scanning it costs nothing.
+    IDLE_TICK_SECONDS = 5
+
+    async def idle_ticker_loop(self):
+        """Settle finished idle hacks across all players and announce them on
+        the feed the moment they complete — so the loop is actually idle (no
+        need to poke !jobs to collect). Feed-only, never Twitch chat (spec §11
+        #4). Reuses the lazy per-player resolver, so resolution lives in one
+        place. The command handlers still call it too, for instant settlement
+        when a player interacts between ticks."""
+        while True:
+            try:
+                await asyncio.sleep(self.IDLE_TICK_SECONDS)
+                # Snapshot names first: _resolve_idle_jobs awaits feed pushes,
+                # and the player dict may be mutated during those awaits.
+                active = [name for name, p in self.player_data.items()
+                          if getattr(p, 'jobs', None)]
+                for username in active:
+                    await self._resolve_idle_jobs(username)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                helpers.log_to_file(f'[idle_ticker] error: {e}')
+
     async def _jail_speed_gate(self, ctx, player, base_reward):
         """Jail + speed-penalty preflight for attack commands.
 
@@ -673,6 +699,7 @@ class Bot(commands.Bot):
         self.loop.create_task(self.setup_eventsub())
         self.loop.create_task(self.eventsub_healthcheck())
         self.loop.create_task(self.start_internal_api())
+        self.loop.create_task(self.idle_ticker_loop())
 
     async def event_message(self, message):
         # Called whenever a message is received in chat.

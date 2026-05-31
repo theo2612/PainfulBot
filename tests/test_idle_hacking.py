@@ -172,6 +172,18 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(p.points, 0)
         self.assertEqual(p.jobs, [])  # still consumed the time
 
+    def test_past_due_job_resolves_with_realtime_now(self):
+        # The background ticker calls resolve_due_jobs() with no `now`, relying
+        # on datetime.now(timezone.utc) comparing cleanly against the job's
+        # timezone-aware finishes_at. Simulate a job that already finished.
+        p = make_player(rig=["rpi"])
+        past = datetime.now(timezone.utc) - timedelta(seconds=30)
+        hacks.start_hack(p, "portscan", now=past)  # finished ~15s ago
+        results = hacks.resolve_due_jobs(p, rng=FakeRandom(0.0, 7))  # no now arg
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0]["success"])
+        self.assertEqual(p.jobs, [])
+
     def test_resolution_frees_the_slot_for_a_new_hack(self):
         p = make_player(rig=["rpi"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
