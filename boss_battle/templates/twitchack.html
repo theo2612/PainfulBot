@@ -354,6 +354,18 @@
       color: var(--text-muted);
     }
     .pc-cash span { color: #ffcf4d; }
+    .pc-rig { margin-top: 1px; }
+    .pc-rig:empty { display: none; }
+    .rig-badge {
+      display: inline-block;
+      font-family: var(--font-vt);
+      font-size: .68rem;
+      padding: 1px 6px;
+      border: 1px solid rgba(140,220,255,.3);
+      border-radius: 2px;
+      color: #8cdcff;
+      background: rgba(140,220,255,.05);
+    }
 
     .pc-hp-wrap { display: flex; align-items: center; gap: 6px; }
     .pc-hp-bar {
@@ -1544,6 +1556,18 @@
       return `<span class="item-badge" title="${escHtml(itemTooltipText(i))}">${emoji}</span>`;
     }).filter(Boolean).join(' ');
   }
+  // Owned hardware → badges on the player card. Names resolved from the
+  // bot-pushed catalog (falls back to the id until the catalog arrives).
+  function rigName(id) {
+    const c = (_catalog.hardware || []).find(h => h.id === id);
+    return c ? c.name : id;
+  }
+  function rigBadges(rig) {
+    if (!rig || !rig.length) return '';
+    return rig.map(id =>
+      `<span class="rig-badge" title="${escHtml(rigName(id))}">🖥 ${escHtml(rigName(id))}</span>`
+    ).join(' ');
+  }
   function hpColor(pct) {
     if (pct > 0.6) return 'var(--green)';
     if (pct > 0.3) return '#ffcc00';
@@ -1614,6 +1638,8 @@
         card.querySelector('.pc-points span').textContent = p.points;
         const cashEl = card.querySelector('.pc-cash span');
         if (cashEl) cashEl.textContent = p.cash || 0;
+        const rigEl = card.querySelector('.pc-rig');
+        if (rigEl) rigEl.innerHTML = rigBadges(p.rig);
         const fill = card.querySelector('.pc-hp-fill');
         fill.style.width      = (pct * 100) + '%';
         fill.style.background = hpColor(pct);
@@ -1652,6 +1678,7 @@
           <div class="pc-founder-slot">${founderHtml}</div>
           <div class="pc-points">pts: <span>${p.points}</span></div>
           <div class="pc-cash">cash: <span>${p.cash || 0}</span></div>
+          <div class="pc-rig">${rigBadges(p.rig)}</div>
           <div class="pc-hp-wrap">
             <div class="pc-hp-bar">
               <div class="pc-hp-fill" style="width:${pct*100}%;background:${hpColor(pct)}"></div>
