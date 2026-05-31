@@ -38,8 +38,8 @@ class HackDef:
 
 
 # ---------------------------------------------------------------------------
-# Catalog. Phase 1: the four Raspberry-Pi starter hacks (spec §6.1).
-# All location=anywhere, gpu 0, low storage → Pi-legal. Cash-heavy split.
+# Catalog. Phase 1: the four Single-Board Computer starter hacks (spec §6.1).
+# All location=anywhere, gpu 0, low storage → SBC-legal. Cash-heavy split.
 # ---------------------------------------------------------------------------
 HACK_DEFS: dict[str, HackDef] = {
     "portscan": HackDef(
@@ -96,7 +96,7 @@ def _category_speed(category: str, stats) -> float:
 def duration_for(hack: HackDef, stats) -> int:
     """Effective duration (seconds) for this hack on this rig.
 
-    base / (clock * category_speed). On the Pi (clock 0.8) a 12s base → 15s.
+    base / (clock * category_speed). On the SBC (clock 0.8) a 12s base → 15s.
     """
     speed = stats.clock * _category_speed(hack.category, stats)
     if speed <= 0:
@@ -113,7 +113,7 @@ def can_run(player, hack_id: str) -> tuple[bool, str]:
     stats = rig_stats(player)
     slots = stats.job_slots()
     if slots <= 0:
-        return False, "you need a rig first — !buy rpi to get a Raspberry Pi."
+        return False, "you need a rig first — !buy sbc to get a Single-Board Computer."
     if player.level < hack.level_req:
         return False, f"{hack.name} needs level {hack.level_req}."
     need_gpu = hack.hw_req.get("gpu_power", 0)

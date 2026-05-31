@@ -6,9 +6,14 @@ A player owns a `rig` — a list of installed component ids. Components aggregat
 into a single `RigStats` profile that the job system (game/hacks.py) reads. The
 whole game reads the aggregate; nothing branches on which component you own.
 
-Phase 1 ships exactly one component: the Raspberry Pi prebuilt. The aggregation
-already handles the general (parts-build) case so later phases add a row, not a
-code path.
+Phase 1 ships exactly one component: the Single-Board Computer prebuilt. The
+aggregation already handles the general (parts-build) case so later phases add a
+row, not a code path.
+
+Hardware is brand-neutral by design: the `id` is an internal/command handle and
+the `name` is a separate display layer, so a name can be swapped (e.g. for a
+sponsor) without touching logic or persisted data — only `id` is stored on a
+player's rig.
 """
 from dataclasses import dataclass, field
 
@@ -49,19 +54,19 @@ class Component:
 
 
 # ---------------------------------------------------------------------------
-# Catalog. Phase 1: the Raspberry Pi only. See spec §5.1.
+# Catalog. Phase 1: the Single-Board Computer only. See spec §5.1.
 # ---------------------------------------------------------------------------
 COMPONENTS: dict[str, Component] = {
-    "rpi": Component(
-        id="rpi",
-        name="Raspberry Pi",
+    "sbc": Component(
+        id="sbc",
+        name="Single-Board Computer",
         kind="prebuilt",
         cost=200,
         level_req=1,
-        # 2 GB → exactly 1 job slot (min(4, 2//2)=1). RAM is soldered on a real
-        # Pi, so it can't be expanded — you graduate to a bigger machine for
-        # concurrency. clock 0.8 = jobs run 1.25x slower than base. 16 GB SD and
-        # gpu 0 lock it out of malware/exfil and crypto/cracking respectively.
+        # 2 GB → exactly 1 job slot (min(4, 2//2)=1). RAM is soldered on these
+        # boards, so it can't be expanded — you graduate to a bigger machine for
+        # concurrency. clock 0.8 = jobs run 1.25x slower than base. 16 GB card
+        # and gpu 0 lock it out of malware/exfil and crypto/cracking.
         stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8),
     ),
 }

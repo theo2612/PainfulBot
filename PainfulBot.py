@@ -548,7 +548,7 @@ class Bot(commands.Bot):
 
         if not player.jobs:
             if slots <= 0:
-                msg = f"@{ctx.author.name}, no rig yet — !buy rpi to get started."
+                msg = f"@{ctx.author.name}, no rig yet — !buy sbc to get started."
             else:
                 msg = f"@{ctx.author.name}, no hacks running. {slots} slot(s) free — !run <hack>."
             await self._idle_say(ctx, username, '!jobs', msg)

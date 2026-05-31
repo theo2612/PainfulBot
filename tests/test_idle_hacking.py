@@ -47,11 +47,11 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(p.jobs, [])
 
     def test_round_trip_through_dict(self):
-        p = make_player(cash=120, rig=["rpi"], jobs=[{"hack_id": "portscan",
+        p = make_player(cash=120, rig=["sbc"], jobs=[{"hack_id": "portscan",
                         "started_at": "x", "finishes_at": "y"}])
         restored = Player.from_dict("alice", p.to_dict())
         self.assertEqual(restored.cash, 120)
-        self.assertEqual(restored.rig, ["rpi"])
+        self.assertEqual(restored.rig, ["sbc"])
         self.assertEqual(restored.jobs[0]["hack_id"], "portscan")
 
     def test_empty_fields_omitted_from_dict(self):
@@ -65,12 +65,12 @@ class RigStatsTests(unittest.TestCase):
     def test_no_rig_has_no_job_slots(self):
         self.assertEqual(hardware.job_slots(make_player()), 0)
 
-    def test_raspberry_pi_yields_exactly_one_slot(self):
+    def test_sbc_yields_exactly_one_slot(self):
         # 2 GB RAM is the bottleneck: min(threads 4, floor(2/2)=1) = 1.
-        self.assertEqual(hardware.job_slots(make_player(rig=["rpi"])), 1)
+        self.assertEqual(hardware.job_slots(make_player(rig=["sbc"])), 1)
 
-    def test_raspberry_pi_stats(self):
-        stats = hardware.rig_stats(make_player(rig=["rpi"]))
+    def test_sbc_stats(self):
+        stats = hardware.rig_stats(make_player(rig=["sbc"]))
         self.assertEqual(stats.threads, 4)
         self.assertEqual(stats.memory, 2)
         self.assertEqual(stats.gpu_power, 0)
@@ -79,7 +79,7 @@ class RigStatsTests(unittest.TestCase):
 class BuyTests(unittest.TestCase):
     def test_cannot_afford(self):
         p = make_player(cash=50)
-        comp, reason = hardware.buy_component(p, "rpi")
+        comp, reason = hardware.buy_component(p, "sbc")
         self.assertIsNone(comp)
         self.assertIn("costs", reason)
         self.assertEqual(p.rig, [])
@@ -87,14 +87,14 @@ class BuyTests(unittest.TestCase):
 
     def test_successful_purchase_deducts_and_installs(self):
         p = make_player(cash=250)
-        comp, reason = hardware.buy_component(p, "rpi")
+        comp, reason = hardware.buy_component(p, "sbc")
         self.assertIsNotNone(comp)
         self.assertEqual(p.cash, 50)        # 250 - 200
-        self.assertEqual(p.rig, ["rpi"])
+        self.assertEqual(p.rig, ["sbc"])
 
     def test_cannot_buy_duplicate(self):
-        p = make_player(cash=500, rig=["rpi"])
-        comp, reason = hardware.buy_component(p, "rpi")
+        p = make_player(cash=500, rig=["sbc"])
+        comp, reason = hardware.buy_component(p, "sbc")
         self.assertIsNone(comp)
         self.assertIn("already own", reason)
         self.assertEqual(p.cash, 500)
@@ -106,8 +106,8 @@ class BuyTests(unittest.TestCase):
 
 class DurationTests(unittest.TestCase):
     def test_pi_clock_slows_jobs(self):
-        # base 12s on the Pi's 0.8 clock → 15s (spec §6.1).
-        stats = hardware.rig_stats(make_player(rig=["rpi"]))
+        # base 12s on the SBC's 0.8 clock → 15s (spec §6.1).
+        stats = hardware.rig_stats(make_player(rig=["sbc"]))
         self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["portscan"], stats), 15)
         self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["credstuff"], stats), 180)
 
@@ -119,7 +119,7 @@ class StartHackTests(unittest.TestCase):
         self.assertIn("rig", reason)
 
     def test_start_appends_job_and_returns_eta(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
         job, seconds = hacks.start_hack(p, "portscan", now=now)
         self.assertEqual(seconds, 15)
@@ -127,7 +127,7 @@ class StartHackTests(unittest.TestCase):
         self.assertEqual(p.jobs[0]["hack_id"], "portscan")
 
     def test_one_slot_means_one_concurrent_job(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         hacks.start_hack(p, "portscan")
         job, reason = hacks.start_hack(p, "servicescan")
         self.assertIsNone(job)
@@ -135,13 +135,13 @@ class StartHackTests(unittest.TestCase):
         self.assertEqual(len(p.jobs), 1)
 
     def test_unknown_hack_rejected(self):
-        job, reason = hacks.start_hack(make_player(rig=["rpi"]), "nope")
+        job, reason = hacks.start_hack(make_player(rig=["sbc"]), "nope")
         self.assertIsNone(job)
 
 
 class ResolveTests(unittest.TestCase):
     def test_unfinished_job_is_left_running(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
         hacks.start_hack(p, "credstuff", now=now)  # 180s
         results = hacks.resolve_due_jobs(p, now=now + timedelta(seconds=30))
@@ -149,7 +149,7 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(len(p.jobs), 1)
 
     def test_finished_job_success_pays_cash_and_rep(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
         hacks.start_hack(p, "portscan", now=now)
         # roll 0.0 < success → win; randint pegged to 7
@@ -162,7 +162,7 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(p.jobs, [])  # slot freed
 
     def test_finished_job_failure_pays_nothing(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
         hacks.start_hack(p, "portscan", now=now)
         rng = FakeRandom(roll=0.999, value=7)  # roll >= success → fail
@@ -176,7 +176,7 @@ class ResolveTests(unittest.TestCase):
         # The background ticker calls resolve_due_jobs() with no `now`, relying
         # on datetime.now(timezone.utc) comparing cleanly against the job's
         # timezone-aware finishes_at. Simulate a job that already finished.
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         past = datetime.now(timezone.utc) - timedelta(seconds=30)
         hacks.start_hack(p, "portscan", now=past)  # finished ~15s ago
         results = hacks.resolve_due_jobs(p, rng=FakeRandom(0.0, 7))  # no now arg
@@ -185,7 +185,7 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(p.jobs, [])
 
     def test_resolution_frees_the_slot_for_a_new_hack(self):
-        p = make_player(rig=["rpi"])
+        p = make_player(rig=["sbc"])
         now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
         hacks.start_hack(p, "portscan", now=now)
         hacks.resolve_due_jobs(p, now=now + timedelta(seconds=20),

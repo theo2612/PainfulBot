@@ -196,17 +196,25 @@ whatever components the player owns and sums/min's their stats.
 This is the fun, fillable part — Theo's list plus room to grow. Treat the
 numbers as placeholders to balance during playtest.
 
+**Brand-neutral by design (decided 2026-05-31).** Hardware uses generic names,
+not brands — so the game stays neutral and a **sponsor can be slotted into a
+tier later**. The architecture already supports this for free: a component's
+`id` (internal/command handle) is decoupled from its `name` (display), and only
+`id` is persisted on a player's rig, so a name is a swappable display layer with
+zero migration. (Theo's original brand list below is kept as *inspiration* for
+stats/role; the shipped names are generic.)
+
 ### 5.1 Prebuilts (no assembly — the early/mid game)
 
 | id | name | cost | threads | memory | storage | gpu | clock | notes |
 |----|------|------|---------|--------|---------|-----|-------|-------|
-| `rpi` | Raspberry Pi | ~200 cash | 4 | 2 | 16 | 0 | 0.8 | **first rig.** 2 GB → exactly 1 job slot (`min(4, floor(2/2))=1`). RAM is **soldered** (real Pi) so it can't be expanded — you graduate to the next machine for concurrency. clock 0.8 = jobs run 1.25× slower than base. 16 GB SD → locked out of malware/exfil; gpu 0 → locked out of crypto/cracking. |
-| `dell_laptop` | Dell Laptop | mid | 8 | 16 | 256 | 1 | 1.0 | ~2–3 slots; tiny iGPU |
+| `sbc` | Single-Board Computer | ~200 cash | 4 | 2 | 16 | 0 | 0.8 | **first rig. ✅ SHIPPED.** 2 GB → exactly 1 job slot (`min(4, floor(2/2))=1`). RAM is **soldered** (real SBCs) so it can't be expanded — you graduate to the next machine for concurrency. clock 0.8 = jobs run 1.25× slower than base. 16 GB card → locked out of malware/exfil; gpu 0 → locked out of crypto/cracking. (Was the branded "Raspberry Pi"; renamed brand-neutral 2026-05-31, id `rpi`→`sbc` with a one-row DB migration.) |
+| `laptop` | Laptop (portable rig) | mid | 8 | 16 | 256 | 1 | 1.0 | ~2–3 slots; tiny iGPU. Next tier (Phase 2). Brand-neutral name. |
 
-**Why the Pi's weakness is the point:** every weak stat previews an upgrade
-reason *before* you leave it — more RAM = more slots (but Pi RAM is soldered, so:
-buy a bigger machine), more storage = malware/exfil hacks, a GPU = cracking. The
-Pi runs the whole Phase-1 starter set and nothing heavier.
+**Why the SBC's weakness is the point:** every weak stat previews an upgrade
+reason *before* you leave it — more RAM = more slots (but SBC RAM is soldered,
+so: buy a bigger machine), more storage = malware/exfil hacks, a GPU = cracking.
+The SBC runs the whole Phase-1 starter set and nothing heavier.
 
 ### 5.2 Parts (the custom tower — mid/endgame)
 

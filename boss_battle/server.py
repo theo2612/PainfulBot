@@ -612,6 +612,7 @@ def api_game_player():
         game["players"][username] = {
             "level":        data.get("level", 1),
             "points":       data.get("points", 0),
+            "cash":         data.get("cash", 0),
             "health":       data.get("health", 100),
             "max_health":   data.get("max_health", data.get("health", 100)),
             "items":        data.get("items", []),

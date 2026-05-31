@@ -348,6 +348,12 @@
       color: var(--text-muted);
     }
     .pc-points span { color: var(--green); }
+    .pc-cash {
+      font-family: var(--font-vt);
+      font-size: .95rem;
+      color: var(--text-muted);
+    }
+    .pc-cash span { color: #ffcf4d; }
 
     .pc-hp-wrap { display: flex; align-items: center; gap: 6px; }
     .pc-hp-bar {
@@ -1517,7 +1523,16 @@
     }
     if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
 
-    const sorted   = Object.entries(_players).sort((a,b) => b[1].points - a[1].points);
+    // On desktop my own card pins to the top so I can find myself at a glance;
+    // everyone else is ranked by points descending. The mobile layout keeps the
+    // plain points ranking (the panel is a collapsible drawer there, so pinning
+    // would just reshuffle a list the player has to expand anyway).
+    const pinMe    = !_isMobileVP();
+    const sorted   = Object.entries(_players).sort((a,b) => {
+      if (pinMe && a[0] === _myUsername) return -1;
+      if (pinMe && b[0] === _myUsername) return 1;
+      return b[1].points - a[1].points;
+    });
     const existing = {};
     list.querySelectorAll('.player-card').forEach(el => { existing[el.dataset.user] = el; });
 
@@ -1541,6 +1556,8 @@
         const card = existing[name];
         card.querySelector('.pc-level').textContent = `LVL ${p.level}`;
         card.querySelector('.pc-points span').textContent = p.points;
+        const cashEl = card.querySelector('.pc-cash span');
+        if (cashEl) cashEl.textContent = p.cash || 0;
         const fill = card.querySelector('.pc-hp-fill');
         fill.style.width      = (pct * 100) + '%';
         fill.style.background = hpColor(pct);
@@ -1578,6 +1595,7 @@
           </div>
           <div class="pc-founder-slot">${founderHtml}</div>
           <div class="pc-points">pts: <span>${p.points}</span></div>
+          <div class="pc-cash">cash: <span>${p.cash || 0}</span></div>
           <div class="pc-hp-wrap">
             <div class="pc-hp-bar">
               <div class="pc-hp-fill" style="width:${pct*100}%;background:${hpColor(pct)}"></div>
@@ -1605,6 +1623,17 @@
     Object.keys(existing).forEach(name => {
       if (!seen.has(name)) existing[name].remove();
     });
+
+    // Reused cards stay where they were in the DOM, so the sort above only
+    // affects freshly-created cards. On desktop, re-append in sorted order to
+    // actually float my pinned card (and the points ranking) to the top.
+    // Mobile keeps its existing append-on-create behavior, untouched.
+    if (pinMe) {
+      sorted.forEach(([name]) => {
+        const card = list.querySelector(`.player-card[data-user="${CSS.escape(name)}"]`);
+        if (card) list.appendChild(card);
+      });
+    }
 
     // If authenticated, sync my own stats from the player list
     if (_myUsername && _players[_myUsername]) {
