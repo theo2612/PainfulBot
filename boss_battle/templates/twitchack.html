@@ -664,34 +664,36 @@
     .grab-btn:active { transform: scale(.97); }
 
     /* ── Idle hacking: buy (gold/cash) · run (cyan/compute) · job chips ── */
-    .buy-btn {
+    .buy-btn, .run-btn {
       font-family: var(--font-head); font-size: .68rem; letter-spacing: .06em;
       padding: 4px 10px; border-radius: 2px;
-      border: 1px solid rgba(255,207,77,.35);
-      background: rgba(255,207,77,.06); color: #ffcf4d;
       cursor: pointer; transition: all .15s; white-space: nowrap;
     }
-    .buy-btn:hover { border-color:#ffcf4d; background: rgba(255,207,77,.15); box-shadow:0 0 8px rgba(255,207,77,.2); }
-    .buy-btn:active { transform: scale(.97); }
-    .buy-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity:.5; }
-    .run-btn {
-      font-family: var(--font-head); font-size: .68rem; letter-spacing: .06em;
-      padding: 4px 10px; border-radius: 2px;
-      border: 1px solid rgba(140,220,255,.3);
-      background: rgba(140,220,255,.05); color: #8cdcff;
-      cursor: pointer; transition: all .15s; white-space: nowrap;
+    /* Solid borders + tinted (not near-transparent) fills so buttons read as
+       buttons on the near-black panel in every state. */
+    .buy-btn { border: 1px solid #b8902f; background: rgba(255,207,77,.14); color: #ffcf4d; }
+    .buy-btn:hover { border-color:#ffcf4d; background: rgba(255,207,77,.24); box-shadow:0 0 8px rgba(255,207,77,.25); }
+    .run-btn { border: 1px solid #3f7fa0; background: rgba(140,220,255,.13); color: #aee4ff; }
+    .run-btn:hover { border-color:#8cdcff; background: rgba(140,220,255,.22); box-shadow:0 0 8px rgba(140,220,255,.25); }
+    .buy-btn:active, .run-btn:active { transform: scale(.97); }
+    /* Owned hardware: clearly "you have this" (green), not a dead black box. */
+    .buy-btn.owned {
+      border-color: rgba(0,255,65,.45); background: rgba(0,255,65,.1);
+      color: var(--green); cursor: default;
     }
-    .run-btn:hover { border-color:#8cdcff; background: rgba(140,220,255,.14); box-shadow:0 0 8px rgba(140,220,255,.2); }
-    .run-btn:active { transform: scale(.97); }
-    .run-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity:.5; }
+    /* Disabled (can't afford / slots busy): dim but still visibly a button. */
+    .buy-btn:disabled:not(.owned), .run-btn:disabled {
+      border-color: #38384e; background: rgba(40,40,60,.4);
+      color: rgba(150,165,185,.7); cursor: not-allowed;
+    }
     .job-chip {
       font-family: var(--font-vt); font-size: .72rem;
       padding: 3px 9px; border-radius: 2px;
-      border: 1px solid rgba(0,255,65,.25);
-      background: rgba(0,255,65,.04); color: var(--green); white-space: nowrap;
+      border: 1px solid rgba(0,255,65,.5);
+      background: rgba(0,255,65,.1); color: var(--green); white-space: nowrap;
     }
-    .job-chip .jc-time { color: var(--text-muted); }
-    .job-chip.done { border-color: rgba(255,207,77,.4); color:#ffcf4d; }
+    .job-chip .jc-time { color: rgba(150,165,185,.85); }
+    .job-chip.done { border-color: rgba(255,207,77,.6); background: rgba(255,207,77,.12); color:#ffcf4d; }
     .idle-empty { font-size:.68rem; color: var(--text-muted); letter-spacing:.08em; }
 
     /* Util buttons (status, points, leaderboard) */
@@ -1711,11 +1713,24 @@
     // affects freshly-created cards. On desktop, re-append in sorted order to
     // actually float my pinned card (and the points ranking) to the top.
     // Mobile keeps its existing append-on-create behavior, untouched.
+    //
+    // Only touch the DOM when the order actually changed. Re-appending every
+    // card on every render detaches/re-inserts each node (a synchronous reflow
+    // each time) and yanks cards out from under the pointer mid-click — which
+    // is exactly what made the panel hard to use during a command flood. When
+    // the ranking is unchanged (the common case between two pushes), skip it.
     if (pinMe) {
-      sorted.forEach(([name]) => {
-        const card = list.querySelector(`.player-card[data-user="${CSS.escape(name)}"]`);
-        if (card) list.appendChild(card);
-      });
+      const desired = sorted.map(([name]) => name);
+      const current = Array.from(list.querySelectorAll('.player-card'))
+                           .map(el => el.dataset.user);
+      const sameOrder = desired.length === current.length
+                        && desired.every((n, i) => n === current[i]);
+      if (!sameOrder) {
+        sorted.forEach(([name]) => {
+          const card = list.querySelector(`.player-card[data-user="${CSS.escape(name)}"]`);
+          if (card) list.appendChild(card);
+        });
+      }
     }
 
     // If authenticated, sync my own stats from the player list
@@ -1910,6 +1925,7 @@
       btn.className = 'buy-btn';
       if (owned) {
         btn.textContent = `✓ ${c.name}`;
+        btn.classList.add('owned');
         btn.disabled = true;
         btn.title = 'Owned';
       } else {
@@ -2150,9 +2166,27 @@
     prependEvent(e);
   });
 
-  socket.on('players_update', players => {
-    renderPlayers(players);
-  });
+  // Coalesce player-list re-renders into a single animation frame. An
+  // auto-attack script (or any chat flood) makes the bot emit a players_update
+  // per command; without batching, every one of those triggers a synchronous
+  // full renderPlayers on every viewer, pinning the main thread and making the
+  // whole page feel unresponsive to clicks. Storing only the latest snapshot
+  // and rendering once per frame caps the work at ~60fps regardless of how
+  // fast commands arrive — no command is dropped, just redundant re-renders.
+  let _pendingPlayers = null;
+  let _playersRaf = 0;
+  function scheduleRenderPlayers(players) {
+    _pendingPlayers = players;
+    if (_playersRaf) return;
+    _playersRaf = requestAnimationFrame(() => {
+      _playersRaf = 0;
+      const p = _pendingPlayers;
+      _pendingPlayers = null;
+      if (p) renderPlayers(p);
+    });
+  }
+
+  socket.on('players_update', scheduleRenderPlayers);
 
   socket.on('drops_update', drops => {
     renderDrops(drops);
