@@ -20,8 +20,15 @@ PainfulBot_original.py
 player_data_class_test.py
 *.log
 logs/
+# `logs/` above only matches the repo root — exclude nested runtime logs too
+# (boss_battle/logs was 3.3GB and was bloating the build context).
+**/logs/
 boss_battle/.venv
 stream_todo/.venv
 stream_todo/
 *.md
 node_modules
+# Runtime data / host virtualenv — never needed in an image, large.
+venv/
+attack_log.jsonl
+*.jsonl
