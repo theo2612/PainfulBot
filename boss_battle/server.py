@@ -95,6 +95,10 @@ TWITCH_CLIENT_ID     = os.environ.get('OAUTH_CLIENT_ID', os.environ.get('CLIENT_
 TWITCH_CLIENT_SECRET = os.environ.get('OAUTH_CLIENT_SECRET', os.environ.get('CLIENT_SECRET', ''))
 REDIRECT_URI         = 'https://bossbattle.b7h30.com/twitchack/callback'
 BOT_API              = os.environ.get('BOT_API', 'http://localhost:3004/command')
+# The game roster/treasury/catalogs live only in this process's memory, so on
+# our own startup we ask the bot (the source of truth) to re-push everything.
+# Derive the resync URL from BOT_API so both always point at the same bot.
+BOT_RESYNC_URL       = BOT_API.rsplit('/', 1)[0] + '/resync'
 
 # ---------------------------------------------------------------------------
 # Boss battle state
@@ -968,8 +972,31 @@ def on_todo_jump(data):
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Startup helpers
 # ---------------------------------------------------------------------------
+
+def _request_bot_reseed():
+    """Ask the bot to re-push the full roster, treasury, and catalogs into our
+    in-memory caches. We hold that state only in memory, so without this an
+    overlay-only restart would show just the players who happen to act next.
+
+    The bot's internal API only comes up after it connects to Twitch, so retry
+    with backoff for a few minutes, then give up — the bot also re-seeds on its
+    own startup, so this is strictly best-effort and never fatal."""
+    delay = 2
+    for _ in range(25):
+        try:
+            resp = http_req.post(BOT_RESYNC_URL, timeout=5)
+            if resp.ok:
+                n = (resp.json() or {}).get("players", "?")
+                print(f"  [reseed] overlay re-seeded from bot — {n} players")
+                return
+        except Exception:
+            pass
+        socketio.sleep(delay)
+        delay = min(delay * 1.5, 20)
+    print("  [reseed] bot did not answer /resync — roster will fill in as players act")
+
 
 # ---------------------------------------------------------------------------
 # Startup — runs on module import (so gunicorn picks it up too)
@@ -985,6 +1012,12 @@ except FileNotFoundError:
     print("  [todo] No todo_config.json found — todo overlay disabled")
 
 socketio.start_background_task(_todo_ticker)
+
+# On startup, ask the bot to re-seed our in-memory game state so an overlay-only
+# restart recovers the full roster without needing the bot to reboot. Guarded by
+# an env flag so tests (and any deployment that wants it off) can opt out.
+if os.environ.get("OVERLAY_DISABLE_RESEED") != "1":
+    socketio.start_background_task(_request_bot_reseed)
 
 print()
 print("  Boss Battle Spectator: http://localhost:3003/")

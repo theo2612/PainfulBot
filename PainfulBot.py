@@ -706,19 +706,11 @@ class Bot(commands.Bot):
 
         # Send a message to the chat indicating that the bot is online
         await self.connected_channels[0].send(f"{self.nick} is now online")
-        await game_overlay.clear()
-        # Re-seed the overlay's player cache so anyone with a logged-in
-        # browser sees themselves immediately, instead of waiting until they
-        # next act. Fire-and-forget — overlay swallows failures.
-        for _name, _p in list(self.player_data.items()):
-            await game_overlay.player(_name, _p)
-        # Push the current Treasury balance so the widget shows the real
-        # number on first paint, not 0.
-        await game_overlay.treasury(jail.get_treasury_balance())
-        # Push the idle-hacking catalogs so the GUI renders buy/run buttons from
-        # the live source of truth (add hardware/hacks → buttons appear). Also
-        # re-pushed periodically by idle_ticker_loop so the GUI self-heals.
-        await self._push_idle_catalog()
+        # Seed the overlay with the full roster, treasury, and catalogs. The
+        # overlay holds this only in memory, so it also calls /resync on its
+        # own startup (see _internal_resync_handler) to recover after an
+        # overlay-only restart without needing the bot to reboot.
+        await self._reseed_overlay()
         self.loop.create_task(self.setup_eventsub())
         self.loop.create_task(self.eventsub_healthcheck())
         self.loop.create_task(self.start_internal_api())
@@ -3721,11 +3713,52 @@ class Bot(commands.Bot):
         port = int(os.environ.get('BOT_API_PORT', '3004'))
         app = aiohttp_web.Application()
         app.router.add_post('/command', self._internal_api_handler)
+        app.router.add_post('/resync', self._internal_resync_handler)
         runner = aiohttp_web.AppRunner(app)
         await runner.setup()
         site = aiohttp_web.TCPSite(runner, host, port)
         await site.start()
         helpers.log_to_file(f'Internal web API started on {host}:{port}')
+
+    async def _reseed_overlay(self):
+        """Push the full current game state to the overlay: clear its caches,
+        re-push every registered player, the treasury balance, and the
+        idle-hacking catalogs.
+
+        The overlay keeps all of this in memory only, so it is lost whenever the
+        overlay process restarts. This is the single source of that seed — called
+        on bot startup (event_ready) and on demand from /resync — so the bot stays
+        the source of truth and an overlay-only restart can fully recover.
+        Fire-and-forget at the push layer; the overlay swallows failures.
+        """
+        await game_overlay.clear()
+        # Re-seed the player cache so anyone with a logged-in browser sees the
+        # full roster immediately, instead of only players who act next.
+        for _name, _p in list(self.player_data.items()):
+            await game_overlay.player(_name, _p)
+        # Treasury balance so the widget shows the real number on first paint.
+        await game_overlay.treasury(jail.get_treasury_balance())
+        # Catalogs so the GUI renders buy/run buttons from the live source of
+        # truth (add hardware/hacks → buttons appear).
+        await self._push_idle_catalog()
+
+    async def _internal_resync_handler(self, request):
+        """Handle POST /resync from the overlay. The overlay calls this on its
+        own startup so an overlay-only restart repopulates the full roster
+        without needing a bot reboot."""
+        try:
+            await self._reseed_overlay()
+            return aiohttp_web.Response(
+                text=json.dumps({'ok': True, 'players': len(self.player_data)}),
+                content_type='application/json'
+            )
+        except Exception as e:
+            helpers.log_to_file(f'[internal_api] resync error: {e}')
+            return aiohttp_web.Response(
+                text=json.dumps({'ok': False, 'error': str(e)}),
+                content_type='application/json',
+                status=500
+            )
 
     async def _internal_api_handler(self, request):
         """Handle POST /command from the Flask overlay server."""

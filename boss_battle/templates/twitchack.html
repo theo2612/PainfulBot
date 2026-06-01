@@ -1390,6 +1390,7 @@
 </div><!-- /page -->
 
 <script src="/static/socket.io.min.js?v={{ v }}"></script>
+<script src="/static/twitchack_render.js?v={{ v }}"></script>
 <script>
   // ── Constants ──────────────────────────────────────────────────────────────
   const ITEM_EMOJIS = {
@@ -1723,9 +1724,7 @@
       const desired = sorted.map(([name]) => name);
       const current = Array.from(list.querySelectorAll('.player-card'))
                            .map(el => el.dataset.user);
-      const sameOrder = desired.length === current.length
-                        && desired.every((n, i) => n === current[i]);
-      if (!sameOrder) {
+      if (TwitcHackRender.needsReorder(desired, current)) {
         sorted.forEach(([name]) => {
           const card = list.querySelector(`.player-card[data-user="${CSS.escape(name)}"]`);
           if (card) list.appendChild(card);
@@ -2166,25 +2165,16 @@
     prependEvent(e);
   });
 
-  // Coalesce player-list re-renders into a single animation frame. An
-  // auto-attack script (or any chat flood) makes the bot emit a players_update
-  // per command; without batching, every one of those triggers a synchronous
-  // full renderPlayers on every viewer, pinning the main thread and making the
-  // whole page feel unresponsive to clicks. Storing only the latest snapshot
-  // and rendering once per frame caps the work at ~60fps regardless of how
-  // fast commands arrive — no command is dropped, just redundant re-renders.
-  let _pendingPlayers = null;
-  let _playersRaf = 0;
-  function scheduleRenderPlayers(players) {
-    _pendingPlayers = players;
-    if (_playersRaf) return;
-    _playersRaf = requestAnimationFrame(() => {
-      _playersRaf = 0;
-      const p = _pendingPlayers;
-      _pendingPlayers = null;
-      if (p) renderPlayers(p);
-    });
-  }
+  // Coalesce player-list re-renders into one per animation frame (logic in
+  // /static/twitchack_render.js, unit-tested in tests/test_twitchack_render.js).
+  // An auto-attack script (or any chat flood) makes the bot emit a
+  // players_update per command; without batching, every one of those triggers
+  // a synchronous full renderPlayers on every viewer, pinning the main thread
+  // and making the whole page feel unresponsive to clicks. Rendering the
+  // latest snapshot once per frame caps the work at ~60fps — no command is
+  // dropped, just the redundant intermediate renders.
+  const scheduleRenderPlayers = TwitcHackRender.makeCoalescer(
+    (cb) => requestAnimationFrame(cb), renderPlayers);
 
   socket.on('players_update', scheduleRenderPlayers);
 
