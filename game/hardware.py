@@ -54,7 +54,12 @@ class Component:
 
 
 # ---------------------------------------------------------------------------
-# Catalog. Phase 1: the Single-Board Computer only. See spec §5.1.
+# Catalog of prebuilt rigs. Brand-neutral names. See spec §5.1.
+#
+# Tuning note: stats aren't shown to players, so prebuilt threads/memory are
+# chosen to hit a target job-slot count via min(threads, memory//2), not for
+# spec-sheet realism. Progression: SBC 1 slot → Laptop 3 slots → (future)
+# custom tower scaling higher.
 # ---------------------------------------------------------------------------
 COMPONENTS: dict[str, Component] = {
     "sbc": Component(
@@ -68,6 +73,18 @@ COMPONENTS: dict[str, Component] = {
         # concurrency. clock 0.8 = jobs run 1.25x slower than base. 16 GB card
         # and gpu 0 lock it out of malware/exfil and crypto/cracking.
         stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8),
+    ),
+    "laptop": Component(
+        id="laptop",
+        name="Laptop",
+        kind="prebuilt",
+        cost=1200,
+        level_req=1,
+        # 6 GB → 3 job slots (min(6, 6//2)=3): real concurrency, a 3x jump from
+        # the SBC. clock 1.0 = jobs at base speed (~20% faster than the SBC's
+        # 0.8). 256 GB storage opens room for future storage-gated hacks; a
+        # token iGPU (gpu_power 1) is a toe-hold for entry-level cracking later.
+        stats=RigStats(threads=6, memory=6, storage=256, gpu_power=1, clock=1.0),
     ),
 }
 

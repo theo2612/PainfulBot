@@ -112,6 +112,40 @@ class DurationTests(unittest.TestCase):
         self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["credstuff"], stats), 180)
 
 
+class LaptopTierTests(unittest.TestCase):
+    def test_laptop_yields_three_slots(self):
+        # 6 GB → min(threads 6, floor(6/2)=3) = 3 — real concurrency.
+        self.assertEqual(hardware.job_slots(make_player(rig=["laptop"])), 3)
+
+    def test_laptop_runs_jobs_at_base_speed(self):
+        # clock 1.0 → portscan at its 12s base (vs the SBC's 15s).
+        stats = hardware.rig_stats(make_player(rig=["laptop"]))
+        self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["portscan"], stats), 12)
+
+    def test_buying_laptop_deducts_cost(self):
+        p = make_player(cash=1300)
+        comp, reason = hardware.buy_component(p, "laptop")
+        self.assertIsNotNone(comp)
+        self.assertEqual(p.cash, 100)        # 1300 - 1200
+        self.assertEqual(p.rig, ["laptop"])
+
+    def test_laptop_upgrades_over_sbc_when_both_owned(self):
+        # Owning both prebuilts, the stronger one (laptop) defines the rig.
+        p = make_player(rig=["sbc", "laptop"])
+        self.assertEqual(hardware.job_slots(p), 3)
+        self.assertEqual(hardware.rig_stats(p).storage, 256)
+
+    def test_can_run_three_concurrent_on_laptop(self):
+        p = make_player(rig=["laptop"])
+        self.assertIsNotNone(hacks.start_hack(p, "portscan")[0])
+        self.assertIsNotNone(hacks.start_hack(p, "servicescan")[0])
+        self.assertIsNotNone(hacks.start_hack(p, "spearphish")[0])
+        # 4th exceeds the 3 slots.
+        job, reason = hacks.start_hack(p, "credstuff")
+        self.assertIsNone(job)
+        self.assertIn("busy", reason)
+
+
 class StartHackTests(unittest.TestCase):
     def test_cannot_run_without_a_rig(self):
         job, reason = hacks.start_hack(make_player(), "portscan")
