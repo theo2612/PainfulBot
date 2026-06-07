@@ -2013,6 +2013,17 @@
   function machineUsed(id) { return _myJobs.filter(j => j.machine === id).length; }
   function ownedMachines() { return _myRig.filter(id => hwById(id)); }
   function bestMachine(ms) { return ms.slice().sort((a, b) => machineCap(b) - machineCap(a))[0]; }
+  // Whether a machine's hardware meets a hack's requirements (bandwidth/storage/
+  // gpu) — both pushed in the catalog, so the GUI shows locks honestly.
+  function machineCanRun(machineId, hack) {
+    const m = hwById(machineId);
+    if (!m || !hack) return false;
+    const req = hack.hw_req || {};
+    if ((req.bandwidth || 0) > (m.bandwidth || 0)) return false;
+    if ((req.storage   || 0) > (m.storage   || 0)) return false;
+    if ((req.gpu_power || 0) > (m.gpu       || 0)) return false;
+    return true;
+  }
 
   // The Rig row: one button per owned machine, showing used/total slots. Click
   // to select which machine the Run buttons target (its speed applies). The
@@ -2191,10 +2202,17 @@
     hackList.forEach(h => {
       const btn = document.createElement('button');
       btn.className = 'run-btn';
-      btn.textContent = `▶ ${h.name}`;
-      btn.disabled = free <= 0;
-      btn.title = free <= 0 ? `${mname} is busy` : `Run ${h.name} on ${mname}`;
-      btn.onclick = () => sendCmd('run', h.id + ' ' + _activeMachine);
+      if (!machineCanRun(_activeMachine, h)) {
+        // The active machine's hardware can't run this hack — locked, not busy.
+        btn.textContent = `🔒 ${h.name}`;
+        btn.disabled = true;
+        btn.title = `${mname} can't run ${h.name} — needs better hardware`;
+      } else {
+        btn.textContent = `▶ ${h.name}`;
+        btn.disabled = free <= 0;
+        btn.title = free <= 0 ? `${mname} is busy` : `Run ${h.name} on ${mname}`;
+        btn.onclick = () => sendCmd('run', h.id + ' ' + _activeMachine);
+      }
       row.appendChild(btn);
     });
     if (free <= 0) row.appendChild(idleEmptySpan(`${mname} busy — pick another rig`));
