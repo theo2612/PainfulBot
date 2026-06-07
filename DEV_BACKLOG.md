@@ -41,15 +41,12 @@ on-screen feed should show *outcomes and story*, never command syntax.**
   - [x] Clean `!commands` out of the feed (`95ecf24`).
   - [ ] Move drop announcements to the feed; decide boss-battle broadcasts.
 
-### Per-machine rigs + Hardware row (decided 2026-06-07)
-Replace the "best machine only" model: each owned machine is its **own
-workstation** with its own job slots AND its own clock speed. Total concurrency
-= sum across owned machines; you pick which machine to run a hack on (speed
-matters — slow SBC vs faster Laptop). UI: the command panel's "Shop" row becomes
-a **Hardware** row to select the active machine; the shop stays on the floating
-🛒 tab. Core-model change — jobs get tagged to a machine, slots counted per
-machine, `rig_stats`/`job_slots`/`can_run`/`start_hack`/`duration_for` updated,
-with tests. (Custom-tower parts later assemble into one machine.)
+### Per-machine rigs + Rig row — ✅ DONE (`77798a4`, `0b4bb0b`)
+Each owned machine is its own workstation: own slots + own clock speed, total
+concurrency = the sum, jobs tagged to a machine and timed by its clock. GUI Rig
+row selects the active machine; Run targets it. (Future: custom-tower parts
+assemble into one machine; owning multiple of the SAME machine type would need
+instance ids — not built.)
 
 ## Next
 
