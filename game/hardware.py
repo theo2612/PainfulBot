@@ -51,6 +51,7 @@ class Component:
     cost: int            # cash
     level_req: int = 0
     stats: RigStats = field(default_factory=RigStats)
+    desc: str = ""       # short "what it does" line for the shop
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,7 @@ COMPONENTS: dict[str, Component] = {
         # concurrency. clock 0.8 = jobs run 1.25x slower than base. 16 GB card
         # and gpu 0 lock it out of malware/exfil and crypto/cracking.
         stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8),
+        desc="Your first rig. Runs 1 hack at a time.",
     ),
     "laptop": Component(
         id="laptop",
@@ -85,6 +87,7 @@ COMPONENTS: dict[str, Component] = {
         # 0.8). 256 GB storage opens room for future storage-gated hacks; a
         # token iGPU (gpu_power 1) is a toe-hold for entry-level cracking later.
         stats=RigStats(threads=6, memory=6, storage=256, gpu_power=1, clock=1.0),
+        desc="3 hacks at once, ~20% faster, lots of storage.",
     ),
 }
 

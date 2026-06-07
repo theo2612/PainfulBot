@@ -713,7 +713,7 @@ class Bot(commands.Bot):
         the overlay simply coming up after the bot's first push, would otherwise
         leave the buttons stuck on 'loading…'."""
         await game_overlay.catalog(
-            [{"id": c.id, "name": c.name, "cost": c.cost}
+            [{"id": c.id, "name": c.name, "cost": c.cost, "desc": c.desc}
              for c in hardware.COMPONENTS.values()],
             [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
             [{"name": it.name,
