@@ -675,6 +675,15 @@
       background: rgba(0,255,65,.1); box-shadow: 0 0 6px rgba(0,255,65,.2);
     }
     .machine-btn .mc-slots { color: #ffcf4d; font-family: var(--font-vt); }
+    .machine-btn .mc-cond { font-family: var(--font-vt); font-size: .92em; }
+    .repair-btn {
+      font-family: var(--font-head); font-size: .66rem; letter-spacing: .04em;
+      padding: 4px 8px; border-radius: 2px; cursor: pointer; white-space: nowrap;
+      border: 1px solid rgba(255,204,0,.4); background: rgba(255,204,0,.08); color: #ffcc00;
+      transition: all .15s;
+    }
+    .repair-btn:hover { border-color: #ffcc00; background: rgba(255,204,0,.18); }
+    .repair-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity: .55; }
 
     /* ── Shop: floating toggle + right-side drawer ───────────────────── */
     .shop-open-btn {
@@ -1563,6 +1572,7 @@
   let _myJobs     = [];   // [{hack_id, machine, started_at, finishes_at}]
   let _myJobSlots = 0;    // total concurrent-job cap across all machines
   let _activeMachine = null;  // which owned machine the Run buttons target
+  let _myRigState = {};   // {machine_id: {condition, repair_cost}} — wear & tear
 
   // Last-rendered signature per idle sub-panel. Idle buttons rebuild only when
   // their relevant state actually changes — so unrelated player updates (other
@@ -1921,6 +1931,7 @@
     if (p.cash      !== undefined) _myCash     = p.cash;
     if (p.jobs      !== undefined) _myJobs     = Array.isArray(p.jobs) ? p.jobs : [];
     if (p.job_slots !== undefined) _myJobSlots = p.job_slots;
+    if (p.rig_state !== undefined) _myRigState = p.rig_state || {};
     renderIdlePanel();
   }
 
@@ -2013,6 +2024,9 @@
   function machineUsed(id) { return _myJobs.filter(j => j.machine === id).length; }
   function ownedMachines() { return _myRig.filter(id => hwById(id)); }
   function bestMachine(ms) { return ms.slice().sort((a, b) => machineCap(b) - machineCap(a))[0]; }
+  function machineCond(id) { const s = _myRigState[id]; return s && s.condition != null ? s.condition : 100; }
+  function repairCost(id) { const s = _myRigState[id]; return s && s.repair_cost != null ? s.repair_cost : 0; }
+  function condColor(c) { return c > 66 ? 'var(--green)' : c > 33 ? '#ffcc00' : 'var(--red)'; }
   // Whether a machine's hardware meets a hack's requirements (bandwidth/storage/
   // gpu) — both pushed in the catalog, so the GUI shows locks honestly.
   function machineCanRun(machineId, hack) {
@@ -2034,7 +2048,7 @@
     const ms = ownedMachines();
     if (ms.length && !ms.includes(_activeMachine)) _activeMachine = bestMachine(ms);
     if (!ms.length) _activeMachine = null;
-    const sig = `${_activeMachine}|${ms.map(id => id + ':' + machineUsed(id) + '/' + machineCap(id)).join(',')}`;
+    const sig = `${_activeMachine}|${ms.map(id => id + ':' + machineUsed(id) + '/' + machineCap(id) + ':' + Math.round(machineCond(id)) + ':' + repairCost(id)).join(',')}`;
     if (sig === _sigHw) return;
     _sigHw = sig;
     const label = row.querySelector('.cmd-label');
@@ -2042,10 +2056,12 @@
     row.appendChild(label);
     if (!ms.length) { row.appendChild(idleEmptySpan('Buy a rig in the Shop 🛒')); return; }
     ms.forEach(id => {
+      const cond = Math.round(machineCond(id));
       const btn = document.createElement('button');
       btn.className = 'machine-btn' + (id === _activeMachine ? ' active' : '');
-      btn.innerHTML = `${escHtml(hwById(id).name)} <span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span>`;
-      btn.title = `Run hacks on ${hwById(id).name}`;
+      btn.innerHTML = `${escHtml(hwById(id).name)} <span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span> ` +
+                      `<span class="mc-cond" style="color:${condColor(cond)}">${cond}%</span>`;
+      btn.title = `Run hacks on ${hwById(id).name} — condition ${cond}%`;
       btn.onclick = () => {
         if (_activeMachine !== id) {
           _activeMachine = id;
@@ -2055,6 +2071,17 @@
         }
       };
       row.appendChild(btn);
+      // Repair button when the machine is worn and there's a cost to quote.
+      const cost = repairCost(id);
+      if (cond < 100 && cost > 0) {
+        const rb = document.createElement('button');
+        rb.className = 'repair-btn';
+        rb.textContent = `🔧 ${cost}`;
+        rb.disabled = _myCash < cost;
+        rb.title = `Repair ${hwById(id).name} to 100% for ${cost} cash`;
+        rb.onclick = () => sendCmd('repair', id);
+        row.appendChild(rb);
+      }
     });
   }
 
