@@ -196,6 +196,41 @@ class PerMachineTests(unittest.TestCase):
         self.assertIn("don't own", reason)
 
 
+class ExfilBandwidthTests(unittest.TestCase):
+    """bandwidth stat gates + speeds the exfil category."""
+
+    def test_machines_have_bandwidth(self):
+        self.assertEqual(hardware.machine_stats("sbc").bandwidth, 1)
+        self.assertEqual(hardware.machine_stats("laptop").bandwidth, 4)
+
+    def test_sbc_cannot_run_exfil(self):
+        # SBC: bandwidth 1 (< 3) and 16 GB (< 64) — doubly gated out.
+        job, reason = hacks.start_hack(make_player(rig=["sbc"]), "dbexfil", machine_id="sbc")
+        self.assertIsNone(job)
+        self.assertTrue("bandwidth" in reason or "storage" in reason)
+
+    def test_laptop_can_run_exfil(self):
+        job, secs = hacks.start_hack(make_player(rig=["laptop"]), "dbexfil", machine_id="laptop")
+        self.assertIsNotNone(job)
+        self.assertEqual(job["machine"], "laptop")
+
+    def test_exfil_auto_picks_the_capable_machine(self):
+        # Owning both, only the laptop can run exfil → auto-pick must choose it.
+        p = make_player(rig=["sbc", "laptop"])
+        job, _ = hacks.start_hack(p, "dbexfil")
+        self.assertEqual(job["machine"], "laptop")
+
+    def test_bandwidth_speeds_exfil(self):
+        # base 300 / (clock 1.0 * bandwidth 4/3) = 225s on the laptop.
+        stats = hardware.machine_stats("laptop")
+        self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["dbexfil"], stats), 225)
+
+    def test_non_exfil_unaffected_by_bandwidth(self):
+        # A network hack ignores bandwidth — laptop clock 1.0 → portscan 12s.
+        stats = hardware.machine_stats("laptop")
+        self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["portscan"], stats), 12)
+
+
 class StartHackTests(unittest.TestCase):
     def test_cannot_run_without_a_rig(self):
         job, reason = hacks.start_hack(make_player(), "portscan")

@@ -724,9 +724,13 @@ class Bot(commands.Bot):
         leave the buttons stuck on 'loading…'."""
         await game_overlay.catalog(
             [{"id": c.id, "name": c.name, "cost": c.cost, "desc": c.desc,
-              "slots": c.stats.job_slots()}
+              "slots": c.stats.job_slots(),
+              # Gating stats so the GUI can tell which machine can run which hack.
+              "bandwidth": c.stats.bandwidth, "storage": c.stats.storage,
+              "gpu": c.stats.gpu_power}
              for c in hardware.COMPONENTS.values()],
-            [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
+            [{"id": h.id, "name": h.name, "hw_req": h.hw_req}
+             for h in hacks.HACK_DEFS.values()],
             [{"name": it.name,
               "emoji": self.item_emojis.get(it.name, "📦"),
               "malicious": getattr(it, "malicious", False)}

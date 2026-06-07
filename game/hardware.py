@@ -30,6 +30,7 @@ class RigStats:
     storage: int = 0     # "GB"
     gpu_power: int = 0   # crypto/cracking acceleration; 0 = no GPU
     clock: float = 1.0   # general speed multiplier (higher = faster)
+    bandwidth: int = 0   # network throughput; gates + speeds exfil hacks
 
     def job_slots(self) -> int:
         """Max concurrent jobs. Needs both compute (threads) and memory.
@@ -73,7 +74,8 @@ COMPONENTS: dict[str, Component] = {
         # boards, so it can't be expanded — you graduate to a bigger machine for
         # concurrency. clock 0.8 = jobs run 1.25x slower than base. 16 GB card
         # and gpu 0 lock it out of malware/exfil and crypto/cracking.
-        stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8),
+        stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8,
+                       bandwidth=1),
         desc="Your first rig. Runs 1 hack at a time.",
     ),
     "laptop": Component(
@@ -86,8 +88,9 @@ COMPONENTS: dict[str, Component] = {
         # the SBC. clock 1.0 = jobs at base speed (~20% faster than the SBC's
         # 0.8). 256 GB storage opens room for future storage-gated hacks; a
         # token iGPU (gpu_power 1) is a toe-hold for entry-level cracking later.
-        stats=RigStats(threads=6, memory=6, storage=256, gpu_power=1, clock=1.0),
-        desc="3 hacks at once, ~20% faster, lots of storage.",
+        stats=RigStats(threads=6, memory=6, storage=256, gpu_power=1, clock=1.0,
+                       bandwidth=4),
+        desc="3 hacks at once, ~20% faster, lots of storage. Fat pipe → unlocks data exfil.",
     ),
 }
 

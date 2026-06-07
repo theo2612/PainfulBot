@@ -59,6 +59,14 @@ HACK_DEFS: dict[str, HackDef] = {
         id="credstuff", name="Credential stuffing", category="web",
         base_duration=144, success=0.88, cash=(75, 105), rep=(25, 35),
     ),
+    # Exfil: long, high-pay data heists gated by bandwidth (+ storage to hold
+    # the loot). The SBC (bandwidth 1, 16 GB) can't touch these; the Laptop
+    # (bandwidth 4, 256 GB) runs them and its fat pipe also makes them faster.
+    "dbexfil": HackDef(
+        id="dbexfil", name="Database exfiltration", category="exfil",
+        base_duration=300, success=0.85, cash=(120, 180), rep=(40, 55),
+        hw_req={"bandwidth": 3, "storage": 64},
+    ),
 }
 
 
@@ -87,10 +95,17 @@ def _from_iso(value: str | None) -> datetime | None:
         return None
 
 
+# Exfil's baseline bandwidth — the gate. Bandwidth above this speeds exfil up
+# (e.g. bandwidth 6 with EXFIL_BW_BASE 3 → exfil runs 2x faster).
+EXFIL_BW_BASE = 3
+
+
 def _category_speed(category: str, stats) -> float:
-    """Per-category speed multiplier. Only crypto/password is GPU-accelerated;
-    everything else runs at clock speed. GPU scaling lands with the GPU tier
-    (Phase 3) — for now a GPU just unlocks `password`, no speed bonus yet."""
+    """Per-category speed multiplier on top of clock. Exfil scales with
+    bandwidth (a fat pipe moves stolen data faster). Password/crypto will scale
+    with GPU later; for now a GPU only *unlocks* it, no speed bonus yet."""
+    if category == "exfil":
+        return max(1.0, stats.bandwidth / EXFIL_BW_BASE)
     return 1.0
 
 
@@ -117,6 +132,9 @@ def _machine_meets(hack: HackDef, machine_id: str) -> tuple[bool, str]:
     need_storage = hack.hw_req.get("storage", 0)
     if need_storage > s.storage:
         return False, f"{name} can't run {hack.name} — needs {need_storage} GB storage."
+    need_bw = hack.hw_req.get("bandwidth", 0)
+    if need_bw > s.bandwidth:
+        return False, f"{name} can't run {hack.name} — needs more bandwidth (≥ {need_bw})."
     return True, ""
 
 
