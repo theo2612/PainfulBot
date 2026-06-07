@@ -87,10 +87,24 @@ personality.
 
 ---
 
-## Your decisions (fill in, then we code it)
-- **Decision A (game commands typed in chat):** ☐ keep · ☐ nudge to GUI · ☐ silence
-- **Info commands (status/points/leaderboard/items):** ☐ keep in chat · ☐ GUI only · ☐ terse chat + full GUI
-- **Drop announcements (1367/1385):** ☐ keep · ☐ move to feed
-- **Boss-battle broadcasts (3524/3613/3762):** ☐ keep (hype) · ☐ feed/overlay
-- **Easter eggs (konami/coffee/browns):** ☐ keep in chat · ☐ move to feed
-- **Owner/admin confirmations:** ☐ keep · ☐ move to feed
+## Your decisions (made 2026-06-07)
+- **Decision A (game commands typed in chat):** ✅ **Nudge to the GUI** — replace
+  chat replies with a single pointer to bossbattle.b7h30.com/twitchack.
+  ⚠️ OPEN sub-question: does the chat-typed command still *execute* (action runs,
+  shows in feed) or is it *blocked* (must use the GUI)? Leaning **blocked** — it
+  best matches "I don't want buying to happen in chat" — but confirm, since it
+  means chat-only players must move to the GUI.
+- **Info commands (status/points/leaderboard/items):** ✅ **GUI only** — no chat
+  reply; the data lives on the GUI/feed.
+- **Drop announcements (1367/1385):** ☐ keep · ☐ move to feed _(default: feed)_
+- **Boss-battle broadcasts (3524/3613/3762):** ☐ keep (hype) · ☐ feed/overlay _(default: keep)_
+- **Easter eggs (konami/coffee/browns):** ✅ keep in chat (bot personality)
+- **Owner/admin confirmations:** ✅ keep for now
+
+## Implementation note (so we don't edit 179 lines)
+Decision A is **one central intercept**, not per-command edits: catch game
+commands coming from Twitch chat (not WebCtx) in `event_message`/`handle_commands`,
+send a **rate-limited** nudge, and skip (or run-then-suppress) the command. Needs
+a set of which commands are "game" vs "chatter/personality" (the latter — monday,
+neovim, easter eggs, streamsummary — pass through untouched). Info commands
+(GUI-only) fold into the same intercept.
