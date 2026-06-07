@@ -39,7 +39,12 @@ on-screen feed should show *outcomes and story*, never command syntax.**
   - [x] Header: "TWITCHACK LIVE" + twitch.tv/b7h30; removed the top stats strip (`667a087`).
   - [x] Build the Shop — right-side drawer, Hardware/Items/Software tabs (`e460af4`).
   - [x] Clean `!commands` out of the feed (`95ecf24`).
-  - [ ] Move drop announcements to the feed; decide boss-battle broadcasts.
+  - [x] Move drop announcements to the feed (`83a51c0`) — drops now feed + Grab
+        button, no chat, no "!grab" syntax. (Also fixed: follow/sub drops had no
+        grab button → were ungrabbable with !grab blocked.)
+  - [ ] (optional) decide boss-battle broadcasts (kept in chat for now).
+
+**GUI-first migration: COMPLETE.** Next theme = idle-hacking content (roadmap below).
 
 ### Per-machine rigs + Rig row — ✅ DONE (`77798a4`, `0b4bb0b`)
 Each owned machine is its own workstation: own slots + own clock speed, total
