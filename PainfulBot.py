@@ -554,7 +554,7 @@ class Bot(commands.Bot):
         helpers.save_player_data(self.player_data)
         if location:
             msg = (f"💀📦 @{username}'s {self.format_item(item_name)} glitched and "
-                   f"dropped {self.format_item(target)} at {location}! !grab {target}")
+                   f"dropped {self.format_item(target)} at {location} — grab it!")
         else:
             msg = (f"💀📦 @{username}'s {self.format_item(item_name)} glitched and "
                    f"destroyed their {self.format_item(target)}!")
@@ -1439,11 +1439,12 @@ class Bot(commands.Bot):
         if item.name.lower() in existing_names:
             return  # silently skip duplicate drop
 
-        message = f"🎉 {username} just {event_type}ed! A wild {self.format_item(item.name)} appeared at {location}!"
-        message += f" Type '!grab {item.name}' to claim it!"
+        message = f"🎉 {username} just {event_type}ed! A wild {self.format_item(item.name)} appeared at {location} — grab it!"
 
-        await self.connected_channels[0].send(message)
-        await game_overlay.event("", '!drop', message, 'drop')
+        # GUI-first: announce on the feed and put it in the Grab bar as a button.
+        # No Twitch chat, and no "!grab" syntax (grabbing is a GUI button).
+        await game_overlay.drop(item.name, location)
+        await game_overlay.event("", 'DROP', message, 'drop')
 
         # Add the dropped item to the list with timestamp
         self.dropped_items.append({
@@ -1476,7 +1477,7 @@ class Bot(commands.Bot):
                     grab_msg = f"@{ctx.author.name} grabbed the {self.format_item(item_name)}!"
                     del self.dropped_items[i]
                     helpers.save_player_data(self.player_data)
-                    await game_overlay.event(username, '!grab', grab_msg, 'grab')
+                    await game_overlay.event(username, 'GRAB', grab_msg, 'grab')
                     await game_overlay.player(username, player)
                     await game_overlay.drop_taken(item_name)
                     if isinstance(ctx, WebCtx):
@@ -1541,9 +1542,8 @@ class Bot(commands.Bot):
             if item.name.lower() in names_seen:
                 continue
 
-            message = f"🎁 A wild {self.format_item(item.name)} appeared at {location}! Type '!grab {item.name}' to claim it!"
-            await ctx.send(message)
-            await game_overlay.event("", '!drop', message, 'drop')
+            message = f"🎁 A wild {self.format_item(item.name)} appeared at {location} — grab it!"
+            await game_overlay.event("", 'DROP', message, 'drop')
             await game_overlay.drop(item.name, location)
 
             # Store the dropped item temporarily with timestamp
@@ -1586,9 +1586,8 @@ class Bot(commands.Bot):
         location = random.choice(
             ['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp']
         )
-        message = f"🎁 A wild {self.format_item(canonical)} appeared at {location}! Type '!grab {canonical}' to claim it!"
-        await ctx.send(message)
-        await game_overlay.event("", '!drop', message, 'drop')
+        message = f"🎁 A wild {self.format_item(canonical)} appeared at {location} — grab it!"
+        await game_overlay.event("", 'DROP', message, 'drop')
         await game_overlay.drop(canonical, location)
 
         self.dropped_items.append({'name': canonical, 'location': location, 'ts': datetime.now().timestamp()})
@@ -1852,7 +1851,7 @@ class Bot(commands.Bot):
                 })
                 self.session_items_dropped.append("Root Beer Flask")
                 self.drop_spawned_count += 1
-                message_lines.append(f"🧉 A {self.format_item('Root Beer Flask')} fell off the change cart at {location}! !grab Root Beer Flask")
+                message_lines.append(f"🧉 A {self.format_item('Root Beer Flask')} fell off the change cart at {location} — grab it!")
                 await game_overlay.drop("Root Beer Flask", location)
         else:
             for player in self.player_data.values():
