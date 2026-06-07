@@ -38,8 +38,18 @@ on-screen feed should show *outcomes and story*, never command syntax.**
   - [x] Info commands GUI-only (folded into the block).
   - [x] Header: "TWITCHACK LIVE" + twitch.tv/b7h30; removed the top stats strip (`667a087`).
   - [x] Build the Shop — right-side drawer, Hardware/Items/Software tabs (`e460af4`).
-  - [ ] Clean `!commands` out of the feed (item 2 below).
+  - [x] Clean `!commands` out of the feed (`95ecf24`).
   - [ ] Move drop announcements to the feed; decide boss-battle broadcasts.
+
+### Per-machine rigs + Hardware row (decided 2026-06-07)
+Replace the "best machine only" model: each owned machine is its **own
+workstation** with its own job slots AND its own clock speed. Total concurrency
+= sum across owned machines; you pick which machine to run a hack on (speed
+matters — slow SBC vs faster Laptop). UI: the command panel's "Shop" row becomes
+a **Hardware** row to select the active machine; the shop stays on the floating
+🛒 tab. Core-model change — jobs get tagged to a machine, slots counted per
+machine, `rig_stats`/`job_slots`/`can_run`/`start_hack`/`duration_for` updated,
+with tests. (Custom-tower parts later assemble into one machine.)
 
 ## Next
 
