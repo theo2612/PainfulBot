@@ -1548,6 +1548,13 @@
   let _myJobs     = [];   // [{hack_id, started_at, finishes_at}]
   let _myJobSlots = 0;    // concurrent-job cap from the rig
 
+  // Last-rendered signature per idle sub-panel. Idle buttons rebuild only when
+  // their relevant state actually changes — so unrelated player updates (other
+  // players acting, periodic pushes) can't flicker the buttons or steal an
+  // in-progress click. The per-second job countdown updates text in place
+  // (updateJobTimes), independent of these.
+  let _sigRun = null, _sigJobs = null, _sigShop = null, _sigJunk = null, _sigDrop = null;
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   // Pure helpers for jail/strike chips. Both return safe HTML strings.
   function jailInfo(p) {
@@ -1909,9 +1916,16 @@
   }
 
   // ── Attack buttons ─────────────────────────────────────────────────────────
+  let _sigAtk = null;
   function renderAttackButtons() {
     const row     = document.getElementById('attack-row');
     const attacks = LOCATION_ATTACKS[_myLocation] || [];
+
+    // Locked state depends on location + level only — rebuild just when those
+    // change, so the attack buttons don't flicker on every player push.
+    const sig = `${_myLocation}|${_myLevel}`;
+    if (sig === _sigAtk) return;
+    _sigAtk = sig;
 
     // Clear existing buttons (keep the label)
     const label = row.querySelector('.cmd-label');
@@ -1985,6 +1999,9 @@
   function renderJunkButtons() {
     const row = document.getElementById('junk-row');
     if (!row) return;
+    const sig = _myItems.join('');
+    if (sig === _sigJunk) return;
+    _sigJunk = sig;
     const label = row.querySelector('.cmd-label');
     row.innerHTML = '';
     row.appendChild(label);
@@ -2006,6 +2023,9 @@
   function renderDropButtons() {
     if (!_isOwner) return;
     const items = _catalog.items || [];
+    const sig = items.map(it => it.name + (it.malicious ? '!' : '')).join(',');
+    if (sig === _sigDrop) return;
+    _sigDrop = sig;
     const fill = (rowId, list, emptyText) => {
       const row = document.getElementById(rowId);
       if (!row) return;
@@ -2033,11 +2053,16 @@
   // Items / Software panes are placeholders until that content exists.
   function renderShop() {
     const cashEl = document.getElementById('shop-cash-val');
-    if (cashEl) cashEl.textContent = _myCash;
+    if (cashEl) cashEl.textContent = _myCash;   // cheap, always current
     const pane = document.getElementById('shop-hardware');
     if (!pane) return;
-    pane.innerHTML = '';
     const hw = _catalog.hardware || [];
+    // Rebuild only when an item's owned/affordable state (or the catalog)
+    // changes — not on every cash tick, so the drawer doesn't churn.
+    const sig = hw.map(c => `${c.id}:${c.cost}:${_myRig.includes(c.id) ? 1 : 0}:${_myCash >= c.cost ? 1 : 0}`).join('|');
+    if (sig === _sigShop) return;
+    _sigShop = sig;
+    pane.innerHTML = '';
     if (!hw.length) { pane.appendChild(idleEmptySpan('loading…')); return; }
     hw.forEach(c => {
       const owned  = _myRig.includes(c.id);
@@ -2089,6 +2114,12 @@
   function renderRunButtons() {
     const row = document.getElementById('run-row');
     if (!row) return;
+    const hacks = _catalog.hacks || [];
+    // Depends on free-slot count and the hack list only — rebuild just when
+    // those change (not on every player push), so the buttons don't flicker.
+    const sig = `${_myJobSlots}|${_myJobs.length}|${hacks.map(h => h.id).join(',')}`;
+    if (sig === _sigRun) return;
+    _sigRun = sig;
     const label = row.querySelector('.cmd-label');
     row.innerHTML = '';
     row.appendChild(label);
@@ -2110,6 +2141,11 @@
   function renderJobs() {
     const row = document.getElementById('jobs-row');
     if (!row) return;
+    // Rebuild the chips only when the SET of jobs changes (start/finish); the
+    // per-second countdown is updated in place by updateJobTimes.
+    const sig = `${_myJobSlots}|${_myJobs.map(j => j.hack_id + '@' + (j.finishes_at || '')).join(',')}`;
+    if (sig === _sigJobs) return;
+    _sigJobs = sig;
     const label = row.querySelector('.cmd-label');
     row.innerHTML = '';
     row.appendChild(label);
