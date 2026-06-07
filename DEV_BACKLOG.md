@@ -103,8 +103,11 @@ replace chat output with the right GUI/feed behavior (per the principle above).
 
 ### Idle-hacking content roadmap
 Design + stats in `TWITCHACK_IDLE_HACKING_SPEC.md` §5–6.
-- [ ] **Bandwidth → exfil** — new `bandwidth` rig stat; gates + speeds exfil
-      hacks. (Suggested first content piece, after the Shop exists.)
+- [x] **Bandwidth → exfil** (`5ad246b`, `4558a89`) — `bandwidth` rig stat gates +
+      speeds the new `exfil` category. SBC bw 1 (locked out), Laptop bw 4 (runs
+      "Database exfiltration", faster via its fat pipe). GUI shows 🔒 on machines
+      that can't run a hack. (Future: a high-bandwidth machine tier + a bigger
+      heist hack gated higher.)
 - [ ] **Cooling → overclock** — raises the clock cap → faster hacks.
 - [ ] **VPN / stealth** — `stealth` stat lowers trace/jail risk (needs the
       failure→trace model fleshed out first).
