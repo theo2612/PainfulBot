@@ -209,7 +209,7 @@ stats/role; the shipped names are generic.)
 | id | name | cost | threads | memory | storage | gpu | clock | notes |
 |----|------|------|---------|--------|---------|-----|-------|-------|
 | `sbc` | Single-Board Computer | ~200 cash | 4 | 2 | 16 | 0 | 0.8 | **first rig. ✅ SHIPPED.** 2 GB → exactly 1 job slot (`min(4, floor(2/2))=1`). RAM is **soldered** (real SBCs) so it can't be expanded — you graduate to the next machine for concurrency. clock 0.8 = jobs run 1.25× slower than base. 16 GB card → locked out of malware/exfil; gpu 0 → locked out of crypto/cracking. (Was the branded "Raspberry Pi"; renamed brand-neutral 2026-05-31, id `rpi`→`sbc` with a one-row DB migration.) |
-| `laptop` | Laptop (portable rig) | mid | 8 | 16 | 256 | 1 | 1.0 | ~2–3 slots; tiny iGPU. Next tier (Phase 2). Brand-neutral name. |
+| `laptop` | Laptop | 1200 cash | 6 | 6 | 256 | 1 | 1.0 | **✅ SHIPPED 2026-06-07.** 3 job slots (`min(6, 6//2)=3`) — real concurrency, 3× the SBC. clock 1.0 = base speed (~20% faster than SBC). 256 GB storage + token iGPU as a toe-hold for later tiers. Stats tuned to the slot target (3), not spec-sheet realism, since stats aren't shown to players. |
 
 **Why the SBC's weakness is the point:** every weak stat previews an upgrade
 reason *before* you leave it — more RAM = more slots (but SBC RAM is soldered,
@@ -230,9 +230,33 @@ The SBC runs the whole Phase-1 starter set and nothing heavier.
 | `psu_*` | Power Supply | psu | watt budget | (Phase 3) caps total draw |
 
 **Room to grow (note, don't build yet):** SSD vs HDD (speed vs capacity),
-cooling (overclock = more clock but needs cooling), multi-GPU rigs, compatibility
-flavor (Intel CPU needs Intel-socket board, AMD needs AM5) as optional Phase 3+
-depth, branded/rare drops as loot.
+multi-GPU rigs, compatibility flavor (Intel CPU needs Intel-socket board, AMD
+needs AM5) as optional Phase 3+ depth, branded/rare drops as loot.
+
+### 5.3 Expanded upgrade roadmap (approved 2026-06-07)
+
+Four new pieces Theo approved adding. Each is essentially **one new field on
+`RigStats`** plus a gate/modifier in the hack defs — the GUI buy buttons then
+appear automatically via the catalog push. They give hacks more than one thing
+to care about (not just slots + clock).
+
+| piece | new `RigStats` field | role in the hack math | theme |
+|-------|----------------------|-----------------------|-------|
+| **Network card / bandwidth** | `bandwidth` | gates + speeds the **exfil** category (steal big data fast). exfil duration scales `/ bandwidth`; high-tier exfil needs `bandwidth >= N`. | the clearest gap — exfil is planned but unmodeled |
+| **Cooling** | `cooling` (or a `clock` cap) | unlocks **overclocking**: clock can be pushed above base only up to what cooling allows → faster hacks across the board | classic build piece; pairs with the custom-tower CPU/case |
+| **VPN / anonymizer** | `stealth` | lowers the **trace** chance on risky/high-tier hacks (the failure→trace/jail model, §11 #2). Failed dangerous hack rolls a trace; `stealth` reduces it. | core hacker fantasy; ties the failure model to a buyable mitigation |
+| **Cloud / botnet** | adds to `job_slots` directly (or `threads`+`memory`) | **non-physical parallelism** — rent/commandeer compute for more concurrent jobs without a tower. Possibly a recurring cost or a decaying lease. | commandeered compute, very on-theme |
+
+> **Plus a whole missing AXIS — software.** The original pitch was "hardware **and
+> software** upgrades." Hardware is well underway; a **software** tree (exploit
+> kits, scripts, 0-days → per-category speed/success boosts) is unstarted and is
+> the natural parallel system to the rig. Tracked separately from this hardware
+> table.
+
+Suggested build order (smallest/clearest first): **bandwidth→exfil**, then
+**cooling→overclock**, then **stealth** (needs the trace/jail failure model
+fleshed out first), then **cloud/botnet** (touches the slot model). The
+custom-tower parts (§5.2) can interleave or come first.
 
 ---
 
