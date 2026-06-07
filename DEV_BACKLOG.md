@@ -81,6 +81,24 @@ replace chat output with the right GUI/feed behavior (per the principle above).
 > Items 1–3 are facets of the same GUI-first migration. Doing them together (or
 > back-to-back) makes sense.
 
+## Bugs / investigate
+- [ ] **Follow/sub drops don't fire.** Items are supposed to drop when someone
+      follows/subs (`random_item_drop` via `event_follow`/`event_subscription`).
+      Likely root cause is upstream: the bot logs `EventSub setup failed: 403:
+      You are not authorized to make this subscription` on boot — if EventSub
+      never subscribes, the follow/sub events never arrive and the drop never
+      runs. Investigate the EventSub auth/scopes first (the grab-button fix in
+      `83a51c0` is downstream of this and won't be reached until events fire).
+
+## Ideas / design
+- [ ] **Slim the clicker attacks** (Theo, 2026-06-07): the game's focus is the
+      hardware/idle side; the per-location clicker attacks are the Tier-0
+      on-ramp and several are near-duplicates. Cut ~1 per location. Do it as a
+      deliberate pass, not rushed — watch for: level-gate spacing (attacks carry
+      the early leveling ladder), item→attack bonus mappings (`get_item_bonus`),
+      and boss-battle usage. Keep ≥1–2 per location so movement still has a
+      point. (Separate from idle-hacking content; schedule on its own.)
+
 ## Later
 
 ### Idle-hacking content roadmap
