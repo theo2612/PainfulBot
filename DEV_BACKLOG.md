@@ -91,6 +91,14 @@ replace chat output with the right GUI/feed behavior (per the principle above).
       `83a51c0` is downstream of this and won't be reached until events fire).
 
 ## Ideas / design
+- [x] **Wear & tear v1** (`1aa5dd7`, `4ba6347`) — per-machine `condition` drops
+      per completed hack; low condition **slows** the machine; **repair** with
+      cash (pricier each time) = the game's first ongoing cash sink. GUI shows
+      condition % + 🔧 repair buttons in the Rig row.
+      **Deferred layers (build later):** "needs maintenance to start" (offline
+      below a threshold); "hacks can fail" (rising fail chance with wear);
+      finite repairs → machine permanently dies. (All pair with the future
+      cooling/overclock stat: heat → faster wear.)
 - [ ] **Slim the clicker attacks** (Theo, 2026-06-07): the game's focus is the
       hardware/idle side; the per-location clicker attacks are the Tier-0
       on-ramp and several are near-duplicates. Cut ~1 per location. Do it as a
