@@ -659,8 +659,22 @@
       background: rgba(0,255,65,.1); color: var(--green); white-space: nowrap;
     }
     .job-chip .jc-time { color: rgba(150,165,185,.85); }
+    .job-chip .jc-mc { color: #8cdcff; }
     .job-chip.done { border-color: rgba(255,207,77,.6); background: rgba(255,207,77,.12); color:#ffcf4d; }
     .idle-empty { font-size:.68rem; color: var(--text-muted); letter-spacing:.08em; }
+    /* Machine selector (Rig row): pick which owned machine the Run buttons use. */
+    .machine-btn {
+      font-family: var(--font-head); font-size: .68rem; letter-spacing: .04em;
+      padding: 4px 10px; border-radius: 2px; cursor: pointer; white-space: nowrap;
+      border: 1px solid var(--border); background: var(--panel); color: var(--text-muted);
+      transition: all .15s;
+    }
+    .machine-btn:hover { border-color: var(--green); color: var(--green); }
+    .machine-btn.active {
+      border-color: var(--green); color: var(--green);
+      background: rgba(0,255,65,.1); box-shadow: 0 0 6px rgba(0,255,65,.2);
+    }
+    .machine-btn .mc-slots { color: #ffcf4d; font-family: var(--font-vt); }
 
     /* ── Shop: floating toggle + right-side drawer ───────────────────── */
     .shop-open-btn {
@@ -1358,10 +1372,11 @@
           </span>
         </div>
 
-        <!-- Idle hacking: shop entry (opens the right-side drawer) -->
-        <div class="cmd-row" id="shop-row">
-          <span class="cmd-label">Shop</span>
-          <button class="shop-open-btn" onclick="openShop()">🛒 Open Shop</button>
+        <!-- Idle hacking: machine selector (pick which rig to run hacks on).
+             The shop opens from the floating 🛒 tab. -->
+        <div class="cmd-row" id="hardware-row">
+          <span class="cmd-label">Rig</span>
+          <span class="idle-empty" id="hw-empty">Buy a rig in the Shop 🛒</span>
         </div>
 
         <!-- Idle hacking: run hacks -->
@@ -1545,15 +1560,16 @@
   let _myRig      = [];   // owned component ids
   let _myItems    = [];   // owned inventory item names (for junk buttons)
   let _myCash     = 0;    // spendable wallet
-  let _myJobs     = [];   // [{hack_id, started_at, finishes_at}]
-  let _myJobSlots = 0;    // concurrent-job cap from the rig
+  let _myJobs     = [];   // [{hack_id, machine, started_at, finishes_at}]
+  let _myJobSlots = 0;    // total concurrent-job cap across all machines
+  let _activeMachine = null;  // which owned machine the Run buttons target
 
   // Last-rendered signature per idle sub-panel. Idle buttons rebuild only when
   // their relevant state actually changes — so unrelated player updates (other
   // players acting, periodic pushes) can't flicker the buttons or steal an
   // in-progress click. The per-second job countdown updates text in place
   // (updateJobTimes), independent of these.
-  let _sigRun = null, _sigJobs = null, _sigShop = null, _sigJunk = null, _sigDrop = null;
+  let _sigRun = null, _sigJobs = null, _sigShop = null, _sigJunk = null, _sigDrop = null, _sigHw = null;
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   // Pure helpers for jail/strike chips. Both return safe HTML strings.
@@ -1984,10 +2000,51 @@
 
   function renderIdlePanel() {
     renderShop();
+    renderHardware();   // sets _activeMachine — must run before renderRunButtons
     renderRunButtons();
     renderJobs();
     renderDropButtons();
     renderJunkButtons();
+  }
+
+  // ── Per-machine rig helpers ─────────────────────────────────────────────────
+  function hwById(id) { return (_catalog.hardware || []).find(h => h.id === id); }
+  function machineCap(id) { const h = hwById(id); return (h && h.slots) ? h.slots : 0; }
+  function machineUsed(id) { return _myJobs.filter(j => j.machine === id).length; }
+  function ownedMachines() { return _myRig.filter(id => hwById(id)); }
+  function bestMachine(ms) { return ms.slice().sort((a, b) => machineCap(b) - machineCap(a))[0]; }
+
+  // The Rig row: one button per owned machine, showing used/total slots. Click
+  // to select which machine the Run buttons target (its speed applies). The
+  // shop opens from the floating 🛒 tab.
+  function renderHardware() {
+    const row = document.getElementById('hardware-row');
+    if (!row) return;
+    const ms = ownedMachines();
+    if (ms.length && !ms.includes(_activeMachine)) _activeMachine = bestMachine(ms);
+    if (!ms.length) _activeMachine = null;
+    const sig = `${_activeMachine}|${ms.map(id => id + ':' + machineUsed(id) + '/' + machineCap(id)).join(',')}`;
+    if (sig === _sigHw) return;
+    _sigHw = sig;
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+    if (!ms.length) { row.appendChild(idleEmptySpan('Buy a rig in the Shop 🛒')); return; }
+    ms.forEach(id => {
+      const btn = document.createElement('button');
+      btn.className = 'machine-btn' + (id === _activeMachine ? ' active' : '');
+      btn.innerHTML = `${escHtml(hwById(id).name)} <span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span>`;
+      btn.title = `Run hacks on ${hwById(id).name}`;
+      btn.onclick = () => {
+        if (_activeMachine !== id) {
+          _activeMachine = id;
+          _sigHw = null; _sigRun = null;   // force both rows to reflect the switch
+          renderHardware();
+          renderRunButtons();
+        }
+      };
+      row.appendChild(btn);
+    });
   }
 
   // Per-item junk buttons for the logged-in player's own inventory. Click to
@@ -2111,30 +2168,36 @@
 
   // Run buttons, from the bot-pushed hack catalog. Disabled when all job slots
   // are busy (you can't start another until one finishes).
+  // Run buttons target the selected machine (_activeMachine) and run at its
+  // speed. Disabled when that machine has no free slot — switch machines in the
+  // Rig row to keep going.
   function renderRunButtons() {
     const row = document.getElementById('run-row');
     if (!row) return;
-    const hacks = _catalog.hacks || [];
-    // Depends on free-slot count and the hack list only — rebuild just when
-    // those change (not on every player push), so the buttons don't flicker.
-    const sig = `${_myJobSlots}|${_myJobs.length}|${hacks.map(h => h.id).join(',')}`;
+    const hackList = _catalog.hacks || [];
+    const cap  = machineCap(_activeMachine);
+    const used = machineUsed(_activeMachine);
+    const free = _activeMachine ? cap - used : 0;
+    // Rebuild only when the active machine, its free count, or the hack list
+    // changes — not on every player push, so the buttons don't flicker.
+    const sig = `${_activeMachine}|${free}|${hackList.map(h => h.id).join(',')}`;
     if (sig === _sigRun) return;
     _sigRun = sig;
     const label = row.querySelector('.cmd-label');
     row.innerHTML = '';
     row.appendChild(label);
-    if (_myJobSlots <= 0) { row.appendChild(idleEmptySpan('Buy a rig to run hacks')); return; }
-    const free = _myJobSlots - _myJobs.length;
-    (_catalog.hacks || []).forEach(h => {
+    if (!ownedMachines().length) { row.appendChild(idleEmptySpan('Buy a rig to run hacks')); return; }
+    const mname = hwById(_activeMachine) ? hwById(_activeMachine).name : '';
+    hackList.forEach(h => {
       const btn = document.createElement('button');
       btn.className = 'run-btn';
       btn.textContent = `▶ ${h.name}`;
       btn.disabled = free <= 0;
-      btn.title = free <= 0 ? 'All job slots busy' : `Run ${h.name}`;
-      btn.onclick = () => sendCmd('run', h.id);
+      btn.title = free <= 0 ? `${mname} is busy` : `Run ${h.name} on ${mname}`;
+      btn.onclick = () => sendCmd('run', h.id + ' ' + _activeMachine);
       row.appendChild(btn);
     });
-    if (free <= 0) row.appendChild(idleEmptySpan(`all ${_myJobSlots} slot(s) busy`));
+    if (free <= 0) row.appendChild(idleEmptySpan(`${mname} busy — pick another rig`));
   }
 
   // Running-job chips with live countdowns (ticked client-side once a second).
@@ -2143,7 +2206,7 @@
     if (!row) return;
     // Rebuild the chips only when the SET of jobs changes (start/finish); the
     // per-second countdown is updated in place by updateJobTimes.
-    const sig = `${_myJobSlots}|${_myJobs.map(j => j.hack_id + '@' + (j.finishes_at || '')).join(',')}`;
+    const sig = `${_myJobSlots}|${_myJobs.map(j => j.hack_id + '@' + (j.machine || '') + (j.finishes_at || '')).join(',')}`;
     if (sig === _sigJobs) return;
     _sigJobs = sig;
     const label = row.querySelector('.cmd-label');
@@ -2158,7 +2221,9 @@
       const chip = document.createElement('span');
       chip.className = 'job-chip';
       chip.dataset.finish = j.finishes_at || '';
-      chip.innerHTML = `${escHtml(hackName(j.hack_id))} <span class="jc-time"></span>`;
+      const mc = hwById(j.machine);
+      const on = mc ? ` <span class="jc-mc">@${escHtml(mc.name)}</span>` : '';
+      chip.innerHTML = `${escHtml(hackName(j.hack_id))}${on} <span class="jc-time"></span>`;
       row.appendChild(chip);
     });
     updateJobTimes();
