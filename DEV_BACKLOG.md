@@ -33,7 +33,13 @@ on-screen feed should show *outcomes and story*, never command syntax.**
 ---
 
 ## Now
-_(nothing in flight — pick the next item)_
+- **GUI-first chat migration** — in progress.
+  - [x] Block game commands typed in Twitch chat → nudge to GUI (`2614b4d`).
+  - [x] Info commands GUI-only (folded into the block).
+  - [x] Header: "TWITCHACK LIVE" + twitch.tv/b7h30; removed the top stats strip (`667a087`).
+  - [ ] Build the Shop (item 1 below) — the GUI replacement for `!buy`.
+  - [ ] Clean `!commands` out of the feed (item 2 below).
+  - [ ] Move drop announcements to the feed; decide boss-battle broadcasts.
 
 ## Next
 

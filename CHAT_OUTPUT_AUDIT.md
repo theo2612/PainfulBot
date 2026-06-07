@@ -88,14 +88,14 @@ personality.
 ---
 
 ## Your decisions (made 2026-06-07)
-- **Decision A (game commands typed in chat):** ✅ **Nudge to the GUI** — replace
-  chat replies with a single pointer to bossbattle.b7h30.com/twitchack.
-  ⚠️ OPEN sub-question: does the chat-typed command still *execute* (action runs,
-  shows in feed) or is it *blocked* (must use the GUI)? Leaning **blocked** — it
-  best matches "I don't want buying to happen in chat" — but confirm, since it
-  means chat-only players must move to the GUI.
-- **Info commands (status/points/leaderboard/items):** ✅ **GUI only** — no chat
-  reply; the data lives on the GUI/feed.
+- **Decision A (game commands typed in chat):** ✅ **BLOCK + nudge** — IMPLEMENTED
+  (`2614b4d`). A game command typed in chat does not run; the bot sends one
+  rate-limited nudge to the GUI. `GUI_ONLY_COMMANDS` in PainfulBot.py is the
+  list. Still work in chat (excluded): personality (monday/streamsummary),
+  onboarding (start/help), owner/admin, boss-battle (bossbattle/joinbattle),
+  and `hack` (doubles as the in-battle nuke).
+- **Info commands (status/points/leaderboard/items):** ✅ **GUI only** — folded
+  into the block above (they nudge to the GUI). Data lives on the card/feed.
 - **Drop announcements (1367/1385):** ☐ keep · ☐ move to feed _(default: feed)_
 - **Boss-battle broadcasts (3524/3613/3762):** ☐ keep (hype) · ☐ feed/overlay _(default: keep)_
 - **Easter eggs (konami/coffee/browns):** ✅ keep in chat (bot personality)
