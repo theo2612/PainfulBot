@@ -13,7 +13,8 @@ from aiohttp import web as aiohttp_web
 from twitchio.ext import commands, eventsub
 from openai import RateLimitError, APIError
 from playerdata import *
-from items import ITEMS, Item
+from items import (ITEMS, Item, junk_fee_for, apply_cash_skim,
+                   MALICIOUS_EFFECTS, inventory_drop_target)
 
 # Import from refactored modules
 from bot.config import (
@@ -205,6 +206,7 @@ class Bot(commands.Bot):
         self.drop_spawned_count = 0
         self.audio_triggers_fired = 0
         self.recent_chatters = {}
+        self._last_gui_nudge_at = {}  # username -> ts; rate-limits the GUI-first nudge
         self.session_start = datetime.now()
         self.session_battles = {"won": 0, "lost": 0, "bosses": []}
         self.session_total_damage = 0
@@ -241,11 +243,14 @@ class Bot(commands.Bot):
         self.item_emojis = {
             'Wireshark': '🦈',
             'Metasploit': '💥',
+            'Metaploit': '💥',  # evil twin — same icon as Metasploit (disguise)
             'EvilGinx': '🕷️',
             'O.MG Cable': '🔌',
+            '0.MG Cable': '🔌',  # evil twin — same icon as O.MG Cable (disguise)
             'VX Underground HDD': '💿',
             'Cookies': '🍪',
             'Nmap': '📡',
+            'Mnap': '📡',  # evil twin — same icon as Nmap (intentional disguise)
             'Hydra': '🗝️',
             'YubiKey': '🪫',
             'Shodan API Key': '🔍',
@@ -267,6 +272,9 @@ class Bot(commands.Bot):
         }
         self.neovim_penalties = {}
         self.hidden_only_items = {
+            "Mnap",        # malicious twin — never random-drops; only owner-placed
+            "Metaploit",   # malicious twin — never random-drops; only owner-placed
+            "0.MG Cable",  # malicious twin — never random-drops; only owner-placed
             "NES",
             "Contra Cartridge",
             "A Fresh Hot Cup of Black Coffee",
@@ -279,6 +287,18 @@ class Bot(commands.Bot):
             "Heath Adams' Lambo Keys",
             "Kevin Mitnick's Password Cracker",
             "Elliot Alderson's Raspberry Pi",
+        }
+        # Malicious cash-skim (e.g. Mnap) accumulates here and is flushed to the
+        # treasury in one batched write + overlay push on the idle ticker, so a
+        # holder autoclicking can't trigger a treasury write per attack.
+        self._pending_skim = 0
+        # Timed (on_tick) malicious-effect schedule: {(username, item): next_due_dt}.
+        # In-memory — a bot restart just grants a one-cycle reprieve. Dispatch by
+        # effect kind so adding a timed curse is one handler + one registry entry.
+        self._malicious_due = {}
+        self._on_tick_handlers = {
+            'inventory_drop': self._force_inventory_drop,
+            'jail_beacon':    self._fire_jail_beacon,
         }
         # Monday random replies tuning
         self.monday_random_chance = 0.10
@@ -409,6 +429,17 @@ class Bot(commands.Bot):
         emoji = self.item_emojis.get(item_name)
         return f"{emoji} {item_name}" if emoji else item_name
 
+    def _apply_skim(self, player, gross):
+        """Divert any malicious cash-skim (e.g. Mnap) from a gross cash payout.
+        Accumulates the skimmed amount for batched treasury banking (flushed on
+        the idle ticker) and returns (net_kept, skimmed). Used by every cash
+        earning path — clicks and idle hacks alike — so the skim can't be dodged
+        by avoiding one of them."""
+        net, skimmed = apply_cash_skim(player, gross)
+        if skimmed:
+            self._pending_skim += skimmed
+        return net, skimmed
+
     async def _attack_result(self, ctx, command, result_msg, success, player):
         """Push attack result to game overlay (no chat send). Handle level-up chat notification."""
         username = ctx.author.name.lower()
@@ -420,7 +451,8 @@ class Bot(commands.Bot):
         # little cash so a fresh player can afford their first rig before any
         # idle hack exists. Clicks stay cash-light; idle hacks pay the bulk.
         if success:
-            player.cash = getattr(player, 'cash', 0) + hacks.CLICK_CASH
+            net, _ = self._apply_skim(player, hacks.CLICK_CASH)
+            player.cash = getattr(player, 'cash', 0) + net
         leveled_up = helpers.check_level_up(self.player_data, username)
         helpers.save_player_data(self.player_data)
         await game_overlay.event(username, command, result_msg, event_type)
@@ -460,17 +492,124 @@ class Bot(commands.Bot):
         results = hacks.resolve_due_jobs(player)
         if not results:
             return
+        total_skimmed = 0
         for r in results:
             if r['success']:
+                total_skimmed += r.get('skimmed', 0)
+                skim_note = (f" (📡 {r['skimmed']} cash skimmed to the treasury!)"
+                             if r.get('skimmed') else "")
                 msg = (f"@{player.username} finished {r['name']} — "
-                       f"+{r['cash']} cash, +{r['rep']} rep.")
+                       f"+{r['cash']} cash, +{r['rep']} rep.{skim_note}")
                 await game_overlay.event(username, 'HACK DONE', msg, 'attack-success')
             else:
                 msg = f"@{player.username}'s {r['name']} failed — no payout."
                 await game_overlay.event(username, 'HACK FAIL', msg, 'attack-fail')
+        # Malicious-item skim (e.g. Mnap) feeds the treasury; banked in a
+        # batched flush on the idle ticker (see idle_ticker_loop).
+        if total_skimmed:
+            self._pending_skim += total_skimmed
         helpers.check_level_up(self.player_data, username)
         helpers.save_player_data(self.player_data)
         await game_overlay.player(username, player)
+
+    _DROP_LOCATIONS = ['email', 'website', '/etc/shadow', 'database',
+                       'server', 'network', 'evilcorp']
+
+    async def _spawn_world_drop(self, item_name, location=None):
+        """Place `item_name` into the world as a grabbable drop and notify the
+        overlay. Dedups by name. Returns the location used, or None if a drop
+        with that name is already pending."""
+        if not hasattr(self, 'dropped_items'):
+            self.dropped_items = []
+        if any(d['name'].lower() == item_name.lower() for d in self.dropped_items):
+            return None
+        location = location or random.choice(self._DROP_LOCATIONS)
+        self.dropped_items.append({'name': item_name, 'location': location,
+                                   'ts': datetime.now().timestamp()})
+        self.session_items_dropped.append(item_name)
+        self.drop_spawned_count += 1
+        await game_overlay.drop(item_name, location)
+        return location
+
+    async def _force_inventory_drop(self, username, player, item_name):
+        """on_tick handler (inventory_drop, e.g. Metaploit): drop a random
+        non-self item into the world; once only the curse remains it deletes
+        itself and ends. Returns True while it should keep ticking, False once
+        the curse is gone."""
+        target = inventory_drop_target(player.items, item_name)
+        if target is None:
+            return False
+        if target == item_name:
+            # Final self-destruct — the curse crumbles, inventory now empty.
+            player.items.remove(item_name)
+            helpers.save_player_data(self.player_data)
+            msg = (f"💀 @{username}'s {self.format_item(item_name)} finished its "
+                   f"work and crumbled to dust — inventory empty.")
+            await game_overlay.event(username, 'CURSE ENDED', msg, 'info')
+            await game_overlay.player(username, player)
+            return False
+        # Drop one item into the world for anyone to grab.
+        player.items.remove(target)
+        location = await self._spawn_world_drop(target)
+        helpers.save_player_data(self.player_data)
+        if location:
+            msg = (f"💀📦 @{username}'s {self.format_item(item_name)} glitched and "
+                   f"dropped {self.format_item(target)} at {location}! !grab {target}")
+        else:
+            msg = (f"💀📦 @{username}'s {self.format_item(item_name)} glitched and "
+                   f"destroyed their {self.format_item(target)}!")
+        await game_overlay.event(username, 'CURSED DROP', msg, 'attack-fail')
+        await game_overlay.player(username, player)
+        return True
+
+    async def _fire_jail_beacon(self, username, player, item_name):
+        """on_tick handler (jail_beacon, e.g. 0.MG Cable): jail the holder for a
+        fixed term, leaving their real speed-strike offense ladder untouched.
+        Persists — keeps pinging every interval until the player junks it.
+        Returns True."""
+        eff = MALICIOUS_EFFECTS.get(item_name, {})
+        minutes = jail.jail_for(player, eff.get('jail_minutes', 2), reason='police beacon')
+        helpers.save_player_data(self.player_data)
+        msg = (f"🚔 @{username}'s {self.format_item(item_name)} pinged the feds — "
+               f"busted and jailed for {minutes} min! (!junk it to ditch the beacon)")
+        await game_overlay.event(username, 'BEACON BUST', msg, 'attack-fail')
+        await game_overlay.player(username, player)
+        return True
+
+    async def _tick_malicious_effects(self, now=None):
+        """on_tick phase: fire each holder's timed malicious effects on their
+        interval, dispatched by kind. Called from the idle ticker. Timers live in
+        self._malicious_due keyed by (username, item)."""
+        now = now or datetime.now()
+        live = set()
+        for username in list(self.player_data.keys()):
+            player = self.player_data.get(username)
+            if not player:
+                continue
+            for item_name in list(player.items or []):
+                eff = MALICIOUS_EFFECTS.get(item_name)
+                if not eff or 'interval_sec' not in eff:
+                    continue
+                handler = self._on_tick_handlers.get(eff['kind'])
+                if handler is None:
+                    continue
+                key = (username, item_name)
+                live.add(key)
+                due = self._malicious_due.get(key)
+                if due is None:
+                    self._malicious_due[key] = now + timedelta(seconds=eff['interval_sec'])
+                    continue
+                if now >= due:
+                    keep = await handler(username, player, item_name)
+                    if keep:
+                        self._malicious_due[key] = now + timedelta(seconds=eff['interval_sec'])
+                    else:
+                        self._malicious_due.pop(key, None)
+                        live.discard(key)
+        # Forget timers for curses no longer held (junked / dropped / consumed).
+        for key in list(self._malicious_due.keys()):
+            if key not in live:
+                self._malicious_due.pop(key, None)
 
     @commands.command(name='buy')
     async def buy(self, ctx, *, component: str = None):
@@ -577,6 +716,10 @@ class Bot(commands.Bot):
             [{"id": c.id, "name": c.name, "cost": c.cost}
              for c in hardware.COMPONENTS.values()],
             [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
+            [{"name": it.name,
+              "emoji": self.item_emojis.get(it.name, "📦"),
+              "malicious": getattr(it, "malicious", False)}
+             for it in ITEMS.values()],
         )
 
     async def idle_ticker_loop(self):
@@ -602,6 +745,14 @@ class Bot(commands.Bot):
                           if getattr(p, 'jobs', None)]
                 for username in active:
                     await self._resolve_idle_jobs(username)
+                # Bank accumulated malicious cash-skim in one treasury write +
+                # overlay push, so autoclicking holders don't flood either.
+                if self._pending_skim:
+                    banked, self._pending_skim = self._pending_skim, 0
+                    new_balance = jail._credit_treasury(banked)
+                    await game_overlay.treasury(new_balance)
+                # on_tick malicious effects (Metaploit drip, 0.MG Cable beacon).
+                await self._tick_malicious_effects()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -716,6 +867,46 @@ class Bot(commands.Bot):
         self.loop.create_task(self.start_internal_api())
         self.loop.create_task(self.idle_ticker_loop())
 
+    # Game commands that belong in the GUI, not Twitch chat. Typed in chat they
+    # are blocked with a one-line nudge (see _maybe_nudge_to_gui). Deliberately
+    # NOT listed (still work in chat): the bot's personality (monday,
+    # streamsummary), onboarding (start, help), owner/admin commands, boss-battle
+    # commands (bossbattle, joinbattle), and `hack` (doubles as the in-battle
+    # nuke and as movement).
+    GUI_ONLY_COMMANDS = {
+        # idle hacking
+        'buy', 'run', 'jobs',
+        # info (now GUI-only)
+        'attacks', 'status', 'points', 'leaderboard', 'items', 'jail', 'treasury',
+        # pvp / economy
+        'steal', 'bail', 'requestbail', 'grab', 'junk', 'useburner',
+        # clicker attacks
+        'phish', 'spoof', 'dump', 'crack', 'stealth', 'bruteforce', 'ffuf', 'burp',
+        'sqliw', 'xss', 'dumpdb', 'sqlidb', 'admin', 'nmap', 'revshell', 'root',
+        'ransom', 'sniff', 'mitm', 'ddos', 'drop', 'tailgate', 'socialengineer',
+    }
+    GUI_NUDGE_COOLDOWN = 60  # seconds between nudges per user, to avoid spam
+
+    async def _maybe_nudge_to_gui(self, message):
+        """If this chat message is a GUI-only game command, send a rate-limited
+        nudge to the GUI and return True (caller skips handle_commands). Returns
+        False otherwise so the message dispatches normally."""
+        content = (message.content or '').strip()
+        if not content.startswith(PREFIX):
+            return False
+        cmd = content[len(PREFIX):].split(None, 1)[0].lower()
+        if cmd not in self.GUI_ONLY_COMMANDS:
+            return False
+        author = message.author
+        if author and author.name:
+            now = time.time()
+            if now - self._last_gui_nudge_at.get(author.name.lower(), 0) >= self.GUI_NUDGE_COOLDOWN:
+                self._last_gui_nudge_at[author.name.lower()] = now
+                await message.channel.send(
+                    f"@{author.name}, TwitcHack is played here → bossbattle.b7h30.com/twitchack"
+                )
+        return True
+
     async def event_message(self, message):
         # Called whenever a message is received in chat.
         # Parameters: - message (Message): The message object containing information about the received message.
@@ -755,6 +946,14 @@ class Bot(commands.Bot):
 
         # Random friendly Monday reply to chatters
         await self.maybe_random_monday_reply(message)
+
+        # GUI-first (DEV_BACKLOG.md / CHAT_OUTPUT_AUDIT.md): game actions are
+        # played in the GUI, not by typing in Twitch chat. A game command typed
+        # in chat is blocked here with a single rate-limited nudge to the GUI.
+        # The web/button path (execute_web_command) bypasses event_message, so
+        # the GUI keeps working normally.
+        if await self._maybe_nudge_to_gui(message):
+            return
 
         # Process commands if any
         await self.handle_commands(message)
@@ -1277,6 +1476,35 @@ class Bot(commands.Bot):
 
         await ctx.send(f"@{ctx.author.name}, that item is not available to grab.")
 
+    @commands.command(name='junk')
+    async def junk(self, ctx, *, item_name: str):
+        """Pay a trash fee (10% of your cash) to instantly delete an item from
+        your inventory — the only way to stop a cursed 'evil twin' item (e.g.
+        Mnap) from skimming your hack earnings. Fee is free at 0 cash."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await ctx.send(f"@{ctx.author.name}, please register with !start first.")
+            return
+
+        player = self.player_data[username]
+        owned = next(
+            (i for i in player.items if i.lower() == item_name.strip().lower()), None
+        )
+        if owned is None:
+            await ctx.send(f"@{ctx.author.name}, you don't have a '{item_name}' to junk.")
+            return
+
+        fee = junk_fee_for(getattr(player, 'cash', 0))
+        player.cash = max(0, getattr(player, 'cash', 0) - fee)
+        player.items.remove(owned)
+        helpers.save_player_data(self.player_data)
+
+        msg = (f"🗑️ @{ctx.author.name} junked {self.format_item(owned)} "
+               f"for {fee} cash. Good riddance.")
+        await ctx.send(msg)
+        await game_overlay.event(username, '!junk', msg, 'info')
+        await game_overlay.player(username, player)
+
     @commands.command(name='droprandom')
     async def droprandom(self, ctx):
         if not self.is_channel_owner(ctx.author.name.lower()):
@@ -1317,6 +1545,44 @@ class Bot(commands.Bot):
             dropped_count += 1
 
         await ctx.send(f"@{ctx.author.name} has dropped {dropped_count} random items across various locations!")
+
+    @commands.command(name='dropitem')
+    async def dropitem(self, ctx, *, item_name: str):
+        """Owner-only: drop ONE specific item (by catalog name) at a random
+        location. Powers the per-item drop buttons in the overlay owner panel.
+        Named `dropitem` because `!drop` is already an evilcorp attack."""
+        if not self.is_channel_owner(ctx.author.name.lower()):
+            await ctx.send(f"@{ctx.author.name}, this command is only for the channel owner.")
+            return
+
+        self.prune_expired_drops()
+
+        # Resolve to the canonical catalog name (case-insensitive) so button
+        # labels and chat typos both land on the real item.
+        canonical = next(
+            (k for k in ITEMS if k.lower() == item_name.strip().lower()), None
+        )
+        if canonical is None:
+            await ctx.send(f"@{ctx.author.name}, unknown item: {item_name}")
+            return
+
+        if not hasattr(self, 'dropped_items'):
+            self.dropped_items = []
+        if any(d['name'].lower() == canonical.lower() for d in self.dropped_items):
+            await ctx.send(f"@{ctx.author.name}, a {canonical} is already waiting to be grabbed.")
+            return
+
+        location = random.choice(
+            ['email', 'website', '/etc/shadow', 'database', 'server', 'network', 'evilcorp']
+        )
+        message = f"🎁 A wild {self.format_item(canonical)} appeared at {location}! Type '!grab {canonical}' to claim it!"
+        await ctx.send(message)
+        await game_overlay.event("", '!drop', message, 'drop')
+        await game_overlay.drop(canonical, location)
+
+        self.dropped_items.append({'name': canonical, 'location': location, 'ts': datetime.now().timestamp()})
+        self.session_items_dropped.append(canonical)
+        self.drop_spawned_count += 1
 
     @commands.command(name='mvp')
     async def mvp(self, ctx):
@@ -1744,7 +2010,7 @@ class Bot(commands.Bot):
     async def treasury(self, ctx):
         """Show the current Treasury balance (bail money sink)."""
         balance = jail.get_treasury_balance()
-        msg = f"💰 Treasury: {balance:,} pts. (Bail money. Hackable… someday.)"
+        msg = f"💰 Treasury: {balance:,} cash. (Bail + bounty money. Hackable… someday.)"
         await ctx.send(msg)
         await game_overlay.event(ctx.author.name.lower(), '!treasury', msg, 'info')
 
@@ -1771,7 +2037,7 @@ class Bot(commands.Bot):
         await ctx.send(
             f"🚔 @{target} is in jail for {minutes} more min "
             f"(offense #{status.offense_number}, reason: {status.reason}). "
-            f"Bail: {cost:,} pts. — {bail_hint}"
+            f"Bail: {cost:,} cash. — {bail_hint}"
         )
 
     ###################################################################
@@ -3538,7 +3804,7 @@ class Bot(commands.Bot):
             # call out the treasury bounty (Round 3) so chat sees the inflow.
             survivors_str = ", ".join(f"@{s}" for s in survivor_names) if survivor_names else "the team"
             bounty_part = (
-                f" Treasury +{treasury_bounty} pts (balance: {new_treasury})."
+                f" Treasury +{treasury_bounty} cash (balance: {new_treasury})."
                 if treasury_bounty > 0 else ""
             )
             try:
