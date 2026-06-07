@@ -152,7 +152,7 @@ game = {
     # Idle-hacking catalogs, pushed by the bot on startup so the GUI renders
     # buy/run buttons from the real source of truth (game/hardware.py,
     # game/hacks.py) — add hardware/hacks there and the buttons appear here.
-    "catalog": {"hardware": [], "hacks": []},
+    "catalog": {"hardware": [], "hacks": [], "items": []},
 }
 
 # SID → username for authenticated socket connections
@@ -636,6 +636,7 @@ def api_game_player():
             "rig":          data.get("rig", []),
             "jobs":         data.get("jobs", []),
             "job_slots":    data.get("job_slots", 0),
+            "rig_state":    data.get("rig_state", {}),
         }
         players_snapshot = dict(game["players"])
     socketio.emit("players_update", players_snapshot)
@@ -650,6 +651,7 @@ def api_game_catalog():
     catalog = {
         "hardware": data.get("hardware", []),
         "hacks":    data.get("hacks", []),
+        "items":    data.get("items", []),
     }
     with game_lock:
         game["catalog"] = catalog

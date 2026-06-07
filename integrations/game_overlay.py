@@ -66,19 +66,26 @@ async def player(username: str, player_obj) -> None:
             "rig":          getattr(player_obj, "rig", []),
             "jobs":         getattr(player_obj, "jobs", []),
             "job_slots":    hardware.job_slots(player_obj),
+            # Wear & tear: per-machine condition + repair cost for the GUI.
+            "rig_state":    {m: {"condition": round(hardware.condition_of(player_obj, m)),
+                                 "repair_cost": hardware.repair_cost(player_obj, m)}
+                             for m in hardware.machines(player_obj)},
         }))
     except Exception:
         pass
 
 
-async def catalog(hardware_list, hack_list) -> None:
-    """Push the idle-hacking catalogs (hardware + hacks) so the GUI can render
-    buy/run buttons from the real source of truth. Sent once on bot startup."""
+async def catalog(hardware_list, hack_list, items_list=None) -> None:
+    """Push the idle-hacking catalogs (hardware + hacks) plus the item catalog
+    (name/emoji/malicious — powers the owner-only per-item drop buttons) so the
+    GUI renders buttons from the real source of truth. Re-pushed periodically to
+    self-heal after an overlay restart."""
     try:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: _post("/api/game/catalog", {
             "hardware": hardware_list,
             "hacks":    hack_list,
+            "items":    items_list or [],
         }))
     except Exception:
         pass

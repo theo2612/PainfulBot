@@ -109,15 +109,26 @@ def _category_speed(category: str, stats) -> float:
     return 1.0
 
 
-def duration_for(hack: HackDef, stats) -> int:
-    """Effective duration (seconds) for this hack on this rig.
+# Wear & tear: condition lost per second of a hack's base_duration. So a 12s
+# portscan wears ~0.5%, a 300s exfil ~12% — machines degrade over dozens of runs.
+WEAR_RATE = 0.04
 
-    base / (clock * category_speed). On the SBC (clock 0.8) a 12s base → 15s.
+
+def duration_for(hack: HackDef, stats, condition: float = hardware.FULL_CONDITION) -> int:
+    """Effective duration (seconds) for this hack on this machine.
+
+    base / (clock * category_speed * condition_factor). On the SBC (clock 0.8) a
+    12s base → 15s at full condition; a worn machine runs slower still.
     """
-    speed = stats.clock * _category_speed(hack.category, stats)
+    speed = stats.clock * _category_speed(hack.category, stats) * hardware.condition_factor(condition)
     if speed <= 0:
         speed = 1.0
     return max(1, round(hack.base_duration / speed))
+
+
+def wear_for(hack: HackDef) -> float:
+    """How much condition a completed run of this hack costs the machine."""
+    return hack.base_duration * WEAR_RATE
 
 
 def _machine_meets(hack: HackDef, machine_id: str) -> tuple[bool, str]:
@@ -197,7 +208,8 @@ def start_hack(player, hack_id: str, machine_id: str | None = None,
         return None, reason
     now = _now(now)
     hack = HACK_DEFS[hack_id]
-    seconds = duration_for(hack, hardware.machine_stats(resolved))
+    seconds = duration_for(hack, hardware.machine_stats(resolved),
+                           hardware.condition_of(player, resolved))
     job = {
         "hack_id": hack_id,
         "machine": resolved,
@@ -245,6 +257,10 @@ def resolve_due_jobs(player, now: datetime | None = None, rng=random) -> list[di
         finishes = _from_iso(job.get("finishes_at"))
         if finishes is not None and finishes <= now:
             results.append(_resolve_one(player, job, rng))
+            # Running the job wears the machine that ran it (win or lose).
+            hk = HACK_DEFS.get(job.get("hack_id"))
+            if hk and job.get("machine"):
+                hardware.apply_wear(player, job["machine"], wear_for(hk))
         else:
             remaining.append(job)
     player.jobs = remaining

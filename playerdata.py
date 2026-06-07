@@ -6,7 +6,7 @@ class Player:
                  jail=None, last_jail_released_at=None, offense_count=0,
                  bail_request_for=None, no_cap_until=None,
                  max_health=None, last_regen_at=None,
-                 cash=0, rig=None, jobs=None):
+                 cash=0, rig=None, jobs=None, conditions=None, repairs=None):
         self.username = username
         self.level = level
         # health == current HP; max_health == personal cap (50 start, +5/win, cap 1000).
@@ -38,7 +38,11 @@ class Player:
         # wallet (hardware); points stays the monotonic level driver ("rep").
         self.cash = cash
         self.rig = rig if rig else []               # installed component ids
-        self.jobs = jobs if jobs else []            # running hacks: [{hack_id, started_at, finishes_at}]
+        self.jobs = jobs if jobs else []            # running hacks: [{hack_id, machine, started_at, finishes_at}]
+        # Wear & tear: per-machine condition (100→0, drops with use → slower) and
+        # how many times each has been repaired (repairs get pricier each time).
+        self.conditions = conditions if conditions else {}  # {machine_id: float 0-100}
+        self.repairs = repairs if repairs else {}           # {machine_id: int}
 
     def add_item(self, item_name):
         """Add `item_name` to the player's inventory, case-insensitively
@@ -105,6 +109,10 @@ class Player:
             d['rig'] = self.rig
         if self.jobs:
             d['jobs'] = self.jobs
+        if self.conditions:
+            d['conditions'] = self.conditions
+        if self.repairs:
+            d['repairs'] = self.repairs
         return d
 
     @classmethod
@@ -134,6 +142,8 @@ class Player:
             cash=data.get('cash', 0),
             rig=data.get('rig', []),
             jobs=data.get('jobs', []),
+            conditions=data.get('conditions', {}),
+            repairs=data.get('repairs', {}),
         )
         player.items = data.get('items', [])
         return player

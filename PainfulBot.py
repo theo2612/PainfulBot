@@ -711,6 +711,40 @@ class Bot(commands.Bot):
         msg = f"@{ctx.author.name}, running {len(player.jobs)}/{slots}: " + " | ".join(parts)
         await self._idle_say(ctx, username, '!jobs', msg)
 
+    @commands.command(name='repair')
+    async def repair(self, ctx, *, machine: str = None):
+        """Repair a worn machine to full condition for cash (pricier each time)."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!repair', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+
+        if not machine:
+            owned = hardware.machines(player)
+            if not owned:
+                await self._idle_say(ctx, username, '!repair', f'@{ctx.author.name}, no rig yet — buy one in the Shop 🛒.')
+                return
+            parts = []
+            for m in owned:
+                comp = hardware.get_component(m)
+                cond = round(hardware.condition_of(player, m))
+                cost = hardware.repair_cost(player, m)
+                parts.append(f"{comp.name} {cond}%" + (f" (fix: {cost})" if cost else " ✓"))
+            await self._idle_say(ctx, username, '!repair', f"🔧 Rigs: " + " | ".join(parts))
+            return
+
+        cost, reason = hardware.repair(player, machine.strip().lower())
+        if cost is None:
+            await self._idle_say(ctx, username, '!repair', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        comp = hardware.get_component(machine.strip().lower())
+        msg = f"@{ctx.author.name} repaired their {comp.name} to 100% for {cost} cash. ({player.cash} cash left)"
+        await self._idle_say(ctx, username, '!repair', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
     # Background idle-job ticker cadence (seconds). Jobs settle within this of
     # finishing; small enough that a 15s hack feels responsive, and the player
     # list is tiny so scanning it costs nothing.
@@ -890,7 +924,7 @@ class Bot(commands.Bot):
     # nuke and as movement).
     GUI_ONLY_COMMANDS = {
         # idle hacking
-        'buy', 'run', 'jobs',
+        'buy', 'run', 'jobs', 'repair',
         # info (now GUI-only)
         'attacks', 'status', 'points', 'leaderboard', 'items', 'jail', 'treasury',
         # pvp / economy

@@ -231,6 +231,66 @@ class ExfilBandwidthTests(unittest.TestCase):
         self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["portscan"], stats), 12)
 
 
+class WearAndRepairTests(unittest.TestCase):
+    """Machines wear with use (→ slower) and are repaired with cash (pricier
+    each time)."""
+
+    def test_condition_defaults_to_full(self):
+        self.assertEqual(hardware.condition_of(make_player(rig=["sbc"]), "sbc"), 100.0)
+
+    def test_condition_factor_curve(self):
+        self.assertEqual(hardware.condition_factor(100), 1.0)
+        self.assertEqual(hardware.condition_factor(0), 0.5)
+        self.assertEqual(hardware.condition_factor(50), 0.75)
+
+    def test_running_a_hack_wears_its_machine(self):
+        p = make_player(rig=["laptop"])
+        now = datetime(2026, 6, 7, 12, 0, 0, tzinfo=timezone.utc)
+        hacks.start_hack(p, "portscan", machine_id="laptop", now=now)
+        hacks.resolve_due_jobs(p, now=now + timedelta(seconds=60), rng=FakeRandom(0.0, 7))
+        # portscan wear = 12 * 0.04 = 0.48
+        self.assertAlmostEqual(hardware.condition_of(p, "laptop"), 99.52, places=2)
+
+    def test_low_condition_slows_hacks(self):
+        stats = hardware.machine_stats("laptop")
+        full = hacks.duration_for(hacks.HACK_DEFS["portscan"], stats, 100)
+        worn = hacks.duration_for(hacks.HACK_DEFS["portscan"], stats, 50)
+        self.assertEqual(full, 12)
+        self.assertEqual(worn, 16)   # 12 / 0.75
+        self.assertGreater(worn, full)
+
+    def test_repair_cost_scales_and_escalates(self):
+        p = make_player(rig=["laptop"], cash=10000)
+        p.conditions = {"laptop": 50.0}           # 50 damage
+        self.assertEqual(hardware.repair_cost(p, "laptop"), 60)   # 1200*0.1*0.5
+        hardware.repair(p, "laptop")              # repairs_done → 1, condition → 100
+        self.assertEqual(hardware.condition_of(p, "laptop"), 100.0)
+        p.conditions = {"laptop": 50.0}           # damage it again
+        self.assertEqual(hardware.repair_cost(p, "laptop"), 90)   # 60 * 1.5
+
+    def test_repair_deducts_cash_and_restores(self):
+        p = make_player(rig=["laptop"], cash=100)
+        p.conditions = {"laptop": 50.0}
+        cost, reason = hardware.repair(p, "laptop")
+        self.assertEqual(cost, 60)
+        self.assertEqual(p.cash, 40)
+        self.assertEqual(hardware.condition_of(p, "laptop"), 100.0)
+
+    def test_repair_blocked_when_broke(self):
+        p = make_player(rig=["laptop"], cash=10)
+        p.conditions = {"laptop": 50.0}
+        cost, reason = hardware.repair(p, "laptop")
+        self.assertIsNone(cost)
+        self.assertIn("costs", reason)
+        self.assertEqual(p.cash, 10)              # not deducted
+
+    def test_repair_at_full_is_rejected(self):
+        p = make_player(rig=["laptop"], cash=100)
+        cost, reason = hardware.repair(p, "laptop")
+        self.assertIsNone(cost)
+        self.assertIn("perfect", reason)
+
+
 class StartHackTests(unittest.TestCase):
     def test_cannot_run_without_a_rig(self):
         job, reason = hacks.start_hack(make_player(), "portscan")

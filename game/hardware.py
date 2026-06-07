@@ -172,6 +172,77 @@ def job_slots(player) -> int:
     return total_slots(player)
 
 
+# ---------------------------------------------------------------------------
+# Wear & tear (DEV_BACKLOG). Each owned machine has a condition (100 → 0) that
+# drops as it runs hacks. Low condition → slower hacks (the gentle consequence).
+# Repairs restore it but get pricier each time (soft obsolescence). All numbers
+# are tunable.
+# ---------------------------------------------------------------------------
+FULL_CONDITION = 100.0
+MIN_CONDITION_SPEED = 0.5     # a fully-worn machine runs at half speed
+REPAIR_COST_FRACTION = 0.1    # full repair (0→100) costs 10% of machine value…
+REPAIR_ESCALATION = 0.5       # …+50% per prior repair on that machine
+
+
+def condition_of(player, machine_id: str) -> float:
+    """A machine's current condition (defaults to full for machines never worn)."""
+    return float((getattr(player, "conditions", None) or {}).get(machine_id, FULL_CONDITION))
+
+
+def condition_factor(condition: float) -> float:
+    """Speed multiplier from condition: 1.0 at full, MIN_CONDITION_SPEED at 0."""
+    c = max(0.0, min(FULL_CONDITION, condition))
+    return MIN_CONDITION_SPEED + (1.0 - MIN_CONDITION_SPEED) * (c / FULL_CONDITION)
+
+
+def apply_wear(player, machine_id: str, amount: float) -> float:
+    """Reduce a machine's condition by `amount` (floored at 0). Returns the new
+    condition. No-op for unknown machines."""
+    if machine_id not in COMPONENTS or amount <= 0:
+        return condition_of(player, machine_id)
+    if player.conditions is None:
+        player.conditions = {}
+    new = max(0.0, condition_of(player, machine_id) - amount)
+    player.conditions[machine_id] = new
+    return new
+
+
+def repair_cost(player, machine_id: str) -> int:
+    """Cash to fully repair a machine: scales with its value, the damage to
+    restore, and how many times it's already been repaired (pricier each time)."""
+    comp = COMPONENTS.get(machine_id)
+    if not comp:
+        return 0
+    damage = FULL_CONDITION - condition_of(player, machine_id)
+    if damage <= 0:
+        return 0
+    prior = int((getattr(player, "repairs", None) or {}).get(machine_id, 0))
+    base = comp.cost * REPAIR_COST_FRACTION * (damage / FULL_CONDITION)
+    return max(1, round(base * (1 + prior * REPAIR_ESCALATION)))
+
+
+def repair(player, machine_id: str):
+    """Repair a machine to full condition for cash. Returns (cost, "") on success
+    (cash deducted, condition restored, repair count bumped) or (None, reason)."""
+    comp = COMPONENTS.get(machine_id)
+    if not comp or machine_id not in machines(player):
+        return None, "you don't own that machine."
+    if condition_of(player, machine_id) >= FULL_CONDITION:
+        return None, f"{comp.name} is already in perfect condition."
+    cost = repair_cost(player, machine_id)
+    cash = getattr(player, "cash", 0)
+    if cash < cost:
+        return None, f"repairing {comp.name} costs {cost} cash — you have {cash}."
+    player.cash = cash - cost
+    if player.conditions is None:
+        player.conditions = {}
+    if player.repairs is None:
+        player.repairs = {}
+    player.conditions[machine_id] = FULL_CONDITION
+    player.repairs[machine_id] = int(player.repairs.get(machine_id, 0)) + 1
+    return cost, ""
+
+
 def buy_component(player, component_id: str):
     """Purchase a component with the player's cash. Returns (component, "") on
     success (cash deducted, id appended to rig) or (None, reason) on failure.
