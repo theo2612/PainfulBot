@@ -2179,16 +2179,37 @@
   }
 
   // ── Event feed ─────────────────────────────────────────────────────────────
+  // GUI-first feed: show narrative, not command syntax. Raw !commands (the
+  // under-the-hood mechanism) are dropped; meaningful labels like "HACK DONE" /
+  // "LEVEL UP" stay. The leading self-@mention is stripped from the result
+  // since the row already shows the username.
+  function feedCmdLabel(cmd) {
+    cmd = (cmd || '').trim();
+    return cmd.startsWith('!') ? '' : cmd;
+  }
+  function feedResult(e) {
+    let r = e.result || '';
+    if (e.username) {
+      const u = e.username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      r = r.replace(new RegExp('^@' + u + ',?\\s+', 'i'), '');
+    }
+    return r;
+  }
+  function feedEntryHtml(e) {
+    const userClass = e.username ? '' : ' ev-user--empty';
+    const cmd = feedCmdLabel(e.command);
+    return `
+      <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
+      ${cmd ? `<span class="ev-cmd">${escHtml(cmd)}</span>` : ''}
+      <span class="ev-result">${escHtml(feedResult(e))}</span>
+    `;
+  }
+
   function prependEvent(e) {
     const feed = document.getElementById('feed-list');
     const div  = document.createElement('div');
     div.className = `event-entry ev--${e.type || 'info'}`;
-    const userClass = e.username ? '' : ' ev-user--empty';
-    div.innerHTML = `
-      <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
-      <span class="ev-cmd">${escHtml(e.command || '')}</span>
-      <span class="ev-result">${escHtml(e.result || '')}</span>
-    `;
+    div.innerHTML = feedEntryHtml(e);
     feed.insertBefore(div, feed.firstChild);
     _eventCount++;
     document.getElementById('event-count').textContent = _eventCount;
@@ -2204,12 +2225,7 @@
     events.forEach(e => {
       const div = document.createElement('div');
       div.className = `event-entry ev--${e.type || 'info'}`;
-      const userClass = e.username ? '' : ' ev-user--empty';
-      div.innerHTML = `
-        <span class="ev-user${userClass}">${e.username ? '@' + escHtml(e.username) : '[ system ]'}</span>
-        <span class="ev-cmd">${escHtml(e.command || '')}</span>
-        <span class="ev-result">${escHtml(e.result || '')}</span>
-      `;
+      div.innerHTML = feedEntryHtml(e);
       feed.appendChild(div);
     });
   }
