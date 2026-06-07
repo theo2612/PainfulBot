@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TwitcHack Live — PainfulIT</title>
+  <title>TwitcHack Live</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap">
   <style>
@@ -113,41 +113,6 @@
     }
 
     /* ── Player stats strip (authenticated only) ── */
-    .stats-strip {
-      background: rgba(0,255,65,.03);
-      border-bottom: 1px solid rgba(0,255,65,.12);
-      padding: 7px 18px;
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      flex-shrink: 0;
-      font-size: .75rem;
-      letter-spacing: .06em;
-      flex-wrap: wrap;
-    }
-    .ss-user {
-      font-family: var(--font-vt);
-      font-size: 1.05rem;
-      color: var(--blue);
-      letter-spacing: .06em;
-      text-shadow: 0 0 8px rgba(0,180,255,.4);
-    }
-    .ss-sep { color: var(--border); font-size: 1.1rem; }
-    .ss-stat { color: var(--text-muted); }
-    .ss-stat span { color: var(--green); }
-    .ss-loc { color: var(--orange); font-size: .82rem; }
-    .ss-items { color: var(--purple-bright); font-size: .9rem; }
-    .ss-logout {
-      margin-left: auto;
-      font-size: .65rem;
-      color: var(--text-muted);
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      text-decoration: none;
-      opacity: .5;
-      transition: opacity .15s;
-    }
-    .ss-logout:hover { opacity: 1; color: var(--red); }
 
     .header__manual {
       margin-left: auto;
@@ -190,10 +155,11 @@
     }
     .header__label {
       font-size: .72rem;
-      letter-spacing: .28em;
-      text-transform: uppercase;
+      letter-spacing: .1em;
       color: var(--text-muted);
     }
+    .header__label a { color: var(--green); text-decoration: none; }
+    .header__label a:hover { text-decoration: underline; }
     .header__count {
       font-family: var(--font-vt);
       font-size: 1.3rem;
@@ -1035,13 +1001,6 @@
         text-align: center;
       }
 
-      .stats-strip {
-        gap: 6px 12px;
-        padding: 8px 12px;
-        font-size: .7rem;
-      }
-      .ss-logout { margin-left: 0; }
-
       .header {
         height: auto;
         min-height: 56px;
@@ -1245,26 +1204,13 @@
     <a class="login-btn" href="/twitchack/login">Sign in with Twitch</a>
   </div>
 
-  <!-- Stats strip (authenticated) -->
-  <div class="stats-strip hidden" id="stats-strip">
-    <span class="ss-user" id="ss-username">@—</span>
-    <span class="ss-sep">|</span>
-    <span class="ss-stat">LVL <span id="ss-level">—</span></span>
-    <span class="ss-stat">HP <span id="ss-health">—</span></span>
-    <span class="ss-stat">PTS <span id="ss-points">—</span></span>
-    <span class="ss-sep">|</span>
-    <span class="ss-loc" id="ss-location">home</span>
-    <span class="ss-items" id="ss-items"></span>
-    <a class="ss-logout" href="#" id="ss-logout-link" style="display:none"></a>
-  </div>
-
   <!-- Header -->
   <header class="header">
-    <span class="header__title">PainfulIT</span>
-    <span class="header__label">TWITCHACK LIVE</span>
+    <span class="header__title">TWITCHACK LIVE</span>
+    <span class="header__label">from <a href="https://twitch.tv/b7h30" target="_blank" rel="noopener">twitch.tv/b7h30</a></span>
     <span class="header__count">Players: <span id="player-count">0</span></span>
-    <span class="header__treasury" id="treasury-widget" title="Treasury — bail money sink. Hackable… someday.">
-      💰 Treasury: <span id="treasury-balance">0</span> pts
+    <span class="header__treasury" id="treasury-widget" title="Treasury — bail + bounty cash pot. Hackable… someday.">
+      💰 Treasury: <span id="treasury-balance">0</span> cash
     </span>
     <a class="header__manual" href="https://twitchack.b7h30.com/" target="_blank" rel="noopener">&#9656; Manual</a>
   </header>
@@ -1365,6 +1311,14 @@
           <button class="util-btn hidden" id="burner-btn" onclick="sendCmd('useburner')">💻🔥 !useburner</button>
         </div>
 
+        <!-- Junk: one button per owned item; click to trash it for 10% of your
+             cash. The only way to dump a cursed evil-twin item. Icons match the
+             catalog on purpose — a twin shows the SAME icon as the real item,
+             so spotting which to junk is on the player. -->
+        <div class="cmd-row hidden" id="junk-row">
+          <span class="cmd-label">Junk</span>
+        </div>
+
         <!-- PvP row — steal target (shown when a target is selected) -->
         <div class="cmd-row hidden" id="pvp-row">
           <span class="cmd-label">PvP</span>
@@ -1383,6 +1337,17 @@
           <button class="owner-btn" onclick="sendCmd('mvp')">!mvp</button>
         </div>
 
+        <!-- Owner-only: per-item drop buttons, rendered from the bot-pushed
+             item catalog. Legit items and malicious "evil twins" sit on
+             separate rows so they can't be confused at a glance. Add an item
+             (or a malicious twin) in items.py and a button appears here. -->
+        <div class="cmd-row hidden" id="owner-drop-legit-row">
+          <span class="cmd-label">Drop</span>
+        </div>
+        <div class="cmd-row hidden" id="owner-drop-evil-row">
+          <span class="cmd-label">Drop 😈</span>
+        </div>
+
       </div><!-- /cmd-panel -->
 
     </div><!-- /right-panel -->
@@ -1399,8 +1364,11 @@
     "Kevin Mitnick's Password Cracker": '🔓',
     "Elliot Alderson's Raspberry Pi":   '🫐',
     "Wireshark": '🦈', "EvilGinx": '🎣', "Metasploit": '💀',
+    "Metaploit": '💀',  // evil twin — same icon as Metasploit on purpose (disguise)
     "O.MG Cable": '🔌', "VX Underground HDD": '💽', "Cookies": '🍪',
+    "0.MG Cable": '🔌',  // evil twin — same icon as O.MG Cable on purpose (disguise)
     "Nmap": '🗺️', "Hydra": '🐉', "YubiKey": '🔑',
+    "Mnap": '🗺️',  // evil twin — same icon as Nmap on purpose (disguise)
     "Shodan API Key": '🔍', "Kali ISO": '🐉', "NES": '🎮',
     "Contra Cartridge": '🔫', "Black Coffee": '☕',
     "Tiny Browns Helmet": '🏈', "Root Beer Flask": '🧉',
@@ -1441,6 +1409,11 @@
     "Heath Adams' Lambo Keys":          { desc: "Boss-battle drop." },
     "Kevin Mitnick's Password Cracker": { desc: "Boss-battle drop." },
     "Elliot Alderson's Raspberry Pi":   { desc: "Boss-battle drop." },
+    // Malicious "evil twins" — honest tells, matching the bot's !items text, so
+    // hovering the (disguised, shared-icon) badge reveals what it really does.
+    "Mnap":        { desc: "Port scanner and wallet emptier." },
+    "Metaploit":   { desc: "Penetration testing framework that leaks your loot." },
+    "0.MG Cable":  { desc: "Hardware implant that calls the cops on you." },
   };
 
   function itemTooltipText(name) {
@@ -1480,8 +1453,9 @@
   const MAX_FEED    = 200;
 
   // ── Idle hacking state ──────────────────────────────────────────────────────
-  let _catalog    = { hardware: [], hacks: [] };  // pushed by the bot
+  let _catalog    = { hardware: [], hacks: [], items: [] };  // pushed by the bot
   let _myRig      = [];   // owned component ids
+  let _myItems    = [];   // owned inventory item names (for junk buttons)
   let _myCash     = 0;    // spendable wallet
   let _myJobs     = [];   // [{hack_id, started_at, finishes_at}]
   let _myJobSlots = 0;    // concurrent-job cap from the rig
@@ -1551,10 +1525,17 @@
     sendCmd('requestbail', target.replace(/^@/, ''));
   }
 
+  // Single icon source for an item, shared by the player card and the junk row
+  // so they never diverge. '' = unknown (the card skips it; the junk row shows
+  // 📦 so every owned item is still junkable).
+  function itemEmoji(name) {
+    return ITEM_EMOJIS[name] || '';
+  }
+
   function itemBadges(items) {
     if (!items || !items.length) return '';
     return items.map(i => {
-      const emoji = ITEM_EMOJIS[i];
+      const emoji = itemEmoji(i);
       if (!emoji) return '';
       return `<span class="item-badge" title="${escHtml(itemTooltipText(i))}">${emoji}</span>`;
     }).filter(Boolean).join(' ');
@@ -1805,22 +1786,19 @@
   // ── My stats strip ─────────────────────────────────────────────────────────
   function syncMyStats(p) {
     if (!p) return;
-    if (p.level  !== undefined) { _myLevel = p.level; document.getElementById('ss-level').textContent  = p.level; }
-    if (p.health !== undefined && !_battleHPLocked) {
-      const maxHp = (p.max_health !== undefined) ? p.max_health : p.health;
-      document.getElementById('ss-health').textContent = `${p.health}/${maxHp}`;
-    }
-    if (p.points  !== undefined) document.getElementById('ss-points').textContent = p.points;
+    // The old top stats strip was removed — the player's own card now carries
+    // level/HP/points/cash/items/rig. We still track the values we need for the
+    // command panel (location, items) and the idle panel.
+    if (p.level !== undefined) _myLevel = p.level;
     if (p.location !== undefined) {
       _myLocation = p.location;
-      document.getElementById('ss-location').textContent = p.location;
       renderAttackButtons();
       updateLocationChips();
     }
     if (p.items !== undefined) {
-      document.getElementById('ss-items').innerHTML = itemBadges(p.items);
       // Toggle inventory action buttons based on what we own.
       const items = Array.isArray(p.items) ? p.items : [];
+      _myItems = items;
       const hasBurner = items.some(n => String(n).toLowerCase() === 'burner laptop');
       const invRow    = document.getElementById('inv-row');
       const burnerBtn = document.getElementById('burner-btn');
@@ -1906,6 +1884,60 @@
     renderRigShop();
     renderRunButtons();
     renderJobs();
+    renderDropButtons();
+    renderJunkButtons();
+  }
+
+  // Per-item junk buttons for the logged-in player's own inventory. Click to
+  // trash that item for 10% of your cash (see !junk) — the only way to dump a
+  // cursed evil-twin item that's skimming your earnings. Uses the same icon
+  // source (itemEmoji / ITEM_EMOJIS) as the player card so the two always
+  // match; an evil twin shows the SAME icon as the real item, so spotting
+  // which to junk is on the player.
+  function renderJunkButtons() {
+    const row = document.getElementById('junk-row');
+    if (!row) return;
+    const label = row.querySelector('.cmd-label');
+    row.innerHTML = '';
+    row.appendChild(label);
+    if (!_myItems.length) { row.classList.add('hidden'); return; }
+    row.classList.remove('hidden');
+    _myItems.forEach(name => {
+      const btn = document.createElement('button');
+      btn.className = 'util-btn';
+      btn.textContent = `🗑 ${itemEmoji(name) || '📦'} ${name}`;
+      btn.title = `Junk ${name} for 10% of your cash`;
+      btn.onclick = () => sendCmd('junk', name);
+      row.appendChild(btn);
+    });
+  }
+
+  // Owner-only: per-item drop buttons, split legit vs malicious, rendered from
+  // the bot-pushed item catalog (one source of truth — items.py). No-op for
+  // non-owners since the rows stay hidden.
+  function renderDropButtons() {
+    if (!_isOwner) return;
+    const items = _catalog.items || [];
+    const fill = (rowId, list, emptyText) => {
+      const row = document.getElementById(rowId);
+      if (!row) return;
+      const label = row.querySelector('.cmd-label');
+      row.innerHTML = '';
+      row.appendChild(label);
+      if (!list.length) { row.appendChild(idleEmptySpan(emptyText)); return; }
+      list.forEach(it => {
+        const btn = document.createElement('button');
+        btn.className = 'owner-btn';
+        // Icon from the shared player-card source so every GUI surface matches
+        // (the catalog is still the source of truth for the malicious split).
+        btn.textContent = `${itemEmoji(it.name) || '📦'} ${it.name}`;
+        btn.title = `Drop ${it.name} into the world`;
+        btn.onclick = () => sendCmd('dropitem', it.name);
+        row.appendChild(btn);
+      });
+    };
+    fill('owner-drop-legit-row', items.filter(it => !it.malicious), 'loading…');
+    fill('owner-drop-evil-row',  items.filter(it =>  it.malicious), 'none yet');
   }
 
   // Buy buttons, rendered from the bot-pushed hardware catalog. Add a component
@@ -2086,9 +2118,8 @@
   }
 
   function sendHack(location) {
-    // Optimistic update — show correct attack buttons and location badge immediately
+    // Optimistic update — show correct attack buttons immediately
     _myLocation = location;
-    document.getElementById('ss-location').textContent = location;
     updateLocationChips();
     renderAttackButtons();
     sendCmd('hack', location);
@@ -2366,16 +2397,17 @@
         _myUsername = data.username;
         _isOwner    = (data.username === 'b7h30');
 
-        // Show stats strip, hide login banner, show cmd panel
+        // Hide login banner, show cmd panel (the stats strip was removed —
+        // the player's own card carries their stats now).
         document.getElementById('login-banner').classList.add('hidden');
-        document.getElementById('stats-strip').classList.remove('hidden');
         document.getElementById('cmd-panel').classList.remove('hidden');
-
-        document.getElementById('ss-username').textContent = '@' + data.username;
 
         // Show owner panel if applicable
         if (_isOwner) {
           document.getElementById('owner-row').classList.remove('hidden');
+          document.getElementById('owner-drop-legit-row').classList.remove('hidden');
+          document.getElementById('owner-drop-evil-row').classList.remove('hidden');
+          renderDropButtons();  // in case the catalog already arrived
         }
 
         if (data.player && Object.keys(data.player).length) {
