@@ -255,6 +255,18 @@ class ExfilBandwidthTests(unittest.TestCase):
         stats = hardware.machine_stats("laptop")
         self.assertEqual(hacks.duration_for(hacks.HACK_DEFS["dbexfil"], stats), 225)
 
+    def test_corpheist_locked_below_desktop(self):
+        # Laptop: bandwidth 4 (< 6) and 256 GB (< 512) — gated out.
+        job, reason = hacks.start_hack(make_player(rig=["laptop"]), "corpheist", machine_id="laptop")
+        self.assertIsNone(job)
+
+    def test_corpheist_runs_on_desktop(self):
+        job, secs = hacks.start_hack(make_player(rig=["desktop"]), "corpheist", machine_id="desktop")
+        self.assertIsNotNone(job)
+        self.assertEqual(job["machine"], "desktop")
+        # ~1200 / (clock 1.3 * bandwidth 8/3) ≈ 346s — a long heist.
+        self.assertTrue(300 < secs < 420)
+
     def test_non_exfil_unaffected_by_bandwidth(self):
         # A network hack ignores bandwidth — laptop clock 1.0 → portscan 12s.
         stats = hardware.machine_stats("laptop")

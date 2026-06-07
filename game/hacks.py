@@ -67,6 +67,14 @@ HACK_DEFS: dict[str, HackDef] = {
         base_duration=300, success=0.85, cash=(120, 180), rep=(40, 55),
         hw_req={"bandwidth": 3, "storage": 64},
     ),
+    # The big score: exfiltrate ALL of EvilCorp. Gated to a fat pipe + huge disk
+    # → only the Desktop (bandwidth 8, 1 TB) can pull it; the Laptop's bandwidth
+    # 4 / 256 GB can't. Long, big pay, riskier — a failed heist burns the time.
+    "corpheist": HackDef(
+        id="corpheist", name="Corporate data heist", category="exfil",
+        base_duration=1200, success=0.80, cash=(400, 650), rep=(110, 150),
+        hw_req={"bandwidth": 6, "storage": 512},
+    ),
 }
 
 
