@@ -92,6 +92,19 @@ COMPONENTS: dict[str, Component] = {
                        bandwidth=4),
         desc="3 hacks at once, ~20% faster, lots of storage. Fat pipe → unlocks data exfil.",
     ),
+    "desktop": Component(
+        id="desktop",
+        name="Desktop",
+        kind="prebuilt",
+        cost=6000,
+        level_req=1,
+        # 12 GB → 6 job slots (min(8, 12//2)=6): heavy parallelism. clock 1.3 =
+        # ~30% faster than base; bandwidth 8 makes exfil rip; 1 TB storage and a
+        # real GPU (4) set up future malware/cracking content.
+        stats=RigStats(threads=8, memory=12, storage=1000, gpu_power=4, clock=1.3,
+                       bandwidth=8),
+        desc="6 hacks at once, fast clock, fat pipe + 1 TB disk. The heavy iron.",
+    ),
 }
 
 

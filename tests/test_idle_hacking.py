@@ -140,6 +140,36 @@ class LaptopTierTests(unittest.TestCase):
         self.assertIn("busy", reason)
 
 
+class DesktopTierTests(unittest.TestCase):
+    def test_desktop_yields_six_slots(self):
+        # 12 GB → min(threads 8, floor(12/2)=6) = 6.
+        self.assertEqual(hardware.machine_slots("desktop"), 6)
+
+    def test_desktop_stats(self):
+        s = hardware.machine_stats("desktop")
+        self.assertEqual(s.bandwidth, 8)
+        self.assertEqual(s.storage, 1000)
+        self.assertEqual(s.clock, 1.3)
+
+    def test_buying_desktop_deducts_cost(self):
+        p = make_player(cash=6500)
+        comp, reason = hardware.buy_component(p, "desktop")
+        self.assertIsNotNone(comp)
+        self.assertEqual(p.cash, 500)        # 6500 - 6000
+        self.assertEqual(p.rig, ["desktop"])
+
+    def test_three_tiers_sum_to_ten_slots(self):
+        p = make_player(rig=["sbc", "laptop", "desktop"])
+        self.assertEqual(hardware.total_slots(p), 10)   # 1 + 3 + 6
+
+    def test_desktop_runs_exfil_fast(self):
+        # bandwidth 8 → exfil factor 8/3; with clock 1.3 the 300s dbexfil
+        # finishes much quicker than on the laptop.
+        stats = hardware.machine_stats("desktop")
+        secs = hacks.duration_for(hacks.HACK_DEFS["dbexfil"], stats)
+        self.assertLess(secs, 120)
+
+
 class PerMachineTests(unittest.TestCase):
     """Per-machine rigs: each owned machine has its own slots + speed; total
     concurrency is the sum; a job is tagged to the machine it runs on."""
