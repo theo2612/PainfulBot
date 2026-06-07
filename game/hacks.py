@@ -13,7 +13,8 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from game.hardware import rig_stats
+import items
+from game import hardware
 
 
 # Cash dropped per successful *click* (clicker tier). The bootstrap rule
@@ -104,42 +105,84 @@ def duration_for(hack: HackDef, stats) -> int:
     return max(1, round(hack.base_duration / speed))
 
 
-def can_run(player, hack_id: str) -> tuple[bool, str]:
-    """Return (ok, reason). `reason` is a player-facing string on failure."""
-    hack = HACK_DEFS.get(hack_id)
-    if not hack:
-        return False, f"unknown hack '{hack_id}'. Try !run to list hacks."
-
-    stats = rig_stats(player)
-    slots = stats.job_slots()
-    if slots <= 0:
-        return False, "you need a rig first — !buy sbc to get a Single-Board Computer."
-    if player.level < hack.level_req:
-        return False, f"{hack.name} needs level {hack.level_req}."
+def _machine_meets(hack: HackDef, machine_id: str) -> tuple[bool, str]:
+    """Whether a single machine's hardware can run this hack. Returns
+    (ok, reason)."""
+    s = hardware.machine_stats(machine_id)
+    name = hardware.get_component(machine_id)
+    name = name.name if name else machine_id
     need_gpu = hack.hw_req.get("gpu_power", 0)
-    if need_gpu > stats.gpu_power:
-        return False, f"{hack.name} needs a GPU (gpu_power ≥ {need_gpu})."
+    if need_gpu > s.gpu_power:
+        return False, f"{name} can't run {hack.name} — needs a GPU."
     need_storage = hack.hw_req.get("storage", 0)
-    if need_storage > stats.storage:
-        return False, f"{hack.name} needs more storage (≥ {need_storage} GB)."
-    if hack.location and player.location != hack.location:
-        return False, f"{hack.name} must be run from {hack.location}."
-    if len(player.jobs or []) >= slots:
-        return False, f"all {slots} job slot(s) busy — wait or check !jobs."
+    if need_storage > s.storage:
+        return False, f"{name} can't run {hack.name} — needs {need_storage} GB storage."
     return True, ""
 
 
-def start_hack(player, hack_id: str, now: datetime | None = None):
-    """Start a hack if allowed. Returns (job_dict, seconds) on success, or
-    (None, reason) on failure. Mutates player.jobs."""
-    ok, reason = can_run(player, hack_id)
+def resolve_machine(player, hack: HackDef, machine_id: str | None):
+    """Pick/validate which machine runs this hack. With an explicit machine_id,
+    validate it (owned, capable, free). Without one, auto-pick the fastest owned
+    machine that can run it and has a free slot. Returns (machine_id, "") or
+    (None, reason)."""
+    owned = hardware.machines(player)
+    if not owned:
+        return None, "you need a rig first — open the Shop (🛒) to buy one."
+
+    if machine_id:
+        if machine_id not in owned:
+            return None, "you don't own that machine."
+        ok, reason = _machine_meets(hack, machine_id)
+        if not ok:
+            return None, reason
+        if hardware.machine_free(player, machine_id) <= 0:
+            comp = hardware.get_component(machine_id)
+            return None, f"{comp.name if comp else machine_id} is busy — all its slots are full."
+        return machine_id, ""
+
+    # Auto-pick: capable + free machines, fastest (highest clock) first.
+    capable = [m for m in owned if _machine_meets(hack, m)[0]]
+    if not capable:
+        return None, f"none of your machines can run {hack.name} yet — upgrade in the Shop."
+    free = [m for m in capable if hardware.machine_free(player, m) > 0]
+    if not free:
+        return None, f"all machines that can run {hack.name} are busy."
+    best = max(free, key=lambda m: hardware.machine_stats(m).clock)
+    return best, ""
+
+
+def can_run(player, hack_id: str, machine_id: str | None = None):
+    """Return (ok, reason, machine_id). On success machine_id is the resolved
+    machine the hack will run on; on failure it is None and reason is a
+    player-facing string."""
+    hack = HACK_DEFS.get(hack_id)
+    if not hack:
+        return False, f"unknown hack '{hack_id}'.", None
+    if player.level < hack.level_req:
+        return False, f"{hack.name} needs level {hack.level_req}.", None
+    if hack.location and player.location != hack.location:
+        return False, f"{hack.name} must be run from {hack.location}.", None
+    resolved, reason = resolve_machine(player, hack, machine_id)
+    if not resolved:
+        return False, reason, None
+    return True, "", resolved
+
+
+def start_hack(player, hack_id: str, machine_id: str | None = None,
+               now: datetime | None = None):
+    """Start a hack on a machine. With no machine_id, auto-picks the fastest
+    capable free machine. Returns (job_dict, seconds) on success, or
+    (None, reason) on failure. The job records which machine it runs on and
+    uses that machine's clock for its duration. Mutates player.jobs."""
+    ok, reason, resolved = can_run(player, hack_id, machine_id)
     if not ok:
         return None, reason
     now = _now(now)
     hack = HACK_DEFS[hack_id]
-    seconds = duration_for(hack, rig_stats(player))
+    seconds = duration_for(hack, hardware.machine_stats(resolved))
     job = {
         "hack_id": hack_id,
+        "machine": resolved,
         "started_at": _to_iso(now),
         "finishes_at": _to_iso(now + timedelta(seconds=seconds)),
     }
@@ -160,12 +203,16 @@ def _resolve_one(player, job: dict, rng) -> dict:
     if not success:
         return {"hack_id": hack.id, "name": hack.name,
                 "success": False, "cash": 0, "rep": 0}
-    cash = rng.randint(*hack.cash)
+    gross = rng.randint(*hack.cash)
     rep = rng.randint(*hack.rep)
-    player.cash = getattr(player, "cash", 0) + cash
+    # Malicious "evil twin" items (e.g. Mnap) divert a slice of the payout to
+    # the treasury. The caller credits the treasury with `skimmed` so this pure
+    # module stays free of treasury/IO knowledge.
+    net, skimmed = items.apply_cash_skim(player, gross)
+    player.cash = getattr(player, "cash", 0) + net
     player.points += rep  # rep is points → caller runs check_level_up
-    return {"hack_id": hack.id, "name": hack.name,
-            "success": True, "cash": cash, "rep": rep}
+    return {"hack_id": hack.id, "name": hack.name, "success": True,
+            "cash": net, "gross_cash": gross, "skimmed": skimmed, "rep": rep}
 
 
 def resolve_due_jobs(player, now: datetime | None = None, rng=random) -> list[dict]:

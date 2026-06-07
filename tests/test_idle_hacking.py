@@ -129,12 +129,6 @@ class LaptopTierTests(unittest.TestCase):
         self.assertEqual(p.cash, 100)        # 1300 - 1200
         self.assertEqual(p.rig, ["laptop"])
 
-    def test_laptop_upgrades_over_sbc_when_both_owned(self):
-        # Owning both prebuilts, the stronger one (laptop) defines the rig.
-        p = make_player(rig=["sbc", "laptop"])
-        self.assertEqual(hardware.job_slots(p), 3)
-        self.assertEqual(hardware.rig_stats(p).storage, 256)
-
     def test_can_run_three_concurrent_on_laptop(self):
         p = make_player(rig=["laptop"])
         self.assertIsNotNone(hacks.start_hack(p, "portscan")[0])
@@ -144,6 +138,62 @@ class LaptopTierTests(unittest.TestCase):
         job, reason = hacks.start_hack(p, "credstuff")
         self.assertIsNone(job)
         self.assertIn("busy", reason)
+
+
+class PerMachineTests(unittest.TestCase):
+    """Per-machine rigs: each owned machine has its own slots + speed; total
+    concurrency is the sum; a job is tagged to the machine it runs on."""
+
+    def test_total_slots_is_the_sum_of_owned_machines(self):
+        p = make_player(rig=["sbc", "laptop"])
+        self.assertEqual(hardware.total_slots(p), 4)   # sbc 1 + laptop 3
+        self.assertEqual(hardware.job_slots(p), 4)
+        self.assertEqual(hardware.machine_slots("sbc"), 1)
+        self.assertEqual(hardware.machine_slots("laptop"), 3)
+
+    def test_job_records_its_machine(self):
+        p = make_player(rig=["sbc", "laptop"])
+        job, _ = hacks.start_hack(p, "portscan", machine_id="sbc")
+        self.assertEqual(job["machine"], "sbc")
+        self.assertEqual(hardware.jobs_on(p, "sbc"), 1)
+        self.assertEqual(hardware.jobs_on(p, "laptop"), 0)
+
+    def test_speed_depends_on_the_chosen_machine(self):
+        p = make_player(rig=["sbc", "laptop"])
+        _, sbc_secs = hacks.start_hack(p, "portscan", machine_id="sbc")
+        _, lap_secs = hacks.start_hack(p, "portscan", machine_id="laptop")
+        self.assertEqual(sbc_secs, 15)   # sbc clock 0.8
+        self.assertEqual(lap_secs, 12)   # laptop clock 1.0
+
+    def test_auto_pick_chooses_the_fastest_free_machine(self):
+        # No machine specified → fastest (laptop, clock 1.0) over the sbc (0.8).
+        p = make_player(rig=["sbc", "laptop"])
+        job, _ = hacks.start_hack(p, "portscan")
+        self.assertEqual(job["machine"], "laptop")
+
+    def test_can_fill_each_machine_independently(self):
+        p = make_player(rig=["sbc", "laptop"])
+        # 1 on the sbc + 3 on the laptop = 4 concurrent; a 5th has nowhere to go.
+        self.assertIsNotNone(hacks.start_hack(p, "portscan", machine_id="sbc")[0])
+        for _ in range(3):
+            self.assertIsNotNone(hacks.start_hack(p, "portscan", machine_id="laptop")[0])
+        self.assertEqual(len(p.jobs), 4)
+        job, reason = hacks.start_hack(p, "portscan")
+        self.assertIsNone(job)
+        self.assertIn("busy", reason)
+
+    def test_explicit_busy_machine_rejected_even_if_another_is_free(self):
+        p = make_player(rig=["sbc", "laptop"])
+        hacks.start_hack(p, "portscan", machine_id="sbc")  # fills the sbc (1 slot)
+        job, reason = hacks.start_hack(p, "portscan", machine_id="sbc")
+        self.assertIsNone(job)
+        self.assertIn("busy", reason)
+
+    def test_cannot_run_on_a_machine_you_do_not_own(self):
+        p = make_player(rig=["sbc"])
+        job, reason = hacks.start_hack(p, "portscan", machine_id="laptop")
+        self.assertIsNone(job)
+        self.assertIn("don't own", reason)
 
 
 class StartHackTests(unittest.TestCase):

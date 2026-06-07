@@ -662,14 +662,22 @@ class Bot(commands.Bot):
             await self._idle_say(ctx, username, '!run', msg)
             return
 
-        job, info = hacks.start_hack(player, hack.strip().lower())
+        # Args: "<hack_id> [machine_id]" — the GUI appends the selected machine.
+        # No machine → auto-pick the fastest free machine that can run it.
+        parts = hack.strip().lower().split()
+        hack_id = parts[0]
+        machine_id = parts[1] if len(parts) > 1 else None
+
+        job, info = hacks.start_hack(player, hack_id, machine_id)
         if not job:
             await self._idle_say(ctx, username, '!run', f'@{ctx.author.name}, {info}', 'attack-fail')
             return
         helpers.save_player_data(self.player_data)
         hd = hacks.HACK_DEFS[job['hack_id']]
-        slots = hardware.job_slots(player)
-        msg = (f"@{ctx.author.name} started {hd.name} — ETA {self._fmt_secs(info)}. "
+        m = hardware.get_component(job.get('machine'))
+        on = f" on {m.name}" if m else ""
+        slots = hardware.total_slots(player)
+        msg = (f"@{ctx.author.name} started {hd.name}{on} — ETA {self._fmt_secs(info)}. "
                f"({len(player.jobs)}/{slots} slots in use)")
         await self._idle_say(ctx, username, '!run', msg, 'attack-success')
         await game_overlay.player(username, player)
@@ -697,7 +705,9 @@ class Bot(commands.Bot):
         for j in player.jobs:
             hd = hacks.HACK_DEFS.get(j['hack_id'])
             name = hd.name if hd else j['hack_id']
-            parts.append(f"{name} ({self._fmt_secs(hacks.time_left(j))} left)")
+            mc = hardware.get_component(j.get('machine'))
+            on = f" @{mc.name}" if mc else ""
+            parts.append(f"{name}{on} ({self._fmt_secs(hacks.time_left(j))} left)")
         msg = f"@{ctx.author.name}, running {len(player.jobs)}/{slots}: " + " | ".join(parts)
         await self._idle_say(ctx, username, '!jobs', msg)
 
@@ -713,7 +723,8 @@ class Bot(commands.Bot):
         the overlay simply coming up after the bot's first push, would otherwise
         leave the buttons stuck on 'loading…'."""
         await game_overlay.catalog(
-            [{"id": c.id, "name": c.name, "cost": c.cost, "desc": c.desc}
+            [{"id": c.id, "name": c.name, "cost": c.cost, "desc": c.desc,
+              "slots": c.stats.job_slots()}
              for c in hardware.COMPONENTS.values()],
             [{"id": h.id, "name": h.name} for h in hacks.HACK_DEFS.values()],
             [{"name": it.name,

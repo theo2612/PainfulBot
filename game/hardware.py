@@ -124,9 +124,49 @@ def rig_stats(player) -> RigStats:
     )
 
 
+# ---------------------------------------------------------------------------
+# Per-machine model (spec §4 / DEV_BACKLOG). Each owned machine is its own
+# workstation with its own slots AND its own clock speed. A hack runs on one
+# machine; total concurrency is the sum across machines. (For now every owned
+# component is a standalone prebuilt machine; later, custom-tower parts will
+# assemble into a single 'tower' machine.)
+# ---------------------------------------------------------------------------
+def machines(player) -> list[str]:
+    """Owned component ids that are standalone machines (prebuilts)."""
+    rig = getattr(player, "rig", None) or []
+    return [c for c in rig if c in COMPONENTS and COMPONENTS[c].kind == "prebuilt"]
+
+
+def machine_stats(machine_id: str) -> RigStats:
+    """The RigStats of a single machine (a prebuilt's own stats)."""
+    comp = COMPONENTS.get(machine_id)
+    return comp.stats if comp else RigStats()
+
+
+def machine_slots(machine_id: str) -> int:
+    """How many concurrent jobs this one machine can run."""
+    return machine_stats(machine_id).job_slots()
+
+
+def jobs_on(player, machine_id: str) -> int:
+    """How many of the player's running jobs are assigned to this machine."""
+    return sum(1 for j in (getattr(player, "jobs", None) or [])
+               if j.get("machine") == machine_id)
+
+
+def machine_free(player, machine_id: str) -> int:
+    """Free job slots remaining on this machine (never negative)."""
+    return max(0, machine_slots(machine_id) - jobs_on(player, machine_id))
+
+
+def total_slots(player) -> int:
+    """Total concurrent jobs across all owned machines (the sum)."""
+    return sum(machine_slots(m) for m in machines(player))
+
+
 def job_slots(player) -> int:
-    """Convenience: this player's max concurrent jobs."""
-    return rig_stats(player).job_slots()
+    """Total concurrent-job capacity across all owned machines."""
+    return total_slots(player)
 
 
 def buy_component(player, component_id: str):
