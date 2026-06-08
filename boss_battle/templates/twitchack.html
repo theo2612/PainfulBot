@@ -695,6 +695,16 @@
     .oc-btn { border: 1px solid rgba(255,140,0,.4); background: rgba(255,140,0,.06); color: #ff8c00; }
     .oc-btn:hover { border-color: #ff8c00; background: rgba(255,140,0,.16); }
     .oc-btn.on { border-color: #ff8c00; background: rgba(255,140,0,.2); box-shadow: 0 0 8px rgba(255,140,0,.35); }
+    .machine-btn .mc-rent { color: #8cdcff; font-family: var(--font-vt); font-size: .92em; }
+    .rent-btn, .rent-cancel-btn {
+      font-family: var(--font-head); font-size: .66rem; letter-spacing: .04em;
+      padding: 4px 8px; border-radius: 2px; cursor: pointer; white-space: nowrap; transition: all .15s;
+      border: 1px solid rgba(140,220,255,.4); background: rgba(140,220,255,.06); color: #8cdcff;
+    }
+    .rent-btn:hover, .rent-cancel-btn:hover { border-color: #8cdcff; background: rgba(140,220,255,.16); }
+    .rent-btn:disabled { border-color: var(--border); color: var(--text-muted); background: transparent; cursor: not-allowed; opacity: .55; }
+    .rent-cancel-btn { border-color: rgba(255,77,77,.4); color: var(--red); background: rgba(255,77,77,.06); }
+    .rent-cancel-btn:hover { border-color: var(--red); background: rgba(255,77,77,.16); }
 
     /* ── Shop: floating toggle + right-side drawer ───────────────────── */
     .shop-open-btn {
@@ -2033,8 +2043,16 @@
   function hwById(id) { return (_catalog.hardware || []).find(h => h.id === id); }
   function machineCap(id) { const h = hwById(id); return (h && h.slots) ? h.slots : 0; }
   function machineUsed(id) { return _myJobs.filter(j => j.machine === id).length; }
-  function ownedMachines() { return _myRig.filter(id => hwById(id)); }
+  // Usable machines = whatever the bot pushed in rig_state (owned prebuilts +
+  // active VPS rentals); fall back to the rig before the first push lands.
+  function ownedMachines() {
+    const keys = Object.keys(_myRigState);
+    return (keys.length ? keys : (_myRig || [])).filter(id => hwById(id));
+  }
   function bestMachine(ms) { return ms.slice().sort((a, b) => machineCap(b) - machineCap(a))[0]; }
+  function machineRented(id) { const s = _myRigState[id]; return !!(s && s.rented); }
+  function rentCost(id) { const s = _myRigState[id]; return s && s.rent_cost != null ? s.rent_cost : 0; }
+  function rentSecsLeft(id) { const s = _myRigState[id]; return s && s.seconds_left != null ? s.seconds_left : 0; }
   function machineCond(id) { const s = _myRigState[id]; return s && s.condition != null ? s.condition : 100; }
   function repairCost(id) { const s = _myRigState[id]; return s && s.repair_cost != null ? s.repair_cost : 0; }
   function condColor(c) { return c > 66 ? 'var(--green)' : c > 33 ? '#ffcc00' : 'var(--red)'; }
@@ -2064,7 +2082,7 @@
     const ms = ownedMachines();
     if (ms.length && !ms.includes(_activeMachine)) _activeMachine = bestMachine(ms);
     if (!ms.length) _activeMachine = null;
-    const sig = `${_activeMachine}|${ms.map(id => id + ':' + machineUsed(id) + '/' + machineCap(id) + ':' + Math.round(machineCond(id)) + ':' + repairCost(id) + ':' + (machineCooling(id) ? 'c' : '') + (machineOC(id) ? 'o' : '') + ':' + coolingCost(id)).join(',')}`;
+    const sig = `${_activeMachine}|${ms.map(id => id + ':' + machineUsed(id) + '/' + machineCap(id) + ':' + Math.round(machineCond(id)) + ':' + repairCost(id) + ':' + (machineCooling(id) ? 'c' : '') + (machineOC(id) ? 'o' : '') + ':' + coolingCost(id) + ':' + (machineRented(id) ? 'r' + Math.floor(rentSecsLeft(id) / 60) : '')).join(',')}`;
     if (sig === _sigHw) return;
     _sigHw = sig;
     const label = row.querySelector('.cmd-label');
@@ -2074,13 +2092,18 @@
     ms.forEach(id => {
       const cond = Math.round(machineCond(id));
       const oc = machineOC(id);
+      const rented = machineRented(id);
       const btn = document.createElement('button');
       btn.className = 'machine-btn' + (id === _activeMachine ? ' active' : '');
+      const tail = rented
+        ? `<span class="mc-rent">☁️ ${idleFmtSecs(rentSecsLeft(id))} left</span>`
+        : `<span class="mc-cond" style="color:${condColor(cond)}">${cond}%</span>`;
       btn.innerHTML = `${escHtml(hwById(id).name)}${oc ? ' <span class="mc-oc">⚡</span>' : ''} ` +
-                      `<span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span> ` +
-                      `<span class="mc-cond" style="color:${condColor(cond)}">${cond}%</span>`;
-      btn.title = `Run hacks on ${hwById(id).name} — condition ${cond}%` + (oc ? ' (overclocked)' : '') +
-                  (machineOverclockable(id) ? '' : ' · sealed (no overclock)');
+                      `<span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span> ${tail}`;
+      btn.title = `Run hacks on ${hwById(id).name}` +
+                  (rented ? ` — rented, ${idleFmtSecs(rentSecsLeft(id))} left` : ` — condition ${cond}%`) +
+                  (oc ? ' (overclocked)' : '') +
+                  (!rented && !machineOverclockable(id) ? ' · sealed (no overclock)' : '');
       btn.onclick = () => {
         if (_activeMachine !== id) {
           _activeMachine = id;
@@ -2122,6 +2145,23 @@
           ob.onclick = () => sendCmd('oc', id);
           row.appendChild(ob);
         }
+      }
+      // Rented machines (VPS): renew (extend rent) + cancel. No repair/cooling.
+      if (rented) {
+        const rc = rentCost(id);
+        const rb = document.createElement('button');
+        rb.className = 'rent-btn';
+        rb.textContent = `⟳ ${rc}`;
+        rb.disabled = _myCash < rc;
+        rb.title = `Renew ${hwById(id).name} (+1h uptime) for ${rc} cash`;
+        rb.onclick = () => sendCmd('rent', id);
+        row.appendChild(rb);
+        const xb = document.createElement('button');
+        xb.className = 'rent-cancel-btn';
+        xb.textContent = '✕';
+        xb.title = `End the ${hwById(id).name} rental (no refund)`;
+        xb.onclick = () => sendCmd('unrent', id);
+        row.appendChild(xb);
       }
     });
   }
@@ -2195,28 +2235,42 @@
     const hw = _catalog.hardware || [];
     // Rebuild only when an item's owned/affordable state (or the catalog)
     // changes — not on every cash tick, so the drawer doesn't churn.
-    const sig = hw.map(c => `${c.id}:${c.cost}:${_myRig.includes(c.id) ? 1 : 0}:${_myCash >= c.cost ? 1 : 0}`).join('|');
+    const sig = hw.map(c => {
+      if (c.kind === 'vps') return `${c.id}:rent:${machineRented(c.id) ? 1 : 0}:${_myCash >= c.rent ? 1 : 0}`;
+      return `${c.id}:${c.cost}:${_myRig.includes(c.id) ? 1 : 0}:${_myCash >= c.cost ? 1 : 0}`;
+    }).join('|');
     if (sig === _sigShop) return;
     _sigShop = sig;
     pane.innerHTML = '';
     if (!hw.length) { pane.appendChild(idleEmptySpan('loading…')); return; }
     hw.forEach(c => {
-      const owned  = _myRig.includes(c.id);
-      const afford = _myCash >= c.cost;
+      const isVps = c.kind === 'vps';
+      const owned  = !isVps && _myRig.includes(c.id);
+      const active = isVps && machineRented(c.id);
       const item = document.createElement('div');
-      item.className = 'shop-item' + (owned ? ' owned' : '');
+      item.className = 'shop-item' + (owned || active ? ' owned' : '');
 
       const info = document.createElement('div');
       info.className = 'shop-item-info';
-      info.innerHTML = `<div class="shop-item-name">🖥 ${escHtml(c.name)}</div>` +
-        (c.desc ? `<div class="shop-item-desc">${escHtml(c.desc)}</div>` : '');
+      info.innerHTML = `<div class="shop-item-name">${isVps ? '☁️' : '🖥'} ${escHtml(c.name)}</div>` +
+        (c.desc ? `<div class="shop-item-desc">${escHtml(c.desc)}</div>` : '') +
+        (active ? `<div class="shop-item-desc">Active · ${idleFmtSecs(rentSecsLeft(c.id))} left</div>` : '');
 
       const btn = document.createElement('button');
-      btn.className = 'buy-btn' + (owned ? ' owned' : '');
-      if (owned) {
+      if (isVps) {
+        const afford = _myCash >= c.rent;
+        btn.className = 'buy-btn';
+        btn.textContent = active ? `⟳ ${c.rent}` : `Rent ${c.rent}/hr`;
+        btn.disabled = !afford;
+        btn.title = active ? `Renew (+1h) for ${c.rent} cash` : `Rent for ${c.rent} cash/hour`;
+        btn.onclick = () => sendCmd('rent', c.id);
+      } else if (owned) {
+        btn.className = 'buy-btn owned';
         btn.textContent = '✓ Owned';
         btn.disabled = true;
       } else {
+        const afford = _myCash >= c.cost;
+        btn.className = 'buy-btn';
         btn.textContent = `${c.cost} cash`;
         btn.disabled = !afford;
         btn.title = afford ? `Buy for ${c.cost} cash` : `Need ${c.cost} cash`;
