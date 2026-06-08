@@ -333,6 +333,57 @@ class WearAndRepairTests(unittest.TestCase):
         self.assertIn("perfect", reason)
 
 
+class CoolingOverclockTests(unittest.TestCase):
+    """AIO cooling unlocks overclock: faster hacks, faster wear."""
+
+    def test_cannot_overclock_without_cooling(self):
+        p = make_player(rig=["desktop"])
+        state, reason = hardware.set_overclock(p, "desktop", True)
+        self.assertIsNone(state)
+        self.assertIn("cooling", reason)
+
+    def test_install_cooling_then_overclock(self):
+        p = make_player(rig=["desktop"], cash=2000)
+        cost, _ = hardware.install_cooling(p, "desktop")
+        self.assertEqual(cost, 900)              # 6000 * 0.15
+        self.assertEqual(p.cash, 1100)
+        self.assertTrue(hardware.has_cooling(p, "desktop"))
+        state, _ = hardware.set_overclock(p, "desktop", True)
+        self.assertTrue(state)
+        self.assertTrue(hardware.overclock_active(p, "desktop"))
+
+    def test_overclock_speeds_hacks(self):
+        p = make_player(rig=["desktop"], cash=2000)
+        hardware.install_cooling(p, "desktop")
+        base_secs = hacks.start_hack(make_player(rig=["desktop"]), "portscan", machine_id="desktop")[1]
+        hardware.set_overclock(p, "desktop", True)
+        oc_secs = hacks.start_hack(p, "portscan", machine_id="desktop")[1]
+        self.assertLess(oc_secs, base_secs)      # 1.5x clock → faster
+
+    def test_overclocked_run_wears_more(self):
+        now = datetime(2026, 6, 7, 12, 0, 0, tzinfo=timezone.utc)
+        # Baseline (no OC) wear from one portscan.
+        a = make_player(rig=["desktop"])
+        hacks.start_hack(a, "portscan", machine_id="desktop", now=now)
+        hacks.resolve_due_jobs(a, now=now + timedelta(seconds=60), rng=FakeRandom(0.0, 7))
+        base_wear = 100 - hardware.condition_of(a, "desktop")
+        # Overclocked wear.
+        b = make_player(rig=["desktop"], cash=2000)
+        hardware.install_cooling(b, "desktop")
+        hardware.set_overclock(b, "desktop", True)
+        hacks.start_hack(b, "portscan", machine_id="desktop", now=now)
+        hacks.resolve_due_jobs(b, now=now + timedelta(seconds=60), rng=FakeRandom(0.0, 7))
+        oc_wear = 100 - hardware.condition_of(b, "desktop")
+        self.assertAlmostEqual(oc_wear, base_wear * 2.5, places=2)
+
+    def test_overclock_off_restores_base_speed(self):
+        p = make_player(rig=["desktop"], cash=2000)
+        hardware.install_cooling(p, "desktop")
+        hardware.set_overclock(p, "desktop", True)
+        hardware.set_overclock(p, "desktop", False)
+        self.assertFalse(hardware.overclock_active(p, "desktop"))
+
+
 class StartHackTests(unittest.TestCase):
     def test_cannot_run_without_a_rig(self):
         job, reason = hacks.start_hack(make_player(), "portscan")

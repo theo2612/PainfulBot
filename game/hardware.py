@@ -15,7 +15,7 @@ the `name` is a separate display layer, so a name can be swapped (e.g. for a
 sponsor) without touching logic or persisted data — only `id` is stored on a
 player's rig.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 # GB of RAM each concurrent job consumes (spec §4.2). This is the knob that makes
 # you need BOTH compute and memory: job_slots is gated by min(threads, mem/2).
@@ -254,6 +254,76 @@ def repair(player, machine_id: str):
     player.conditions[machine_id] = FULL_CONDITION
     player.repairs[machine_id] = int(player.repairs.get(machine_id, 0)) + 1
     return cost, ""
+
+
+# ---------------------------------------------------------------------------
+# AIO cooling + overclock (DEV_BACKLOG). Cooling is a per-machine part; with it
+# installed you can overclock that machine: hacks run faster but it wears faster
+# (more heat). A risk/reward that feeds the repair sink. All numbers tunable.
+# ---------------------------------------------------------------------------
+COOLING_COST_FRACTION = 0.15  # cooling costs 15% of the machine's value
+OC_CLOCK_MULT = 1.5           # overclock → 1.5x clock (faster hacks)
+OC_WEAR_MULT = 2.5            # …but wears 2.5x faster while overclocked
+
+
+def has_cooling(player, machine_id: str) -> bool:
+    return machine_id in (getattr(player, "cooling", None) or [])
+
+
+def overclock_active(player, machine_id: str) -> bool:
+    """Overclock only counts when cooling is also installed (defensive)."""
+    return (machine_id in (getattr(player, "overclock", None) or [])
+            and has_cooling(player, machine_id))
+
+
+def cooling_cost(machine_id: str) -> int:
+    comp = COMPONENTS.get(machine_id)
+    return max(1, round(comp.cost * COOLING_COST_FRACTION)) if comp else 0
+
+
+def effective_stats(player, machine_id: str) -> RigStats:
+    """A machine's stats with overclock applied (boosted clock). Used for hack
+    timing; gating still uses the base machine_stats."""
+    s = machine_stats(machine_id)
+    if overclock_active(player, machine_id):
+        s = replace(s, clock=round(s.clock * OC_CLOCK_MULT, 3))
+    return s
+
+
+def install_cooling(player, machine_id: str):
+    """Install AIO cooling on an owned machine for cash. Returns (cost, "") or
+    (None, reason)."""
+    comp = COMPONENTS.get(machine_id)
+    if not comp or machine_id not in machines(player):
+        return None, "you don't own that machine."
+    if has_cooling(player, machine_id):
+        return None, f"{comp.name} already has cooling."
+    cost = cooling_cost(machine_id)
+    cash = getattr(player, "cash", 0)
+    if cash < cost:
+        return None, f"AIO cooling for {comp.name} costs {cost} cash — you have {cash}."
+    player.cash = cash - cost
+    if player.cooling is None:
+        player.cooling = []
+    player.cooling.append(machine_id)
+    return cost, ""
+
+
+def set_overclock(player, machine_id: str, on: bool):
+    """Turn overclock on/off for a machine (requires cooling). Returns
+    (new_state_bool, "") or (None, reason)."""
+    comp = COMPONENTS.get(machine_id)
+    if not comp or machine_id not in machines(player):
+        return None, "you don't own that machine."
+    if on and not has_cooling(player, machine_id):
+        return None, f"{comp.name} needs AIO cooling before you can overclock it."
+    if player.overclock is None:
+        player.overclock = []
+    if on and machine_id not in player.overclock:
+        player.overclock.append(machine_id)
+    elif not on and machine_id in player.overclock:
+        player.overclock.remove(machine_id)
+    return (machine_id in player.overclock), ""
 
 
 def buy_component(player, component_id: str):

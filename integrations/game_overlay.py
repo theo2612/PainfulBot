@@ -68,7 +68,10 @@ async def player(username: str, player_obj) -> None:
             "job_slots":    hardware.job_slots(player_obj),
             # Wear & tear: per-machine condition + repair cost for the GUI.
             "rig_state":    {m: {"condition": round(hardware.condition_of(player_obj, m)),
-                                 "repair_cost": hardware.repair_cost(player_obj, m)}
+                                 "repair_cost": hardware.repair_cost(player_obj, m),
+                                 "cooling": hardware.has_cooling(player_obj, m),
+                                 "overclock": hardware.overclock_active(player_obj, m),
+                                 "cooling_cost": hardware.cooling_cost(m)}
                              for m in hardware.machines(player_obj)},
         }))
     except Exception:

@@ -745,6 +745,52 @@ class Bot(commands.Bot):
         await self._idle_say(ctx, username, '!repair', msg, 'attack-success')
         await game_overlay.player(username, player)
 
+    @commands.command(name='cool')
+    async def cool(self, ctx, *, machine: str = None):
+        """Install AIO cooling on a machine (unlocks overclock)."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!cool', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+        if not machine:
+            await self._idle_say(ctx, username, '!cool', f'@{ctx.author.name}, pick a machine to cool (in the Rig row).')
+            return
+        cost, reason = hardware.install_cooling(player, machine.strip().lower())
+        if cost is None:
+            await self._idle_say(ctx, username, '!cool', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        comp = hardware.get_component(machine.strip().lower())
+        msg = f"@{ctx.author.name} installed AIO cooling on their {comp.name} for {cost} cash — overclock unlocked! ❄️"
+        await self._idle_say(ctx, username, '!cool', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
+    @commands.command(name='oc')
+    async def oc(self, ctx, *, machine: str = None):
+        """Toggle overclock on a machine (requires cooling): faster, wears faster."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!oc', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+        if not machine:
+            await self._idle_say(ctx, username, '!oc', f'@{ctx.author.name}, pick a machine to overclock (in the Rig row).')
+            return
+        mid = machine.strip().lower()
+        state, reason = hardware.set_overclock(player, mid, not hardware.overclock_active(player, mid))
+        if state is None:
+            await self._idle_say(ctx, username, '!oc', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        comp = hardware.get_component(mid)
+        msg = (f"@{ctx.author.name} ⚡ OVERCLOCKED their {comp.name} — faster hacks, faster wear."
+               if state else f"@{ctx.author.name} eased their {comp.name} back to stock speed.")
+        await self._idle_say(ctx, username, '!oc', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
     # Background idle-job ticker cadence (seconds). Jobs settle within this of
     # finishing; small enough that a 15s hack feels responsive, and the player
     # list is tiny so scanning it costs nothing.
@@ -924,7 +970,7 @@ class Bot(commands.Bot):
     # nuke and as movement).
     GUI_ONLY_COMMANDS = {
         # idle hacking
-        'buy', 'run', 'jobs', 'repair',
+        'buy', 'run', 'jobs', 'repair', 'cool', 'oc',
         # info (now GUI-only)
         'attacks', 'status', 'points', 'leaderboard', 'items', 'jail', 'treasury',
         # pvp / economy

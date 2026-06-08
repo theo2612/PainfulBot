@@ -6,7 +6,8 @@ class Player:
                  jail=None, last_jail_released_at=None, offense_count=0,
                  bail_request_for=None, no_cap_until=None,
                  max_health=None, last_regen_at=None,
-                 cash=0, rig=None, jobs=None, conditions=None, repairs=None):
+                 cash=0, rig=None, jobs=None, conditions=None, repairs=None,
+                 cooling=None, overclock=None):
         self.username = username
         self.level = level
         # health == current HP; max_health == personal cap (50 start, +5/win, cap 1000).
@@ -43,6 +44,10 @@ class Player:
         # how many times each has been repaired (repairs get pricier each time).
         self.conditions = conditions if conditions else {}  # {machine_id: float 0-100}
         self.repairs = repairs if repairs else {}           # {machine_id: int}
+        # AIO cooling: machine ids with cooling installed, and which are currently
+        # overclocked (faster but wears faster; requires cooling).
+        self.cooling = cooling if cooling else []           # [machine_id]
+        self.overclock = overclock if overclock else []     # [machine_id]
 
     def add_item(self, item_name):
         """Add `item_name` to the player's inventory, case-insensitively
@@ -113,6 +118,10 @@ class Player:
             d['conditions'] = self.conditions
         if self.repairs:
             d['repairs'] = self.repairs
+        if self.cooling:
+            d['cooling'] = self.cooling
+        if self.overclock:
+            d['overclock'] = self.overclock
         return d
 
     @classmethod
@@ -144,6 +153,8 @@ class Player:
             jobs=data.get('jobs', []),
             conditions=data.get('conditions', {}),
             repairs=data.get('repairs', {}),
+            cooling=data.get('cooling', []),
+            overclock=data.get('overclock', []),
         )
         player.items = data.get('items', [])
         return player

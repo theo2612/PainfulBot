@@ -216,11 +216,16 @@ def start_hack(player, hack_id: str, machine_id: str | None = None,
         return None, reason
     now = _now(now)
     hack = HACK_DEFS[hack_id]
-    seconds = duration_for(hack, hardware.machine_stats(resolved),
+    # Overclock state is sampled at start: it speeds this hack (effective_stats'
+    # boosted clock) and the job remembers it so it also wears the machine more
+    # on completion — regardless of later toggling.
+    oc = hardware.overclock_active(player, resolved)
+    seconds = duration_for(hack, hardware.effective_stats(player, resolved),
                            hardware.condition_of(player, resolved))
     job = {
         "hack_id": hack_id,
         "machine": resolved,
+        "oc": oc,
         "started_at": _to_iso(now),
         "finishes_at": _to_iso(now + timedelta(seconds=seconds)),
     }
@@ -265,10 +270,14 @@ def resolve_due_jobs(player, now: datetime | None = None, rng=random) -> list[di
         finishes = _from_iso(job.get("finishes_at"))
         if finishes is not None and finishes <= now:
             results.append(_resolve_one(player, job, rng))
-            # Running the job wears the machine that ran it (win or lose).
+            # Running the job wears the machine that ran it (win or lose), and
+            # overclocked runs wear it harder.
             hk = HACK_DEFS.get(job.get("hack_id"))
             if hk and job.get("machine"):
-                hardware.apply_wear(player, job["machine"], wear_for(hk))
+                w = wear_for(hk)
+                if job.get("oc"):
+                    w *= hardware.OC_WEAR_MULT
+                hardware.apply_wear(player, job["machine"], w)
         else:
             remaining.append(job)
     player.jobs = remaining
