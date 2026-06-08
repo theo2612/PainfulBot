@@ -7,7 +7,7 @@ class Player:
                  bail_request_for=None, no_cap_until=None,
                  max_health=None, last_regen_at=None,
                  cash=0, rig=None, jobs=None, conditions=None, repairs=None,
-                 cooling=None, overclock=None):
+                 cooling=None, overclock=None, rentals=None):
         self.username = username
         self.level = level
         # health == current HP; max_health == personal cap (50 start, +5/win, cap 1000).
@@ -48,6 +48,9 @@ class Player:
         # overclocked (faster but wears faster; requires cooling).
         self.cooling = cooling if cooling else []           # [machine_id]
         self.overclock = overclock if overclock else []     # [machine_id]
+        # Rented machines (VPS): {vps_id: rented_until_iso}. Active while not
+        # lapsed; prepaid by extending the timestamp (ongoing cash rent).
+        self.rentals = rentals if rentals else {}
 
     def add_item(self, item_name):
         """Add `item_name` to the player's inventory, case-insensitively
@@ -122,6 +125,8 @@ class Player:
             d['cooling'] = self.cooling
         if self.overclock:
             d['overclock'] = self.overclock
+        if self.rentals:
+            d['rentals'] = self.rentals
         return d
 
     @classmethod
@@ -155,6 +160,7 @@ class Player:
             repairs=data.get('repairs', {}),
             cooling=data.get('cooling', []),
             overclock=data.get('overclock', []),
+            rentals=data.get('rentals', {}),
         )
         player.items = data.get('items', [])
         return player

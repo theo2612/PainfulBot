@@ -74,7 +74,11 @@ async def player(username: str, player_obj) -> None:
                                  "cooling_cost": hardware.cooling_cost(m),
                                  "overclockable": hardware.is_overclockable(m),
                                  "cooling_name": (hardware.get_component(m).cooling_name
-                                                  if hardware.get_component(m) else "cooling")}
+                                                  if hardware.get_component(m) else "cooling"),
+                                 "rented": hardware.is_rental(m),
+                                 "rent_cost": (hardware.get_component(m).rent
+                                               if hardware.get_component(m) else 0),
+                                 "seconds_left": hardware.rental_seconds_left(player_obj, m)}
                              for m in hardware.machines(player_obj)},
         }))
     except Exception:

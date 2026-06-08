@@ -791,6 +791,47 @@ class Bot(commands.Bot):
         await self._idle_say(ctx, username, '!oc', msg, 'attack-success')
         await game_overlay.player(username, player)
 
+    @commands.command(name='rent')
+    async def rent(self, ctx, *, vps: str = None):
+        """Rent or renew a cloud VPS — ongoing cash rent, no upkeep."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!rent', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+        vid = vps.strip().lower() if vps else 'vps'
+        cost, reason = hardware.rent_vps(player, vid)
+        if cost is None:
+            await self._idle_say(ctx, username, '!rent', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        comp = hardware.get_component(vid)
+        left = hardware.rental_seconds_left(player, vid)
+        msg = f"@{ctx.author.name} rented a {comp.name} for {cost} cash — {self._fmt_secs(left)} of uptime. ☁️"
+        await self._idle_say(ctx, username, '!rent', msg, 'attack-success')
+        await game_overlay.player(username, player)
+
+    @commands.command(name='unrent')
+    async def unrent(self, ctx, *, vps: str = None):
+        """End a VPS rental (no refund)."""
+        username = ctx.author.name.lower()
+        if username not in self.player_data:
+            await self._idle_say(ctx, username, '!unrent', f'@{ctx.author.name}, use !start to register first.')
+            return
+        await self._resolve_idle_jobs(username)
+        player = self.player_data[username]
+        vid = vps.strip().lower() if vps else 'vps'
+        ok, reason = hardware.cancel_rental(player, vid)
+        if not ok:
+            await self._idle_say(ctx, username, '!unrent', f'@{ctx.author.name}, {reason}', 'attack-fail')
+            return
+        helpers.save_player_data(self.player_data)
+        comp = hardware.get_component(vid)
+        msg = f"@{ctx.author.name} ended their {comp.name if comp else vid} rental."
+        await self._idle_say(ctx, username, '!unrent', msg, 'info')
+        await game_overlay.player(username, player)
+
     # Background idle-job ticker cadence (seconds). Jobs settle within this of
     # finishing; small enough that a 15s hack feels responsive, and the player
     # list is tiny so scanning it costs nothing.
@@ -807,7 +848,8 @@ class Bot(commands.Bot):
               "slots": c.stats.job_slots(),
               # Gating stats so the GUI can tell which machine can run which hack.
               "bandwidth": c.stats.bandwidth, "storage": c.stats.storage,
-              "gpu": c.stats.gpu_power}
+              "gpu": c.stats.gpu_power,
+              "kind": c.kind, "rent": c.rent}   # rentals (vps) show a Rent button
              for c in hardware.COMPONENTS.values()],
             [{"id": h.id, "name": h.name, "hw_req": h.hw_req}
              for h in hacks.HACK_DEFS.values()],
@@ -970,7 +1012,7 @@ class Bot(commands.Bot):
     # nuke and as movement).
     GUI_ONLY_COMMANDS = {
         # idle hacking
-        'buy', 'run', 'jobs', 'repair', 'cool', 'oc',
+        'buy', 'run', 'jobs', 'repair', 'cool', 'oc', 'rent', 'unrent',
         # info (now GUI-only)
         'attacks', 'status', 'points', 'leaderboard', 'items', 'jail', 'treasury',
         # pvp / economy

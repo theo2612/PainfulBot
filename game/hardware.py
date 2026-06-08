@@ -16,6 +16,7 @@ sponsor) without touching logic or persisted data — only `id` is stored on a
 player's rig.
 """
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 
 # GB of RAM each concurrent job consumes (spec §4.2). This is the knob that makes
 # you need BOTH compute and memory: job_slots is gated by min(threads, mem/2).
@@ -55,6 +56,8 @@ class Component:
     desc: str = ""       # short "what it does" line for the shop
     overclockable: bool = False   # can this machine be cooled + overclocked?
     cooling_name: str = "cooling"  # what its cooling upgrade is called (flavor)
+    wears: bool = True            # physical machines wear; a rented VPS doesn't
+    rent: int = 0                 # cash per rent period (0 = owned, not rented)
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +114,24 @@ COMPONENTS: dict[str, Component] = {
         desc="6 hacks at once, fast clock, fat pipe + 1 TB disk. The heavy iron.",
         overclockable=True, cooling_name="AIO liquid cooler",
     ),
+    "vps": Component(
+        id="vps",
+        name="Cloud VPS",
+        kind="vps",
+        cost=0,              # rented, not bought
+        rent=300,            # cash per hour
+        level_req=1,
+        # 4 slots, fast, decent pipe — runs data exfil but not the corp heist
+        # (that stays the Desktop's exclusive). Cloud iron → no wear, no
+        # overclock (you don't own the box).
+        stats=RigStats(threads=6, memory=8, storage=256, gpu_power=2, clock=1.2,
+                       bandwidth=5),
+        desc="Rented cloud box: 4 hacks at once, fast, no upkeep — but you pay rent.",
+        wears=False, overclockable=False,
+    ),
 }
+
+RENT_PERIOD_SECONDS = 3600   # a rent payment buys this much VPS uptime (1 hour)
 
 
 def get_component(component_id: str) -> Component | None:
@@ -153,10 +173,80 @@ def rig_stats(player) -> RigStats:
 # component is a standalone prebuilt machine; later, custom-tower parts will
 # assemble into a single 'tower' machine.)
 # ---------------------------------------------------------------------------
-def machines(player) -> list[str]:
-    """Owned component ids that are standalone machines (prebuilts)."""
+def _now(now):
+    return now or datetime.now(timezone.utc)
+
+
+def is_rental(component_id: str) -> bool:
+    comp = COMPONENTS.get(component_id)
+    return bool(comp and comp.kind == "vps")
+
+
+def machine_wears(machine_id: str) -> bool:
+    comp = COMPONENTS.get(machine_id)
+    return bool(comp and comp.wears)
+
+
+def rental_active(player, vps_id: str, now=None) -> bool:
+    until = (getattr(player, "rentals", None) or {}).get(vps_id)
+    try:
+        return bool(until) and datetime.fromisoformat(until) > _now(now)
+    except (TypeError, ValueError):
+        return False
+
+
+def rental_seconds_left(player, vps_id: str, now=None) -> int:
+    until = (getattr(player, "rentals", None) or {}).get(vps_id)
+    try:
+        return max(0, int((datetime.fromisoformat(until) - _now(now)).total_seconds()))
+    except (TypeError, ValueError):
+        return 0
+
+
+def active_rentals(player, now=None) -> list[str]:
+    return [v for v in (getattr(player, "rentals", None) or {}) if rental_active(player, v, now)]
+
+
+def machines(player, now=None) -> list[str]:
+    """Usable machines: owned prebuilts + currently-active VPS rentals."""
     rig = getattr(player, "rig", None) or []
-    return [c for c in rig if c in COMPONENTS and COMPONENTS[c].kind == "prebuilt"]
+    physical = [c for c in rig if c in COMPONENTS and COMPONENTS[c].kind == "prebuilt"]
+    return physical + active_rentals(player, now)
+
+
+def rent_vps(player, vps_id: str, now=None):
+    """Rent or renew a VPS for one period (renewing stacks the time). Returns
+    (cost, "") on success or (None, reason)."""
+    comp = COMPONENTS.get(vps_id)
+    if not comp or comp.kind != "vps":
+        return None, "that's not a rentable VPS."
+    cost = comp.rent
+    cash = getattr(player, "cash", 0)
+    if cash < cost:
+        return None, f"a {comp.name} is {cost} cash/hour — you have {cash}."
+    now = _now(now)
+    if player.rentals is None:
+        player.rentals = {}
+    base = now
+    cur = player.rentals.get(vps_id)
+    if cur:
+        try:
+            end = datetime.fromisoformat(cur)
+            if end > now:
+                base = end       # still active → stack onto the remaining time
+        except (TypeError, ValueError):
+            pass
+    player.cash = cash - cost
+    player.rentals[vps_id] = (base + timedelta(seconds=RENT_PERIOD_SECONDS)).isoformat()
+    return cost, ""
+
+
+def cancel_rental(player, vps_id: str):
+    """Stop renting a VPS (no refund). Returns (True, "") or (None, reason)."""
+    if vps_id not in (getattr(player, "rentals", None) or {}):
+        return None, "you're not renting that."
+    del player.rentals[vps_id]
+    return True, ""
 
 
 def machine_stats(machine_id: str) -> RigStats:
@@ -217,7 +307,7 @@ def condition_factor(condition: float) -> float:
 def apply_wear(player, machine_id: str, amount: float) -> float:
     """Reduce a machine's condition by `amount` (floored at 0). Returns the new
     condition. No-op for unknown machines."""
-    if machine_id not in COMPONENTS or amount <= 0:
+    if machine_id not in COMPONENTS or amount <= 0 or not machine_wears(machine_id):
         return condition_of(player, machine_id)
     if player.conditions is None:
         player.conditions = {}
@@ -353,6 +443,8 @@ def buy_component(player, component_id: str):
     comp = COMPONENTS.get(component_id)
     if not comp:
         return None, f"no such hardware '{component_id}'. Try !buy to see the shop."
+    if comp.kind == "vps":
+        return None, f"the {comp.name} is rented, not bought — use the Rent button."
     if component_id in (getattr(player, "rig", None) or []):
         return None, f"you already own a {comp.name}."
     if player.level < comp.level_req:

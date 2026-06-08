@@ -405,6 +405,70 @@ class CoolingOverclockTests(unittest.TestCase):
         self.assertFalse(hardware.overclock_active(p, "desktop"))
 
 
+class VPSRentalTests(unittest.TestCase):
+    """A VPS is a rented, non-wearing machine: ongoing rent, lapses if unpaid."""
+
+    def test_vps_is_a_non_wearing_rental(self):
+        self.assertTrue(hardware.is_rental("vps"))
+        self.assertFalse(hardware.machine_wears("vps"))
+        self.assertTrue(hardware.machine_wears("desktop"))
+
+    def test_cannot_buy_a_vps(self):
+        comp, reason = hardware.buy_component(make_player(cash=99999), "vps")
+        self.assertIsNone(comp)
+        self.assertIn("rented", reason)
+
+    def test_rent_deducts_and_adds_slots(self):
+        p = make_player(cash=1000)
+        cost, _ = hardware.rent_vps(p, "vps")     # default now = real now → active 1h
+        self.assertEqual(cost, 300)
+        self.assertEqual(p.cash, 700)
+        self.assertTrue(hardware.rental_active(p, "vps"))
+        self.assertIn("vps", hardware.machines(p))
+        self.assertEqual(hardware.total_slots(p), 4)   # vps = 4 slots
+
+    def test_cannot_rent_when_broke(self):
+        p = make_player(cash=100)
+        cost, _ = hardware.rent_vps(p, "vps")
+        self.assertIsNone(cost)
+        self.assertEqual(p.cash, 100)
+
+    def test_renew_stacks_time(self):
+        p = make_player(cash=1000)
+        hardware.rent_vps(p, "vps")
+        hardware.rent_vps(p, "vps")               # renew while active → stacks
+        self.assertGreater(hardware.rental_seconds_left(p, "vps"), 7000)  # ~2h
+
+    def test_rental_lapses(self):
+        now = datetime(2026, 6, 7, 12, 0, 0, tzinfo=timezone.utc)
+        p = make_player(cash=1000)
+        hardware.rent_vps(p, "vps", now=now)
+        later = now + timedelta(seconds=4000)     # past the 3600s period
+        self.assertFalse(hardware.rental_active(p, "vps", now=later))
+        self.assertNotIn("vps", hardware.machines(p, now=later))
+
+    def test_cancel_rental(self):
+        p = make_player(cash=1000)
+        hardware.rent_vps(p, "vps")
+        ok, _ = hardware.cancel_rental(p, "vps")
+        self.assertTrue(ok)
+        self.assertNotIn("vps", hardware.machines(p))
+
+    def test_vps_runs_exfil_but_not_corpheist(self):
+        p = make_player(cash=1000)
+        hardware.rent_vps(p, "vps")
+        self.assertTrue(hacks.can_run(p, "dbexfil", "vps")[0])    # bw5 ≥ 3
+        self.assertFalse(hacks.can_run(p, "corpheist", "vps")[0])  # bw5 < 6
+
+    def test_vps_does_not_wear(self):
+        p = make_player(cash=1000)
+        hardware.rent_vps(p, "vps")
+        hacks.start_hack(p, "portscan", machine_id="vps")
+        hacks.resolve_due_jobs(p, now=datetime.now(timezone.utc) + timedelta(seconds=300),
+                               rng=FakeRandom(0.0, 7))
+        self.assertEqual(hardware.condition_of(p, "vps"), 100.0)   # cloud → no wear
+
+
 class StartHackTests(unittest.TestCase):
     def test_cannot_run_without_a_rig(self):
         job, reason = hacks.start_hack(make_player(), "portscan")
