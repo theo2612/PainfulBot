@@ -32,54 +32,40 @@ on-screen feed should show *outcomes and story*, never command syntax.**
 
 ---
 
-## Now
-- **GUI-first chat migration** — in progress.
-  - [x] Block game commands typed in Twitch chat → nudge to GUI (`2614b4d`).
-  - [x] Info commands GUI-only (folded into the block).
-  - [x] Header: "TWITCHACK LIVE" + twitch.tv/b7h30; removed the top stats strip (`667a087`).
-  - [x] Build the Shop — right-side drawer, Hardware/Items/Software tabs (`e460af4`).
-  - [x] Clean `!commands` out of the feed (`95ecf24`).
-  - [x] Move drop announcements to the feed (`83a51c0`) — drops now feed + Grab
-        button, no chat, no "!grab" syntax. (Also fixed: follow/sub drops had no
-        grab button → were ungrabbable with !grab blocked.)
-  - [ ] (optional) decide boss-battle broadcasts (kept in chat for now).
+## Where we are (resume point — last session 2026-06-07/08)
+Idle-hacking is the live focus and it's deep now. Shipped (commit hashes in the
+roadmap below):
+- **GUI-first migration — COMPLETE.** Game actions play in the GUI; Twitch chat +
+  feed show outcomes, not `!commands`. Shop drawer; drops → feed + Grab buttons;
+  "TWITCHACK LIVE" header; top stats strip removed.
+- **Per-machine rigs** — each machine its own slots + clock; total concurrency =
+  the sum; you pick which machine to run a hack on (Rig row selector).
+- **Hardware ladder:** SBC (1 slot) → Laptop (3) → Desktop (6), plus a rented
+  **Cloud VPS** (4, no wear, ongoing rent).
+- **Content/stats:** bandwidth → exfil ("Database exfiltration"); **Corporate
+  data heist** (Desktop-exclusive); **wear & tear** (condition → slowdown →
+  repair sink; 0% = ¼ speed); **AIO cooling + overclock** (per-machine part,
+  1.5× speed / 2.5× wear; realistic — laptop is sealed, SBC/desktop tinkerable);
+  **VPS rental** (2nd cash sink).
+- The flicker fix (dirty-checked renders) so buttons don't churn on updates.
 
-**GUI-first migration: COMPLETE.** Next theme = idle-hacking content (roadmap below).
+Everything above is committed. **NOTE:** as of this checkpoint these commits are
+local-only — not yet pushed to GitHub (see end of this file).
 
-### Per-machine rigs + Rig row — ✅ DONE (`77798a4`, `0b4bb0b`)
-Each owned machine is its own workstation: own slots + own clock speed, total
-concurrency = the sum, jobs tagged to a machine and timed by its clock. GUI Rig
-row selects the active machine; Run targets it. (Future: custom-tower parts
-assemble into one machine; owning multiple of the SAME machine type would need
-instance ids — not built.)
-
-## Next
-
-### 1. Build a proper Shop in /twitchack
-A real place to buy hardware (and soon items + software upgrades), so purchasing
-never has to happen in Twitch chat.
-- [ ] A dedicated Shop section/panel (not just the inline "Rig" row) listing
-      buyable hardware with name, cost, and what it does. Buttons already exist;
-      this is making it a deliberate "store," and extending it beyond hardware.
-- [ ] Make sure buying works **only** in the GUI, not by typing `!buy` in chat
-      (see item 3 — neutralize the chat side).
-
-### 2. Clean `!commands` out of the feed
-The feed currently shows raw command text, e.g. `@b7h30 !run @b7h30 started Port
-scan…`. It should read as narrative without the `!run` / `!buy` prefix.
-- [ ] Stop rendering the `command` label (or stop sending it) so feed entries are
-      just the result/story.
-
-### 3. Audit what the bot posts to Twitch chat
-A pass over every place the bot does `ctx.send(...)` for a **game action**, and
-replace chat output with the right GUI/feed behavior (per the principle above).
-- [ ] Inventory the chat-posting commands (attacks, status, points, buy, etc.).
-- [ ] Decide per command: move to feed/GUI, keep (non-game chatter), or silence.
-- [ ] Neutralize game `!commands` typed directly in Twitch chat (so `!buy` in
-      chat doesn't work / doesn't spam) — the GUI/WebCtx path stays.
-
-> Items 1–3 are facets of the same GUI-first migration. Doing them together (or
-> back-to-back) makes sense.
+## Next up (pick one)
+1. **Trace / jail-on-failure risk system** ← *recommended*: it's the prerequisite
+   that UNBLOCKS both the botnet and VPN/stealth. Today a failed hack just costs
+   time; this adds a chance a risky/failed hack "traces" you → cooldown/jail
+   (repurpose `game/jail.py`). Stealth/VPN then mitigates it.
+2. **Botnet** — the VPS's spicier sibling (more slots, cheap, unreliable/risky).
+   Wants the risk system (1) first.
+3. **VPN / stealth** — `stealth` stat lowers trace/jail risk. Wants (1) first.
+4. **Software upgrades** — the second upgrade *axis* (exploit kits / scripts →
+   per-category speed/success boosts). Self-contained, no prerequisite.
+5. **Deferred wear layers** — needs-maintenance-to-start / hacks-can-fail /
+   finite-repairs→death (Theo liked these; kept gentle for v1).
+6. Smaller: **follow/sub drops bug** (EventSub 403 — see Bugs) · **slim the
+   clicker attacks** (see Ideas) · a higher-bandwidth machine tier.
 
 ## Bugs / investigate
 - [ ] **Follow/sub drops don't fire.** Items are supposed to drop when someone
