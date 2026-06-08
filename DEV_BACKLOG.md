@@ -116,7 +116,10 @@ Design + stats in `TWITCHACK_IDLE_HACKING_SPEC.md` §5–6.
       "Database exfiltration", faster via its fat pipe). GUI shows 🔒 on machines
       that can't run a hack. (Future: a high-bandwidth machine tier + a bigger
       heist hack gated higher.)
-- [ ] **Cooling → overclock** — raises the clock cap → faster hacks.
+- [x] **Cooling → overclock** (`3524314`, `667ad16`) — AIO cooling is a
+      per-machine part; once installed you toggle overclock: 1.5× speed, 2.5×
+      wear. First per-machine "part." (Future: cooling tiers, a wear-reduction
+      cooling, overclock as a dial instead of on/off.)
 - [ ] **VPN / stealth** — `stealth` stat lowers trace/jail risk (needs the
       failure→trace model fleshed out first).
 - [ ] **Cloud / botnet** — non-physical job slots (parallelism without parts).
