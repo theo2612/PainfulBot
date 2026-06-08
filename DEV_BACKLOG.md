@@ -122,7 +122,16 @@ Design + stats in `TWITCHACK_IDLE_HACKING_SPEC.md` §5–6.
       cooling, overclock as a dial instead of on/off.)
 - [ ] **VPN / stealth** — `stealth` stat lowers trace/jail risk (needs the
       failure→trace model fleshed out first).
-- [ ] **Cloud / botnet** — non-physical job slots (parallelism without parts).
+- [ ] **VPS / botnet** (decided 2026-06-07) — **VPS first.** A VPS is a *rented
+      machine*: it sits in the Rig row with its own slots/speed and you run hacks
+      on it like any machine, BUT it's rented for **ongoing cash rent** (a 2nd
+      cash sink) and has **no wear/repair** (someone else's hardware). Plan:
+      prepaid-block model (pay to extend `rented_until`; active while it hasn't
+      lapsed — timestamp-based, no background eviction; jobs already running on a
+      lapsed VPS still finish). `machines()` includes active rentals; wear skips
+      non-wearing machines. `!rent`/renew + cancel; GUI shows it as rented with
+      time-left + renew. Not overclockable. **Botnet** = spicier sibling later
+      (more slots, cheap, unreliable/risky — pairs with the future trace/jail).
 - [ ] **Software upgrades** — the missing *axis*: exploit kits / scripts / 0-days
       giving per-category speed/success boosts. The other half of the original
       "hardware **and** software" pitch.
