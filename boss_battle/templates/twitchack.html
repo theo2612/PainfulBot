@@ -2041,6 +2041,8 @@
   function machineCooling(id) { const s = _myRigState[id]; return !!(s && s.cooling); }
   function machineOC(id) { const s = _myRigState[id]; return !!(s && s.overclock); }
   function coolingCost(id) { const s = _myRigState[id]; return s && s.cooling_cost != null ? s.cooling_cost : 0; }
+  function machineOverclockable(id) { const s = _myRigState[id]; return !!(s && s.overclockable); }
+  function coolingName(id) { const s = _myRigState[id]; return s && s.cooling_name ? s.cooling_name : 'cooling'; }
   // Whether a machine's hardware meets a hack's requirements (bandwidth/storage/
   // gpu) — both pushed in the catalog, so the GUI shows locks honestly.
   function machineCanRun(machineId, hack) {
@@ -2077,7 +2079,8 @@
       btn.innerHTML = `${escHtml(hwById(id).name)}${oc ? ' <span class="mc-oc">⚡</span>' : ''} ` +
                       `<span class="mc-slots">${machineUsed(id)}/${machineCap(id)}</span> ` +
                       `<span class="mc-cond" style="color:${condColor(cond)}">${cond}%</span>`;
-      btn.title = `Run hacks on ${hwById(id).name} — condition ${cond}%` + (oc ? ' (overclocked)' : '');
+      btn.title = `Run hacks on ${hwById(id).name} — condition ${cond}%` + (oc ? ' (overclocked)' : '') +
+                  (machineOverclockable(id) ? '' : ' · sealed (no overclock)');
       btn.onclick = () => {
         if (_activeMachine !== id) {
           _activeMachine = id;
@@ -2098,24 +2101,27 @@
         rb.onclick = () => sendCmd('repair', id);
         row.appendChild(rb);
       }
-      // Cooling: buy it, or once installed, toggle overclock.
-      if (!machineCooling(id)) {
-        const cc = coolingCost(id);
-        const cb = document.createElement('button');
-        cb.className = 'cool-btn';
-        cb.textContent = `❄️ ${cc}`;
-        cb.disabled = _myCash < cc;
-        cb.title = `Install AIO cooling on ${hwById(id).name} for ${cc} cash (unlocks overclock)`;
-        cb.onclick = () => sendCmd('cool', id);
-        row.appendChild(cb);
-      } else {
-        const ob = document.createElement('button');
-        ob.className = 'oc-btn' + (oc ? ' on' : '');
-        ob.textContent = oc ? '⚡ OC on' : '⚡ OC';
-        ob.title = oc ? `Overclock ON — faster, wears faster. Click to stop.`
-                      : `Overclock ${hwById(id).name} — faster hacks, faster wear.`;
-        ob.onclick = () => sendCmd('oc', id);
-        row.appendChild(ob);
+      // Cooling/overclock only on machines that physically support it (sealed
+      // appliances like the laptop show no controls).
+      if (machineOverclockable(id)) {
+        if (!machineCooling(id)) {
+          const cc = coolingCost(id);
+          const cb = document.createElement('button');
+          cb.className = 'cool-btn';
+          cb.textContent = `❄️ ${cc}`;
+          cb.disabled = _myCash < cc;
+          cb.title = `Install ${coolingName(id)} on ${hwById(id).name} for ${cc} cash (unlocks overclock)`;
+          cb.onclick = () => sendCmd('cool', id);
+          row.appendChild(cb);
+        } else {
+          const ob = document.createElement('button');
+          ob.className = 'oc-btn' + (oc ? ' on' : '');
+          ob.textContent = oc ? '⚡ OC on' : '⚡ OC';
+          ob.title = oc ? `Overclock ON — faster, wears faster. Click to stop.`
+                        : `Overclock ${hwById(id).name} — faster hacks, faster wear.`;
+          ob.onclick = () => sendCmd('oc', id);
+          row.appendChild(ob);
+        }
       }
     });
   }

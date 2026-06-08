@@ -53,6 +53,8 @@ class Component:
     level_req: int = 0
     stats: RigStats = field(default_factory=RigStats)
     desc: str = ""       # short "what it does" line for the shop
+    overclockable: bool = False   # can this machine be cooled + overclocked?
+    cooling_name: str = "cooling"  # what its cooling upgrade is called (flavor)
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,7 @@ COMPONENTS: dict[str, Component] = {
         stats=RigStats(threads=4, memory=2, storage=16, gpu_power=0, clock=0.8,
                        bandwidth=1),
         desc="Your first rig. Runs 1 hack at a time.",
+        overclockable=True, cooling_name="heatsink + fan",  # Pis really can OC
     ),
     "laptop": Component(
         id="laptop",
@@ -91,6 +94,8 @@ COMPONENTS: dict[str, Component] = {
         stats=RigStats(threads=6, memory=6, storage=256, gpu_power=1, clock=1.0,
                        bandwidth=4),
         desc="3 hacks at once, ~20% faster, lots of storage. Fat pipe → unlocks data exfil.",
+        # Sealed appliance: locked multiplier + no room for a cooler. No overclock.
+        overclockable=False,
     ),
     "desktop": Component(
         id="desktop",
@@ -104,6 +109,7 @@ COMPONENTS: dict[str, Component] = {
         stats=RigStats(threads=8, memory=12, storage=1000, gpu_power=4, clock=1.3,
                        bandwidth=8),
         desc="6 hacks at once, fast clock, fat pipe + 1 TB disk. The heavy iron.",
+        overclockable=True, cooling_name="AIO liquid cooler",
     ),
 }
 
@@ -192,7 +198,7 @@ def job_slots(player) -> int:
 # are tunable.
 # ---------------------------------------------------------------------------
 FULL_CONDITION = 100.0
-MIN_CONDITION_SPEED = 0.5     # a fully-worn machine runs at half speed
+MIN_CONDITION_SPEED = 0.25    # a fully-worn machine crawls at quarter speed
 REPAIR_COST_FRACTION = 0.1    # full repair (0→100) costs 10% of machine value…
 REPAIR_ESCALATION = 0.5       # …+50% per prior repair on that machine
 
@@ -266,13 +272,22 @@ OC_CLOCK_MULT = 1.5           # overclock → 1.5x clock (faster hacks)
 OC_WEAR_MULT = 2.5            # …but wears 2.5x faster while overclocked
 
 
+def is_overclockable(machine_id: str) -> bool:
+    """Whether this machine physically supports cooling + overclock. Laptops are
+    sealed appliances; SBCs and desktops can be cooled and pushed."""
+    comp = COMPONENTS.get(machine_id)
+    return bool(comp and comp.overclockable)
+
+
 def has_cooling(player, machine_id: str) -> bool:
     return machine_id in (getattr(player, "cooling", None) or [])
 
 
 def overclock_active(player, machine_id: str) -> bool:
-    """Overclock only counts when cooling is also installed (defensive)."""
-    return (machine_id in (getattr(player, "overclock", None) or [])
+    """Overclock only counts on an overclockable machine with cooling installed
+    (so any stale flag on a sealed machine is inert)."""
+    return (is_overclockable(machine_id)
+            and machine_id in (getattr(player, "overclock", None) or [])
             and has_cooling(player, machine_id))
 
 
@@ -296,8 +311,10 @@ def install_cooling(player, machine_id: str):
     comp = COMPONENTS.get(machine_id)
     if not comp or machine_id not in machines(player):
         return None, "you don't own that machine."
+    if not comp.overclockable:
+        return None, f"the {comp.name} is a sealed appliance — no cooling or overclock."
     if has_cooling(player, machine_id):
-        return None, f"{comp.name} already has cooling."
+        return None, f"{comp.name} already has {comp.cooling_name}."
     cost = cooling_cost(machine_id)
     cash = getattr(player, "cash", 0)
     if cash < cost:
@@ -315,8 +332,10 @@ def set_overclock(player, machine_id: str, on: bool):
     comp = COMPONENTS.get(machine_id)
     if not comp or machine_id not in machines(player):
         return None, "you don't own that machine."
+    if on and not comp.overclockable:
+        return None, f"the {comp.name} can't be overclocked — it's a sealed appliance."
     if on and not has_cooling(player, machine_id):
-        return None, f"{comp.name} needs AIO cooling before you can overclock it."
+        return None, f"{comp.name} needs {comp.cooling_name} before you can overclock it."
     if player.overclock is None:
         player.overclock = []
     if on and machine_id not in player.overclock:

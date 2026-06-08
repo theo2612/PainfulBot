@@ -282,8 +282,8 @@ class WearAndRepairTests(unittest.TestCase):
 
     def test_condition_factor_curve(self):
         self.assertEqual(hardware.condition_factor(100), 1.0)
-        self.assertEqual(hardware.condition_factor(0), 0.5)
-        self.assertEqual(hardware.condition_factor(50), 0.75)
+        self.assertEqual(hardware.condition_factor(0), 0.25)    # quarter speed at 0%
+        self.assertEqual(hardware.condition_factor(50), 0.625)
 
     def test_running_a_hack_wears_its_machine(self):
         p = make_player(rig=["laptop"])
@@ -297,8 +297,10 @@ class WearAndRepairTests(unittest.TestCase):
         stats = hardware.machine_stats("laptop")
         full = hacks.duration_for(hacks.HACK_DEFS["portscan"], stats, 100)
         worn = hacks.duration_for(hacks.HACK_DEFS["portscan"], stats, 50)
+        dead = hacks.duration_for(hacks.HACK_DEFS["portscan"], stats, 0)
         self.assertEqual(full, 12)
-        self.assertEqual(worn, 16)   # 12 / 0.75
+        self.assertEqual(worn, 19)   # 12 / 0.625
+        self.assertEqual(dead, 48)   # 12 / 0.25 — 4x slower at 0%
         self.assertGreater(worn, full)
 
     def test_repair_cost_scales_and_escalates(self):
@@ -340,7 +342,26 @@ class CoolingOverclockTests(unittest.TestCase):
         p = make_player(rig=["desktop"])
         state, reason = hardware.set_overclock(p, "desktop", True)
         self.assertIsNone(state)
-        self.assertIn("cooling", reason)
+        self.assertIn("AIO liquid cooler", reason)   # needs its cooling first
+
+    def test_laptop_is_sealed_no_cooling_or_overclock(self):
+        p = make_player(rig=["laptop"], cash=5000)
+        cost, reason = hardware.install_cooling(p, "laptop")
+        self.assertIsNone(cost)
+        self.assertIn("sealed", reason)
+        state, reason2 = hardware.set_overclock(p, "laptop", True)
+        self.assertIsNone(state)
+        self.assertIn("sealed", reason2)
+
+    def test_sbc_can_be_cooled_and_overclocked(self):
+        # A Pi really can OC (with a heatsink+fan).
+        p = make_player(rig=["sbc"], cash=500)
+        self.assertTrue(hardware.is_overclockable("sbc"))
+        self.assertFalse(hardware.is_overclockable("laptop"))
+        cost, _ = hardware.install_cooling(p, "sbc")
+        self.assertEqual(cost, 30)   # 200 * 0.15
+        state, _ = hardware.set_overclock(p, "sbc", True)
+        self.assertTrue(state)
 
     def test_install_cooling_then_overclock(self):
         p = make_player(rig=["desktop"], cash=2000)

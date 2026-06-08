@@ -71,7 +71,10 @@ async def player(username: str, player_obj) -> None:
                                  "repair_cost": hardware.repair_cost(player_obj, m),
                                  "cooling": hardware.has_cooling(player_obj, m),
                                  "overclock": hardware.overclock_active(player_obj, m),
-                                 "cooling_cost": hardware.cooling_cost(m)}
+                                 "cooling_cost": hardware.cooling_cost(m),
+                                 "overclockable": hardware.is_overclockable(m),
+                                 "cooling_name": (hardware.get_component(m).cooling_name
+                                                  if hardware.get_component(m) else "cooling")}
                              for m in hardware.machines(player_obj)},
         }))
     except Exception:
